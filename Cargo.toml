@@ -2,7 +2,7 @@
 name = "cai"
 version = "0.1.0"
 description = "The fastest CLI tool for prompting LLMs (powered by Groq AI)"
-keywords = ["llm", "ai", "cli", "prompt", "groq", "openai", "chatgpt", "gpt-4"]
+keywords = ["llm", "ai", "cli", "ml", "groq"]
 categories = [
   "command-line-utilities",
   "text-processing",
