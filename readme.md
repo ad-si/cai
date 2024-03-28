@@ -4,6 +4,8 @@
 - Finishing often in **less than 1 second**. 🚀
 - Build with Rust 🦀 and [Groq] for supreme performance and speed! 🏎️
 
+![`cai` demo](./demo.gif)
+
 
 ## Installation
 
