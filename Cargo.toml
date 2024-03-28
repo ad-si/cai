@@ -1,6 +1,14 @@
 [package]
 name = "cai"
 version = "0.1.0"
+description = "The fastest CLI tool for prompting LLMs (powered by Groq AI)"
+keywords = ["llm", "ai", "cli", "prompt", "groq", "openai", "chatgpt", "gpt-4"]
+categories = [
+  "command-line-utilities",
+  "text-processing",
+]
+license = "ISC"
+repository = "https://github.com/ad-si/cai"
 edition = "2021"
 
 [dependencies]
