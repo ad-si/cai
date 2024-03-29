@@ -1,6 +1,6 @@
 [package]
 name = "cai"
-version = "0.1.0"
+version = "0.2.0"
 description = "The fastest CLI tool for prompting LLMs (powered by Groq AI)"
 keywords = ["llm", "ai", "cli", "ml", "groq"]
 categories = [
