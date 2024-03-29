@@ -1,11 +1,15 @@
-use serde_derive::{Deserialize, Serialize};
-use serde_json::{Map, Value};
+use std::collections::HashMap;
 use std::env;
 use std::error::Error;
 use std::str;
-use textwrap::termwidth;
 
-#[derive(Serialize, Debug)]
+use config::Config;
+use serde_derive::{Deserialize, Serialize};
+use serde_json::{Map, Value};
+use textwrap::termwidth;
+use xdg::BaseDirectories;
+
+#[derive(Serialize, Debug, PartialEq)]
 enum Provider {
   OpenAI,
   Groq,
@@ -41,8 +45,30 @@ struct AiResponse {
   choices: Vec<AiChoice>,
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+async fn exec_tool() -> Result<(), Box<dyn Error + Send + Sync>> {
+  let xdg_dirs = BaseDirectories::with_prefix("cai").unwrap();
+  let secrets_path = xdg_dirs
+    .place_config_file("secrets.yaml")
+    .expect("Couldn't create configuration directory");
+
+  let _ = std::fs::File::create_new(&secrets_path);
+
+  let secrets_path_str = secrets_path.to_str().unwrap();
+
+  let config = Config::builder()
+    .set_default(
+      "openai_api_key",
+      env::var("OPENAI_API_KEY").unwrap_or_default(),
+    )?
+    .set_default(
+      "groq_api_key", //
+      env::var("GROQ_API_KEY").unwrap_or_default(),
+    )?
+    .add_source(config::File::with_name(secrets_path_str))
+    .add_source(config::Environment::with_prefix("CAI"))
+    .build()
+    .unwrap();
+
   let default_request_groq = AiRequest {
     provider: Provider::Groq,
     url: "https://api.groq.com/openai/v1/chat/completions".to_string(),
@@ -63,6 +89,40 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     api_key: "".to_string(),
   };
 
+  let full_config = config //
+    .try_deserialize::<HashMap<String, String>>()
+    .unwrap();
+
+  let http_req = match full_config //
+    .get("groq_api_key")
+    .map(|k| k.as_str())
+  {
+    None | Some("") => full_config
+      .get("openai_api_key")
+      .and_then(|api_key| {
+        if api_key == "" {
+          None
+        } else {
+          Some(AiRequest {
+            api_key: api_key.to_string(),
+            ..default_request_openai
+          })
+        }
+      })
+      .ok_or(format!(
+        "An API key must be provided. Use one of the following options:\n\
+        \n\
+        1. Set `groq_api_key` or `openai_api_key` in {secrets_path_str}\n\
+        2. Set the env variable CAI_GROQ_API_KEY or GROQ_API_KEY\n\
+        3. Set the env variable CAI_OPENAI_API_KEY or OPENAI_API_KEY\n\
+        ",
+      )),
+    Some(api_key) => Ok(AiRequest {
+      api_key: api_key.to_string(),
+      ..default_request_groq
+    }),
+  }?;
+
   let user_input = env::args() //
     .skip(1)
     .collect::<Vec<String>>()
@@ -73,21 +133,9 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     std::process::exit(1);
   };
 
-  let http_req = match env::var("GROQ_API_KEY") {
-    Ok(api_key) => Ok(AiRequest {
-      api_key,
-      ..default_request_groq
-    }),
-    Err(_) => {
-      eprintln!("ℹ️ GROQ_API_KEY is not set, trying OPENAI_API_KEY …\n");
-      env::var("OPENAI_API_KEY")
-        .map(|api_key| AiRequest {
-          api_key,
-          ..default_request_openai
-        })
-        .map_err(|_| "GROQ_API_KEY or OPENAI_API_KEY must be set")
-    }
-  }?;
+  if http_req.provider != Provider::Groq {
+    println!("ℹ️ Using {:#?} ({})\n", http_req.provider, http_req.model);
+  }
 
   let req_body_obj = {
     let mut map = Map::new();
@@ -127,4 +175,17 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     }
   }
   Ok(())
+}
+
+#[tokio::main]
+async fn main() {
+  // Necessary to wrap the execution function,
+  // because a `main` function that returns a `Result` quotes any errors.
+  match exec_tool().await {
+    Ok(_) => (),
+    Err(err) => {
+      eprintln!("ERROR:\n{}", err);
+      std::process::exit(1);
+    }
+  }
 }

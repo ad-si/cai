@@ -26,6 +26,11 @@ Supports the following APIs:
 
 ## Usage
 
+Before using it, an API key must be set up.
+Simply execute `cai` in your terminal and follow the instructions.
+
+Afterwards, you can use `cai` to run prompts directly from the terminal:
+
 ```bash
 cai list fast CLI tools
 ```
