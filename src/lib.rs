@@ -1,3 +1,5 @@
+mod highlight;
+
 use std::env;
 use std::error::Error;
 use std::str;
@@ -7,7 +9,6 @@ use color_print::{cformat, cprintln};
 use config::Config;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use textwrap::termwidth;
 use xdg::BaseDirectories;
 
 pub const OPENAI_GPT_TURBO: &str = "gpt-4-turbo";
@@ -180,9 +181,9 @@ fn get_used_model(model: &Model) -> String {
   let Model::Model(provider, model_id) = model;
 
   if model_id.is_empty() {
-    cformat!("<bold>🧠 Model: {}</bold>\n", provider)
+    cformat!("<bold>🧠 Model: {}</bold>", provider)
   } else {
-    cformat!("<bold>🧠 Model: {}'s {}</bold>\n", provider, model_id)
+    cformat!("<bold>🧠 Model: {}'s {}</bold>", provider, model_id)
   }
 }
 
@@ -284,11 +285,11 @@ pub async fn exec_tool(
 
   if !&resp.status().is_success() {
     Err(format!(
-      "{used_model}{}\n",
+      "{used_model}{}\n\n",
       resp.text().await? //
     ))?;
   } else {
-    let mut msg = match http_req.provider {
+    let msg = match http_req.provider {
       Provider::Anthropic => {
         let anth_response = resp.json::<AnthropicAiResponse>().await?;
         anth_response.content[0].text.clone()
@@ -299,19 +300,15 @@ pub async fn exec_tool(
       }
     };
 
-    if termwidth() > 100 {
-      msg = textwrap::wrap(&msg, 60).join("\n");
-    }
-
     let elapsed_time: String = start.elapsed().as_millis().to_string();
 
     cprintln!(
-      "\n{used_model}\
+      "\n{used_model}\n\
       <bold>⏱️ Duration: {elapsed_time} ms</bold>\n\
-      \n\
-      {msg}\n\
-      "
+      \n",
     );
+    highlight::text_via_bat(&msg);
+    println!("\n");
   }
   Ok(())
 }

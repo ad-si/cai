@@ -54,7 +54,7 @@ enum Commands {
     prompt: Vec<String>,
   },
   /// Send the prompt to every provider's default model simultaneously
-  /// (Anthropic's Claude Haiku, Groq's Mixtral, OpenAI's GPT 4 Turbo, Local)
+  /// (Claude Haiku, Groq Mixtral, GPT 4 Turbo, Local)
   All {
     /// The prompt to send to the AI models simultaneously
     prompt: Vec<String>,

@@ -20,3 +20,4 @@ textwrap = { version = "0.16.1", features = ["terminal_size"] }
 tokio = { version = "1.37.0", features = ["rt-multi-thread", "macros"] }
 xdg = "2.5.2"
 futures = "0.3.30"
+bat = "0.24.0"
