@@ -17,6 +17,7 @@ pub const CLAUDE_OPUS: &str = "claude-3-opus-20240307";
 pub const CLAUDE_SONNET: &str = "claude-3-sonnet-20240307";
 pub const CLAUDE_HAIKU: &str = "claude-3-haiku-20240307";
 pub const GROQ_MIXTRAL: &str = "mixtral-8x7b-32768";
+pub const LOCAL_LLM_URL: &str = "http://127.0.0.1:14434/v1/chat/completions";
 
 #[derive(Serialize, Debug, PartialEq, Default, Clone, Copy)]
 pub enum Provider {
@@ -126,7 +127,7 @@ fn default_req_for_provider(provider: &Provider) -> AiRequest {
     },
     Provider::Local => AiRequest {
       provider: Provider::Local,
-      url: "http://localhost:8080/v1/chat/completions".to_string(),
+      url: LOCAL_LLM_URL.to_string(),
       ..Default::default()
     },
   }

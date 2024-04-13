@@ -1,6 +1,5 @@
 # `cai` - The fastest CLI tool for prompting LLMs
 
-
 ## Features
 
 - Build with Rust 🦀 for supreme performance and speed! 🏎️
@@ -13,18 +12,15 @@
 [OpenAI]: https://platform.openai.com/docs/models
 [Anthropic]: https://docs.anthropic.com/claude/docs/models-overview
 
-
 ## Demo
 
 ![`cai` demo](./demos/main.gif)
-
 
 ## Installation
 
 ```sh
 cargo install cai
 ```
-
 
 ## Usage
 
@@ -37,9 +33,10 @@ Cai supports the following APIs:
 - **OpenAI** - [Create new API key](https://platform.openai.com/api-keys).
 - **Anthropic** -
     [Create new API key](https://console.anthropic.com/settings/keys).
-- **localhost:8080** - Any OpenAI API compatible local server (E.g. [llamafile])
+- **Locally Hosted (OpenAI Compatible)** - Any OpenAI API compatible local server (E.g. [Ollama], [llamafile]), configured by setting `LOCAL_LLM_URL`, defaults to `http://127.0.0.1:14434/v1/chat/completions`
 
-[llamafile]: https://github.com/Mozilla-Ocho/llamafile
+- [Ollama]: https://github.com/ollama/ollama
+- [llamafile]: https://github.com/Mozilla-Ocho/llamafile
 
 Afterwards, you can use `cai` to run prompts directly from the terminal:
 
@@ -58,7 +55,6 @@ For more information, run:
 ```sh
 cai help
 ```
-
 
 ## Related
 
