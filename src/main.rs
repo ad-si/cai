@@ -73,6 +73,23 @@ enum Commands {
     "<bold,underline>Cai {}</bold,underline>\n\n\
       <black,bold>The fastest CLI tool for prompting LLMs</black,bold>",
     CRATE_VERSION,
+  ), /**/
+  after_help = color_print::cformat!(
+"
+<bold,underline>Examples:</bold,underline>
+  <dim># Send a prompt to the default model</dim>
+  <b>cai</b> How heigh is the Eiffel Tower in meters
+
+  <dim># Send a prompt to the default model of each provider</dim>
+  <b>cai all</b> How heigh is the Eiffel Tower in meters
+
+  <dim># Send a prompt to Anthropic's Claude Opus (+ alias)</dim>
+  <b>cai claude-opus</b> How heigh is the Eiffel Tower in meters
+  <b>cai op</b> How heigh is the Eiffel Tower in meters
+
+  <dim># Add data via stdin</dim>
+  cat main.rs | <b>cai</b> Explain this code
+"
   ),
   styles = styling::Styles::styled()
     .literal(styling::AnsiColor::Blue.on_default() | styling::Effects::BOLD)
