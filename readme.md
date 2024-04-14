@@ -62,12 +62,16 @@ cai help
 
 ## Related
 
+- [AI CLI] - Get answers for CLI commands from ChatGPT. (TypeScript)
 - [AIChat] - All-in-one chat and copilot CLI for 10+ AI platforms. (Rust)
 - [ja] - CLI / TUI app to work with AI tools. (Rust)
 - [llm] - Access large language models from the command-line. (Python)
 - [smartcat] - Integrate LLMs in the Unix command ecosystem. (Rust)
+- [tgpt] - AI chatbots for the terminal without needing API keys. (Go)
 
+[AI CLI]: https://github.com/abhagsain/ai-cli
 [AIChat]: https://github.com/sigoden/aichat
 [ja]: https://github.com/joshka/ja
 [llm]: https://github.com/simonw/llm
 [smartcat]: https://github.com/efugier/smartcat
+[tgpt]: https://github.com/aandrew-me/tgpt
