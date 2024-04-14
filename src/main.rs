@@ -1,3 +1,6 @@
+use std::io::stdin;
+use std::io::{read_to_string, IsTerminal};
+
 use cai::{
   exec_tool, submit_prompt, Model, Provider, CLAUDE_HAIKU, CLAUDE_OPUS,
   CLAUDE_SONNET, GROQ_MIXTRAL, OPENAI_GPT, OPENAI_GPT_TURBO,
@@ -92,42 +95,65 @@ fn capitalize_str(str: &str) -> String {
   }
 }
 
-async fn exec_with_args(args: Args) {
-  async fn call_submit_fn(
-    provider: Provider,
-    model_id: &str,
-    prompt: &Vec<String>,
-  ) {
-    submit_prompt(
-      &Some(Model::Model(provider, model_id.to_string())),
-      &prompt.join(" "),
-    )
-    .await
-  }
-
+async fn exec_with_args(args: Args, stdin: &str) {
   match args.command {
-    None => submit_prompt(&None, &args.prompt.join(" ")).await,
+    None => {
+      // No subcommand provided -> Use input as prompt for the default model
+      submit_prompt(
+        &None,
+        &format!("{stdin}\n{}", &args.prompt.join(" ")), //
+      )
+      .await
+    }
     Some(cmd) => match cmd {
       Commands::Mixtral { prompt } => {
-        call_submit_fn(Provider::Groq, GROQ_MIXTRAL, &prompt).await
+        submit_prompt(
+          &Some(Model::Model(Provider::Groq, GROQ_MIXTRAL.to_string())),
+          &format!("{stdin}\n{}", prompt.join(" ")),
+        )
+        .await
       }
       Commands::GptTurbo { prompt } => {
-        call_submit_fn(Provider::OpenAI, OPENAI_GPT_TURBO, &prompt).await
+        submit_prompt(
+          &Some(Model::Model(Provider::OpenAI, OPENAI_GPT_TURBO.to_string())),
+          &format!("{stdin}\n{}", prompt.join(" ")),
+        )
+        .await
       }
       Commands::Gpt { prompt } => {
-        call_submit_fn(Provider::OpenAI, OPENAI_GPT, &prompt).await
+        submit_prompt(
+          &Some(Model::Model(Provider::OpenAI, OPENAI_GPT.to_string())),
+          &format!("{stdin}\n{}", prompt.join(" ")),
+        )
+        .await
       }
       Commands::ClaudeOpus { prompt } => {
-        call_submit_fn(Provider::Anthropic, CLAUDE_OPUS, &prompt).await
+        submit_prompt(
+          &Some(Model::Model(Provider::Anthropic, CLAUDE_OPUS.to_string())),
+          &format!("{stdin}\n{}", prompt.join(" ")),
+        )
+        .await
       }
       Commands::ClaudeSonnet { prompt } => {
-        call_submit_fn(Provider::Anthropic, CLAUDE_SONNET, &prompt).await
+        submit_prompt(
+          &Some(Model::Model(Provider::Anthropic, CLAUDE_SONNET.to_string())),
+          &format!("{stdin}\n{}", prompt.join(" ")),
+        )
+        .await
       }
       Commands::ClaudeHaiku { prompt } => {
-        call_submit_fn(Provider::Anthropic, CLAUDE_HAIKU, &prompt).await
+        submit_prompt(
+          &Some(Model::Model(Provider::Anthropic, CLAUDE_HAIKU.to_string())),
+          &format!("{stdin}\n{}", prompt.join(" ")),
+        )
+        .await
       }
       Commands::Local { prompt } => {
-        call_submit_fn(Provider::Local, "", &prompt).await //
+        submit_prompt(
+          &Some(Model::Model(Provider::Local, "".to_string())),
+          &format!("{stdin}\n{}", prompt.join(" ")),
+        )
+        .await //
       }
       Commands::All { prompt } => {
         let models = vec![
@@ -140,7 +166,8 @@ async fn exec_with_args(args: Args) {
         let mut handles = vec![];
 
         for model in models.into_iter() {
-          let prompt_str = prompt.join(" ");
+          let prompt_str = format!("{}\n{}", stdin, prompt.join(" "));
+
           handles.push(tokio::spawn(async move {
             match exec_tool(&Some(model), &prompt_str).await {
               Ok(_) => {}
@@ -160,8 +187,28 @@ async fn exec_with_args(args: Args) {
 
 #[tokio::main]
 async fn main() {
-  let args = Args::parse();
-  exec_with_args(args).await
+  let stdin = stdin();
+  let mut args_vector = std::env::args().collect::<Vec<_>>();
+
+  if stdin.is_terminal() {
+    exec_with_args(Args::parse_from(args_vector), "").await;
+  } else {
+    let input = read_to_string(stdin).unwrap();
+    let only_stdin = !input.is_empty() && args_vector.len() <= 1;
+
+    if only_stdin {
+      args_vector.push("".to_string());
+    }
+
+    let mut args = Args::parse_from(args_vector);
+
+    if only_stdin {
+      args.prompt = vec![input];
+      exec_with_args(args, "").await;
+    } else {
+      exec_with_args(args, input.trim()).await;
+    }
+  }
 }
 
 #[cfg(test)]
