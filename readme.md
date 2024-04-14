@@ -36,9 +36,11 @@ Cai supports the following APIs:
 - **OpenAI** - [Create new API key](https://platform.openai.com/api-keys).
 - **Anthropic** -
     [Create new API key](https://console.anthropic.com/settings/keys).
-- **localhost:8080** - Any OpenAI API compatible local server (E.g. [llamafile])
+- **Llamafile** - Local [Llamafile] server running at http://localhost:8080.
+- **Ollama** - Local [Ollama] server running at http://localhost:11434.
 
-[llamafile]: https://github.com/Mozilla-Ocho/llamafile
+[Llamafile]: https://github.com/Mozilla-Ocho/llamafile
+[Ollama]: https://github.com/ollama/ollama
 
 Afterwards, you can use `cai` to run prompts directly from the terminal:
 
