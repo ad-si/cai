@@ -1,6 +1,5 @@
 # `cai` - The fastest CLI tool for prompting LLMs
 
-
 ## Features
 
 - Build with Rust 🦀 for supreme performance and speed! 🏎️
@@ -53,10 +52,49 @@ Or a specific model, like Anthropic's Claude Opus:
 cai op List 10 fast CLI tools
 ```
 
-For more information, run:
+Full help output:
 
-```sh
-cai help
+```txt
+$ cai help
+Cai 0.4.0
+
+The fastest CLI tool for prompting LLMs
+
+Usage: cai [PROMPT]...
+       cai <COMMAND>
+
+Commands:
+  mixtral        Groq's Mixtral [aliases: mi]
+  gpt-turbo      OpenAI's GPT 4 Turbo [aliases: tu]
+  gpt            OpenAI's GPT 4 [aliases: gp]
+  claude-opus    Anthropic's Claude Opus [aliases: op]
+  claude-sonnet  Anthropic's Claude Sonnet [aliases: so]
+  claude-haiku   🏆 Default | Anthropic's Claude Haiku [aliases: ha]
+  local          Local model hosted at http://localhost:8080 (e.g. Llamafile) [aliases: lo]
+  all            Send the prompt to every provider's default model simultaneously (Claude Haiku, Groq Mixtral, GPT 4 Turbo,
+                     Local)
+  help           Print this message or the help of the given subcommand(s)
+
+Arguments:
+  [PROMPT]...  The prompt to send to the AI model
+
+Options:
+  -h, --help  Print help
+
+
+Examples:
+  # Send a prompt to the default model
+  cai How heigh is the Eiffel Tower in meters
+
+  # Send a prompt to the default model of each provider
+  cai all How heigh is the Eiffel Tower in meters
+
+  # Send a prompt to Anthropic's Claude Opus (+ alias)
+  cai claude-opus How heigh is the Eiffel Tower in meters
+  cai op How heigh is the Eiffel Tower in meters
+
+  # Add data via stdin
+  cat main.rs | cai Explain this code
 ```
 
 
