@@ -13,11 +13,12 @@ usage.txt: $(source_files)
 	cargo run -- help > usage.txt
 
 
-readme.md: usage.txt
+.PHONY: update-readme
+update-readme: usage.txt
 	sd --flags s \
 		'cai help.+\`\`\`' \
 		"cai help\n$$(cat $<)\n\`\`\`" \
-		$@
+		readme.md
 
 
 .PHONY: test-rust
@@ -26,7 +27,7 @@ test-rust:
 
 
 .PHONY: test
-test: test-rust readme.md
+test: test-rust update-readme
 
 
 .PHONY: install
