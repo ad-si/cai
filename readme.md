@@ -70,9 +70,10 @@ Commands:
   claude-opus    Anthropic's Claude Opus [aliases: op]
   claude-sonnet  Anthropic's Claude Sonnet [aliases: so]
   claude-haiku   🏆 Default | Anthropic's Claude Haiku [aliases: ha]
-  local          Local model hosted at http://localhost:8080 (e.g. Llamafile) [aliases: lo]
-  all            Send the prompt to every provider's default model simultaneously (Claude Haiku, Groq Mixtral, GPT 4 Turbo,
-                     Local)
+  llamafile      Llamafile server hosted at http://localhost:8080 [aliases: lf]
+  ollama         Ollama server hosted at http://localhost:11434 [aliases: ol]
+  all            Send prompt to each provider's default model simultaneously (Claude Haiku, Groq Mixtral, GPT 4 Turbo,
+                     Llamafile, Ollama Llama2)
   help           Print this message or the help of the given subcommand(s)
 
 Arguments:
@@ -86,12 +87,16 @@ Examples:
   # Send a prompt to the default model
   cai How heigh is the Eiffel Tower in meters
 
-  # Send a prompt to the default model of each provider
+  # Send a prompt to each provider's default model
   cai all How heigh is the Eiffel Tower in meters
 
   # Send a prompt to Anthropic's Claude Opus (+ alias)
   cai claude-opus How heigh is the Eiffel Tower in meters
   cai op How heigh is the Eiffel Tower in meters
+
+  # Send a prompt to locally running Ollama server
+  cai ollama mistral How heigh is the Eiffel Tower in meters
+  cai ol mistral How heigh is the Eiffel Tower in meters
 
   # Add data via stdin
   cat main.rs | cai Explain this code

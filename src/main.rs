@@ -50,14 +50,22 @@ enum Commands {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
-  /// Local model hosted at http://localhost:8080 (e.g. Llamafile)
-  #[clap(visible_alias = "lo")]
-  Local {
+  /// Llamafile server hosted at http://localhost:8080
+  #[clap(visible_alias = "lf")]
+  Llamafile {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
-  /// Send the prompt to every provider's default model simultaneously
-  /// (Claude Haiku, Groq Mixtral, GPT 4 Turbo, Local)
+  /// Ollama server hosted at http://localhost:11434
+  #[clap(visible_alias = "ol")]
+  Ollama {
+    /// The model to use (e.g. llama2, mistral, …)
+    model: String,
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Send prompt to each provider's default model simultaneously
+  /// (Claude Haiku, Groq Mixtral, GPT 4 Turbo, Llamafile, Ollama Llama2)
   All {
     /// The prompt to send to the AI models simultaneously
     prompt: Vec<String>,
@@ -80,12 +88,16 @@ enum Commands {
   <dim># Send a prompt to the default model</dim>
   <b>cai</b> How heigh is the Eiffel Tower in meters
 
-  <dim># Send a prompt to the default model of each provider</dim>
+  <dim># Send a prompt to each provider's default model</dim>
   <b>cai all</b> How heigh is the Eiffel Tower in meters
 
   <dim># Send a prompt to Anthropic's Claude Opus (+ alias)</dim>
   <b>cai claude-opus</b> How heigh is the Eiffel Tower in meters
   <b>cai op</b> How heigh is the Eiffel Tower in meters
+
+  <dim># Send a prompt to locally running Ollama server</dim>
+  <b>cai ollama mistral</b> How heigh is the Eiffel Tower in meters
+  <b>cai ol mistral</b> How heigh is the Eiffel Tower in meters
 
   <dim># Add data via stdin</dim>
   cat main.rs | <b>cai</b> Explain this code
@@ -113,12 +125,18 @@ fn capitalize_str(str: &str) -> String {
 }
 
 async fn exec_with_args(args: Args, stdin: &str) {
+  let stdin = if stdin.is_empty() {
+    "".into()
+  } else {
+    format!("{}\n", stdin)
+  };
+
   match args.command {
     None => {
       // No subcommand provided -> Use input as prompt for the default model
       submit_prompt(
         &None,
-        &format!("{stdin}\n{}", &args.prompt.join(" ")), //
+        &format!("{stdin}{}", &args.prompt.join(" ")), //
       )
       .await
     }
@@ -126,49 +144,56 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Mixtral { prompt } => {
         submit_prompt(
           &Some(Model::Model(Provider::Groq, GROQ_MIXTRAL.to_string())),
-          &format!("{stdin}\n{}", prompt.join(" ")),
+          &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
       Commands::GptTurbo { prompt } => {
         submit_prompt(
           &Some(Model::Model(Provider::OpenAI, OPENAI_GPT_TURBO.to_string())),
-          &format!("{stdin}\n{}", prompt.join(" ")),
+          &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
       Commands::Gpt { prompt } => {
         submit_prompt(
           &Some(Model::Model(Provider::OpenAI, OPENAI_GPT.to_string())),
-          &format!("{stdin}\n{}", prompt.join(" ")),
+          &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
       Commands::ClaudeOpus { prompt } => {
         submit_prompt(
           &Some(Model::Model(Provider::Anthropic, CLAUDE_OPUS.to_string())),
-          &format!("{stdin}\n{}", prompt.join(" ")),
+          &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
       Commands::ClaudeSonnet { prompt } => {
         submit_prompt(
           &Some(Model::Model(Provider::Anthropic, CLAUDE_SONNET.to_string())),
-          &format!("{stdin}\n{}", prompt.join(" ")),
+          &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
       Commands::ClaudeHaiku { prompt } => {
         submit_prompt(
           &Some(Model::Model(Provider::Anthropic, CLAUDE_HAIKU.to_string())),
-          &format!("{stdin}\n{}", prompt.join(" ")),
+          &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
-      Commands::Local { prompt } => {
+      Commands::Llamafile { prompt } => {
         submit_prompt(
-          &Some(Model::Model(Provider::Local, "".to_string())),
-          &format!("{stdin}\n{}", prompt.join(" ")),
+          &Some(Model::Model(Provider::Llamafile, "".to_string())),
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await //
+      }
+      Commands::Ollama { model, prompt } => {
+        submit_prompt(
+          &Some(Model::Model(Provider::Ollama, model)),
+          &format!("{stdin}{}", prompt.join(" ")),
         )
         .await //
       }
@@ -177,7 +202,8 @@ async fn exec_with_args(args: Args, stdin: &str) {
           Model::Model(Provider::Anthropic, CLAUDE_HAIKU.to_string()),
           Model::Model(Provider::Groq, GROQ_MIXTRAL.to_string()),
           Model::Model(Provider::OpenAI, OPENAI_GPT_TURBO.to_string()),
-          Model::Model(Provider::Local, "".to_string()),
+          Model::Model(Provider::Llamafile, "".to_string()),
+          Model::Model(Provider::Ollama, "llama2".to_string()),
         ];
 
         let mut handles = vec![];

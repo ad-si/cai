@@ -24,7 +24,8 @@ pub enum Provider {
   Anthropic,
   Groq,
   OpenAI,
-  Local,
+  Llamafile,
+  Ollama,
 }
 
 impl std::fmt::Display for Provider {
@@ -33,7 +34,8 @@ impl std::fmt::Display for Provider {
       Provider::Anthropic => write!(f, "Anthropic"),
       Provider::Groq => write!(f, "Groq"),
       Provider::OpenAI => write!(f, "OpenAI"),
-      Provider::Local => write!(f, "Local"),
+      Provider::Llamafile => write!(f, "Llamafile"),
+      Provider::Ollama => write!(f, "Ollama"),
     }
   }
 }
@@ -103,7 +105,9 @@ struct AnthropicAiResponse {
   content: Vec<AnthropicAiContent>,
 }
 
-fn default_req_for_provider(provider: &Provider) -> AiRequest {
+fn default_req_for_model(model: &Model) -> AiRequest {
+  let Model::Model(provider, model_id) = model;
+
   match provider {
     Provider::Groq => AiRequest {
       provider: Provider::Groq,
@@ -124,9 +128,15 @@ fn default_req_for_provider(provider: &Provider) -> AiRequest {
       max_tokens: 4096,
       ..Default::default()
     },
-    Provider::Local => AiRequest {
-      provider: Provider::Local,
+    Provider::Llamafile => AiRequest {
+      provider: Provider::Llamafile,
       url: "http://localhost:8080/v1/chat/completions".to_string(),
+      ..Default::default()
+    },
+    Provider::Ollama => AiRequest {
+      provider: Provider::Ollama,
+      url: "http://localhost:11434/v1/chat/completions".to_string(),
+      model: model_id.to_string(),
       ..Default::default()
     },
   }
@@ -159,7 +169,8 @@ fn get_api_request(
       Provider::Groq => full_config.get("groq_api_key"),
       Provider::OpenAI => full_config.get("openai_api_key"),
       Provider::Anthropic => full_config.get("anthropic_api_key"),
-      Provider::Local => Some(&dummy_key),
+      Provider::Llamafile => Some(&dummy_key),
+      Provider::Ollama => Some(&dummy_key),
     }
   }
   .and_then(|api_key| {
@@ -173,7 +184,7 @@ fn get_api_request(
   .ok_or(get_key_setup_msg(secrets_path_str))
   .map(|api_key| AiRequest {
     api_key: api_key.clone(),
-    ..(default_req_for_provider(provider)).clone()
+    ..(default_req_for_model(model)).clone()
   })
 }
 
