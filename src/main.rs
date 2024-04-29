@@ -2,8 +2,9 @@ use std::io::stdin;
 use std::io::{read_to_string, IsTerminal};
 
 use cai::{
-  exec_tool, submit_prompt, Model, Provider, CLAUDE_HAIKU, CLAUDE_OPUS,
-  CLAUDE_SONNET, GROQ_MIXTRAL, OPENAI_GPT, OPENAI_GPT_TURBO,
+  exec_tool, groq_models_pretty, submit_prompt, Model, Provider, CLAUDE_HAIKU,
+  CLAUDE_OPUS, CLAUDE_SONNET, GROQ_LLAMA, GROQ_MIXTRAL, OPENAI_GPT,
+  OPENAI_GPT_TURBO,
 };
 use clap::{builder::styling, crate_version, Parser, Subcommand};
 use color_print::cformat;
@@ -14,38 +15,79 @@ const CRATE_VERSION: &str = crate_version!();
 #[derive(Subcommand, Debug, PartialEq)]
 #[clap(args_conflicts_with_subcommands = true, arg_required_else_help(true))]
 enum Commands {
-  /// Groq's Mixtral
-  #[clap(visible_alias = "mi")]
+  #[clap(visible_alias = "gr")]
+  Groq {
+    #[clap(help = groq_models_pretty!("Following aliases are available:"))]
+    model: String,
+    /// The prompt to send to the AI model
+    #[clap(required(true))]
+    prompt: Vec<String>,
+  },
+  /// - Mixtral shortcut
+  #[clap(name = "mi")]
   Mixtral {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
-  /// OpenAI's GPT 4 Turbo
-  #[clap(visible_alias = "tu")]
-  GptTurbo {
+  /// - Llama 3 shortcut (🏆 Default)
+  #[clap(name = "ll")]
+  Llama3 {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
-  /// OpenAI's GPT 4
-  #[clap(visible_alias = "gp")]
+  /// OpenAI
+  #[clap(visible_alias = "op")]
+  Openai {
+    /// The model to use
+    /// - gpt4
+    /// - gpt4-turbo
+    /// - <model-id> from https://platform.openai.com/docs/models
+    #[clap(verbatim_doc_comment)] // Include linebreaks
+    model: String,
+    /// The prompt to send to the AI model
+    #[clap(required(true))]
+    prompt: Vec<String>,
+  },
+  /// - GPT 4 shortcut
+  #[clap(name = "gp")]
   Gpt {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
-  /// Anthropic's Claude Opus
-  #[clap(visible_alias = "op")]
+  /// - GPT 4 Turbo shortcut
+  #[clap(name = "gt")]
+  GptTurbo {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Anthropic
+  #[clap(visible_alias = "an")]
+  Anthropic {
+    /// The model to use
+    /// - opus
+    /// - sonnet
+    /// - haiku
+    /// - <model-id> from https://docs.anthropic.com/claude/docs/models-overview
+    #[clap(verbatim_doc_comment)] // Include linebreaks
+    model: String,
+    /// The prompt to send to the AI model
+    #[clap(required(true))]
+    prompt: Vec<String>,
+  },
+  /// - Claude Opus
+  #[clap(name = "cl")]
   ClaudeOpus {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
-  /// Anthropic's Claude Sonnet
-  #[clap(visible_alias = "so")]
+  /// - Claude Sonnet
+  #[clap(name = "so")]
   ClaudeSonnet {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
-  /// 🏆 Default | Anthropic's Claude Haiku
-  #[clap(visible_alias = "ha")]
+  /// - Claude Haiku
+  #[clap(name = "ha")]
   ClaudeHaiku {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
@@ -59,13 +101,19 @@ enum Commands {
   /// Ollama server hosted at http://localhost:11434
   #[clap(visible_alias = "ol")]
   Ollama {
-    /// The model to use (e.g. llama2, mistral, …)
+    /// The model to use from the locally installed ones.
+    /// Get new ones from https://ollama.com/library.
     model: String,
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Send prompt to each provider's default model simultaneously
-  /// (Claude Haiku, Groq Mixtral, GPT 4 Turbo, Llamafile, Ollama Llama2)
+  /// - Groq Llama3
+  /// - Antropic Claude Haiku
+  /// - OpenAI GPT 4 Turbo
+  /// - Ollama Phi3
+  /// - Llamafile
+  #[clap(verbatim_doc_comment)] // Include linebreaks
   All {
     /// The prompt to send to the AI models simultaneously
     prompt: Vec<String>,
@@ -86,18 +134,20 @@ enum Commands {
 "
 <bold,underline>Examples:</bold,underline>
   <dim># Send a prompt to the default model</dim>
-  <b>cai</b> How heigh is the Eiffel Tower in meters
+  <b>cai</b> Which year did the Titanic sink
 
   <dim># Send a prompt to each provider's default model</dim>
-  <b>cai all</b> How heigh is the Eiffel Tower in meters
+  <b>cai all</b> Which year did the Titanic sink
 
-  <dim># Send a prompt to Anthropic's Claude Opus (+ alias)</dim>
-  <b>cai claude-opus</b> How heigh is the Eiffel Tower in meters
-  <b>cai op</b> How heigh is the Eiffel Tower in meters
+  <dim># Send a prompt to Anthropic's Claude Opus</dim>
+  <b>cai anthropic claude-opus</b> Which year did the Titanic sink
+  <b>cai an claude-opus</b> Which year did the Titanic sink
+  <b>cai cl</b> Which year did the Titanic sink
+  <b>cai anthropic claude-3-opus-20240229</b> Which year did the Titanic sink
 
   <dim># Send a prompt to locally running Ollama server</dim>
-  <b>cai ollama mistral</b> How heigh is the Eiffel Tower in meters
-  <b>cai ol mistral</b> How heigh is the Eiffel Tower in meters
+  <b>cai ollama llama3</b> Which year did the Titanic sink
+  <b>cai ol ll</b> Which year did the Titanic sink
 
   <dim># Add data via stdin</dim>
   cat main.rs | <b>cai</b> Explain this code
@@ -141,58 +191,92 @@ async fn exec_with_args(args: Args, stdin: &str) {
       .await
     }
     Some(cmd) => match cmd {
-      Commands::Mixtral { prompt } => {
+      Commands::Groq { model, prompt } => {
         submit_prompt(
-          &Some(Model::Model(Provider::Groq, GROQ_MIXTRAL.to_string())),
+          &Some(&Model::Model(Provider::Groq, model)),
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
-      Commands::GptTurbo { prompt } => {
+      Commands::Mixtral { prompt } => {
         submit_prompt(
-          &Some(Model::Model(Provider::OpenAI, OPENAI_GPT_TURBO.to_string())),
+          &Some(&Model::Model(Provider::Groq, GROQ_MIXTRAL.to_string())),
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
+      Commands::Llama3 { prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(Provider::Groq, GROQ_LLAMA.to_string())),
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
+      Commands::Openai { model, prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(Provider::OpenAI, model)),
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
       Commands::Gpt { prompt } => {
         submit_prompt(
-          &Some(Model::Model(Provider::OpenAI, OPENAI_GPT.to_string())),
+          &Some(&Model::Model(Provider::OpenAI, OPENAI_GPT.to_string())),
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
+      Commands::GptTurbo { prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(
+            Provider::OpenAI,
+            OPENAI_GPT_TURBO.to_string(),
+          )),
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
+      Commands::Anthropic { model, prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(Provider::Anthropic, model)),
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
       Commands::ClaudeOpus { prompt } => {
         submit_prompt(
-          &Some(Model::Model(Provider::Anthropic, CLAUDE_OPUS.to_string())),
+          &Some(&Model::Model(Provider::Anthropic, CLAUDE_OPUS.to_string())),
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
       Commands::ClaudeSonnet { prompt } => {
         submit_prompt(
-          &Some(Model::Model(Provider::Anthropic, CLAUDE_SONNET.to_string())),
+          &Some(&Model::Model(
+            Provider::Anthropic,
+            CLAUDE_SONNET.to_string(),
+          )),
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
       Commands::ClaudeHaiku { prompt } => {
         submit_prompt(
-          &Some(Model::Model(Provider::Anthropic, CLAUDE_HAIKU.to_string())),
+          &Some(&Model::Model(Provider::Anthropic, CLAUDE_HAIKU.to_string())),
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
       Commands::Llamafile { prompt } => {
         submit_prompt(
-          &Some(Model::Model(Provider::Llamafile, "".to_string())),
+          &Some(&Model::Model(Provider::Llamafile, "".to_string())),
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await //
       }
       Commands::Ollama { model, prompt } => {
         submit_prompt(
-          &Some(Model::Model(Provider::Ollama, model)),
+          &Some(&Model::Model(Provider::Ollama, model)),
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await //
@@ -200,23 +284,32 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::All { prompt } => {
         let models = vec![
           Model::Model(Provider::Anthropic, CLAUDE_HAIKU.to_string()),
-          Model::Model(Provider::Groq, GROQ_MIXTRAL.to_string()),
+          Model::Model(Provider::Groq, GROQ_LLAMA.to_string()),
           Model::Model(Provider::OpenAI, OPENAI_GPT_TURBO.to_string()),
+          Model::Model(Provider::Ollama, "phi3".to_string()),
           Model::Model(Provider::Llamafile, "".to_string()),
-          Model::Model(Provider::Ollama, "llama2".to_string()),
         ];
 
         let mut handles = vec![];
 
         for model in models.into_iter() {
           let prompt_str = format!("{}\n{}", stdin, prompt.join(" "));
+          let model_fmt = model.to_string();
 
           handles.push(tokio::spawn(async move {
-            match exec_tool(&Some(model), &prompt_str).await {
+            match exec_tool(&Some(&model), &prompt_str).await {
               Ok(_) => {}
               Err(err) => {
                 let err_fmt = capitalize_str(&err.to_string());
-                eprintln!("{}", cformat!("<red>ERROR:\n{err_fmt}\n</red>"))
+                eprintln!(
+                  "{}",
+                  cformat!(
+                    "<bold>⏱️    0 ms</bold> | \
+                    <bold>🧠 {}</bold><red>\nERROR:\n{}</red>\n",
+                    model_fmt,
+                    err_fmt
+                  )
+                );
               }
             }
           }));

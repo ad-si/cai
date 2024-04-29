@@ -66,17 +66,25 @@ Usage: cai [PROMPT]...
        cai <COMMAND>
 
 Commands:
-  mixtral        Groq's Mixtral [aliases: mi]
-  gpt-turbo      OpenAI's GPT 4 Turbo [aliases: tu]
-  gpt            OpenAI's GPT 4 [aliases: gp]
-  claude-opus    Anthropic's Claude Opus [aliases: op]
-  claude-sonnet  Anthropic's Claude Sonnet [aliases: so]
-  claude-haiku   🏆 Default | Anthropic's Claude Haiku [aliases: ha]
-  llamafile      Llamafile server hosted at http://localhost:8080 [aliases: lf]
-  ollama         Ollama server hosted at http://localhost:11434 [aliases: ol]
-  all            Send prompt to each provider's default model simultaneously (Claude Haiku, Groq Mixtral, GPT 4 Turbo,
-                     Llamafile, Ollama Llama2)
-  help           Print this message or the help of the given subcommand(s)
+  groq       [aliases: gr]
+  mi         - Mixtral shortcut
+  ll         - Llama 3 shortcut (🏆 Default)
+  openai     OpenAI [aliases: op]
+  gp         - GPT 4 shortcut
+  gt         - GPT 4 Turbo shortcut
+  anthropic  Anthropic [aliases: an]
+  cl         - Claude Opus
+  so         - Claude Sonnet
+  ha         - Claude Haiku
+  llamafile  Llamafile server hosted at http://localhost:8080 [aliases: lf]
+  ollama     Ollama server hosted at http://localhost:11434 [aliases: ol]
+  all        Send prompt to each provider's default model simultaneously
+                 - Groq Llama3
+                 - Antropic Claude Haiku
+                 - OpenAI GPT 4 Turbo
+                 - Ollama Phi3
+                 - Llamafile
+  help       Print this message or the help of the given subcommand(s)
 
 Arguments:
   [PROMPT]...  The prompt to send to the AI model
@@ -87,18 +95,20 @@ Options:
 
 Examples:
   # Send a prompt to the default model
-  cai How heigh is the Eiffel Tower in meters
+  cai Which year did the Titanic sink
 
   # Send a prompt to each provider's default model
-  cai all How heigh is the Eiffel Tower in meters
+  cai all Which year did the Titanic sink
 
-  # Send a prompt to Anthropic's Claude Opus (+ alias)
-  cai claude-opus How heigh is the Eiffel Tower in meters
-  cai op How heigh is the Eiffel Tower in meters
+  # Send a prompt to Anthropic's Claude Opus
+  cai anthropic claude-opus Which year did the Titanic sink
+  cai an claude-opus Which year did the Titanic sink
+  cai cl Which year did the Titanic sink
+  cai anthropic claude-3-opus-20240229 Which year did the Titanic sink
 
   # Send a prompt to locally running Ollama server
-  cai ollama mistral How heigh is the Eiffel Tower in meters
-  cai ol mistral How heigh is the Eiffel Tower in meters
+  cai ollama llama3 Which year did the Titanic sink
+  cai ol ll Which year did the Titanic sink
 
   # Add data via stdin
   cat main.rs | cai Explain this code

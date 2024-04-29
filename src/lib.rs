@@ -3,7 +3,7 @@ mod highlight;
 use std::env;
 use std::error::Error;
 use std::str;
-use std::{collections::HashMap, time::Instant};
+use std::time::Instant;
 
 use color_print::{cformat, cprintln};
 use config::Config;
@@ -11,12 +11,8 @@ use serde_derive::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use xdg::BaseDirectories;
 
-pub const OPENAI_GPT_TURBO: &str = "gpt-4-turbo";
-pub const OPENAI_GPT: &str = "gpt-4";
-pub const CLAUDE_OPUS: &str = "claude-3-opus-20240307";
-pub const CLAUDE_SONNET: &str = "claude-3-sonnet-20240307";
-pub const CLAUDE_HAIKU: &str = "claude-3-haiku-20240307";
-pub const GROQ_MIXTRAL: &str = "mixtral-8x7b-32768";
+// Includes `GROQ_MODEL_MAPPING` and `OLLAMA_MODEL_MAPPING` from `/build.rs`
+include!(concat!(env!("OUT_DIR"), "/models.rs"));
 
 #[derive(Serialize, Debug, PartialEq, Default, Clone, Copy)]
 pub enum Provider {
@@ -47,7 +43,21 @@ pub enum Model {
 
 impl Default for Model {
   fn default() -> Model {
-    Model::Model(Provider::Anthropic, CLAUDE_HAIKU.to_string())
+    Model::Model(Provider::Groq, GROQ_LLAMA.to_string())
+  }
+}
+
+impl std::fmt::Display for Model {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Model::Model(provider, model_id) => {
+        if model_id.is_empty() {
+          write!(f, "{}", provider)
+        } else {
+          write!(f, "{} {}", provider, model_id)
+        }
+      }
+    }
   }
 }
 
@@ -112,7 +122,7 @@ fn default_req_for_model(model: &Model) -> AiRequest {
     Provider::Groq => AiRequest {
       provider: Provider::Groq,
       url: "https://api.groq.com/openai/v1/chat/completions".to_string(),
-      model: GROQ_MIXTRAL.to_string(),
+      model: get_groq_model(model_id).to_string(),
       ..Default::default()
     },
     Provider::OpenAI => AiRequest {
@@ -136,7 +146,7 @@ fn default_req_for_model(model: &Model) -> AiRequest {
     Provider::Ollama => AiRequest {
       provider: Provider::Ollama,
       url: "http://localhost:11434/v1/chat/completions".to_string(),
-      model: model_id.to_string(),
+      model: get_ollama_model(model_id).to_string(),
       ..Default::default()
     },
   }
@@ -192,14 +202,14 @@ fn get_used_model(model: &Model) -> String {
   let Model::Model(provider, model_id) = model;
 
   if model_id.is_empty() {
-    cformat!("<bold>🧠 Model: {}</bold>", provider)
+    cformat!("<bold>🧠 {}</bold>", provider)
   } else {
-    cformat!("<bold>🧠 Model: {}'s {}</bold>", provider, model_id)
+    cformat!("<bold>🧠 {} {}</bold>", provider, model_id)
   }
 }
 
 pub async fn exec_tool(
-  optional_model: &Option<Model>,
+  optional_model: &Option<&Model>,
   user_input: &str,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
   let start = Instant::now();
@@ -293,11 +303,15 @@ pub async fn exec_tool(
   };
 
   let resp = req.send().await?;
+  let elapsed_time: String = start.elapsed().as_millis().to_string();
 
   if !&resp.status().is_success() {
+    let resp_json = resp.json::<Value>().await?;
+    let resp_formatted = serde_json::to_string_pretty(&resp_json).unwrap();
     Err(format!(
-      "{used_model}{}\n\n",
-      resp.text().await? //
+      "<bold>⏱️ {: >5} ms</bold> | {used_model}\n\
+      \n{resp_formatted}",
+      elapsed_time,
     ))?;
   } else {
     let msg = match http_req.provider {
@@ -307,30 +321,31 @@ pub async fn exec_tool(
       }
       _ => {
         let ai_response = resp.json::<AiResponse>().await?;
-        ai_response.choices[0].message.content.clone()
+        "\n".to_owned() + &ai_response.choices[0].message.content.clone()
       }
     };
 
-    let elapsed_time: String = start.elapsed().as_millis().to_string();
-
-    cprintln!(
-      "\n{used_model}\n\
-      <bold>⏱️ Duration: {elapsed_time} ms</bold>\n\
-      \n",
-    );
+    cprintln!("<bold>⏱️{: >5} ms</bold> | {used_model}", elapsed_time,);
     highlight::text_via_bat(&msg);
     println!("\n");
   }
   Ok(())
 }
 
-pub async fn submit_prompt(optional_model: &Option<Model>, user_input: &str) {
+pub async fn submit_prompt(optional_model: &Option<&Model>, user_input: &str) {
   // Necessary to wrap the execution function,
   // because a `main` function that returns a `Result` quotes any errors.
   match exec_tool(optional_model, user_input).await {
     Ok(_) => (),
     Err(err) => {
-      eprintln!("ERROR:\n{}", err);
+      let model_str = optional_model
+        .as_ref()
+        .map(|x| x.to_string())
+        .unwrap_or("".to_string());
+      eprintln!(
+        "{}",
+        cformat!("<bold>🧠 {model_str}</bold><red>\nERROR:\n{}</red>\n", err)
+      );
       std::process::exit(1);
     }
   }
@@ -344,7 +359,10 @@ mod tests {
   async fn test_submit_empty_prompt() {
     let prompt = "";
     let result = exec_tool(
-      &Some(Model::Model(Provider::OpenAI, OPENAI_GPT_TURBO.to_string())),
+      &Some(&Model::Model(
+        Provider::OpenAI,
+        OPENAI_GPT_TURBO.to_string(),
+      )),
       &prompt,
     )
     .await;

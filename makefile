@@ -21,15 +21,21 @@ update-readme: usage.txt
 		readme.md
 
 
-.PHONY: test-rust
-test-rust:
-	cargo test -- --show-output
+.PHONY: test-units
+test-units:
+	cargo test --lib --bins -- --show-output
+	@echo "✅ All unit tests passed!\n\n"
+
+
+.PHONY: test-cli
+test-cli:
+	cargo test --test integration_tests
 
 
 .PHONY: test
-test: test-rust update-readme
+test: test-units update-readme
 
 
 .PHONY: install
-install:
+install: update-readme
 	cargo install --path .
