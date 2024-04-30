@@ -49,3 +49,11 @@ fn get_ollama_model(model_id: &str) -> &str {
 pub const OLLAMA_MODELS_PRETTY: &str =
   // This will be replaced by build.rs:
   "{ollama_models_pretty}";
+
+#[macro_export]
+macro_rules! ollama_models_pretty {
+  ($prefix: expr) => {
+    // This will be replaced by build.rs
+    concat!($prefix, "\n", "{ollama_models_pretty}")
+  };
+}

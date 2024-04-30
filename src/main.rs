@@ -2,9 +2,9 @@ use std::io::stdin;
 use std::io::{read_to_string, IsTerminal};
 
 use cai::{
-  exec_tool, groq_models_pretty, submit_prompt, Model, Provider, CLAUDE_HAIKU,
-  CLAUDE_OPUS, CLAUDE_SONNET, GROQ_LLAMA, GROQ_MIXTRAL, OPENAI_GPT,
-  OPENAI_GPT_TURBO,
+  exec_tool, groq_models_pretty, ollama_models_pretty, submit_prompt, Model,
+  Provider, CLAUDE_HAIKU, CLAUDE_OPUS, CLAUDE_SONNET, GROQ_LLAMA, GROQ_MIXTRAL,
+  OPENAI_GPT, OPENAI_GPT_TURBO,
 };
 use clap::{builder::styling, crate_version, Parser, Subcommand};
 use color_print::cformat;
@@ -101,8 +101,11 @@ enum Commands {
   /// Ollama server hosted at http://localhost:11434
   #[clap(visible_alias = "ol")]
   Ollama {
-    /// The model to use from the locally installed ones.
-    /// Get new ones from https://ollama.com/library.
+    #[clap(help = ollama_models_pretty!(
+      "The model to use from the locally installed ones.\n\
+      Get new ones from https://ollama.com/library.\n\
+      Following aliases are available:"
+    ))]
     model: String,
     /// The prompt to send to the AI model
     prompt: Vec<String>,

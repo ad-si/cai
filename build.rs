@@ -17,7 +17,7 @@ const CONST_ASSIGNMENTS: [(&str, &str); 9] = [
   ("CLAUDE_HAIKU", "claude-3-haiku-20240307"),
 ];
 
-const GROQ_MODEL_MAPPING_SRC: [(&str, &str); 11] = [
+const GROQ_MODEL_MAPPING_SRC: [(&str, &str); 12] = [
   ("llama3", "GROQ_LLAMA"),
   ("llama", "GROQ_LLAMA"),
   ("ll", "GROQ_LLAMA"),
@@ -26,16 +26,18 @@ const GROQ_MODEL_MAPPING_SRC: [(&str, &str); 11] = [
   ("ll-70", "GROQ_LLAMA_70"),
   ("ll70", "GROQ_LLAMA_70"),
   ("mixtral", "GROQ_MIXTRAL"),
+  ("mix", "GROQ_MIXTRAL"),
   ("mi", "GROQ_MIXTRAL"),
   ("gemma", "GROQ_GEMMA"),
   ("ge", "GROQ_GEMMA"),
 ];
 
-const OLLAMA_MODEL_MAPPING_SRC: [(&str, &str); 10] = [
+const OLLAMA_MODEL_MAPPING_SRC: [(&str, &str); 11] = [
   ("llama", "llama3"),
   ("ll", "llama3"),
   ("llama2", "llama2"),
   ("ll2", "llama2"),
+  ("mix", "mixtral"),
   ("mi", "mixtral"),
   ("mis", "mistral"),
   ("ge", "gemma"),
