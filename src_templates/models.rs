@@ -85,3 +85,31 @@ macro_rules! openai_models_pretty {
     concat!($prefix, "\n", "{openai_models_pretty}")
   };
 }
+
+//////////////////////////////////////////////////
+/////////////////// ANTHROPIC ////////////////////
+
+// Pretty-printed string representation of the hashmap
+pub const ANTHROPIC_MODEL_MAPPING: &[(&str, &str)] = &[
+  // This will be replaced by build.rs:
+  // {anthropic_model_hashmap}
+];
+
+fn get_anthropic_model(model_id: &str) -> &str {
+  ANTHROPIC_MODEL_MAPPING
+    .iter()
+    .find(|(key, _)| key == &model_id)
+    .map_or(model_id, |(_, value)| *value)
+}
+
+pub const ANTHROPIC_MODELS_PRETTY: &str =
+  // This will be replaced by build.rs:
+  "{anthropic_models_pretty}";
+
+#[macro_export]
+macro_rules! anthropic_models_pretty {
+  ($prefix: expr) => {
+    // This will be replaced by build.rs
+    concat!($prefix, "\n", "{anthropic_models_pretty}")
+  };
+}

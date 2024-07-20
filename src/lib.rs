@@ -48,7 +48,7 @@ pub enum Model {
 
 impl Default for Model {
   fn default() -> Model {
-    Model::Model(Provider::Groq, GROQ_LLAMA.to_string())
+    Model::Model(Provider::Groq, "llama3-8b-8192".to_owned())
   }
 }
 
@@ -139,7 +139,7 @@ fn default_req_for_model(model: &Model) -> AiRequest {
     Provider::Anthropic => AiRequest {
       provider: Provider::Anthropic,
       url: "https://api.anthropic.com/v1/messages".to_string(),
-      model: CLAUDE_HAIKU.to_string(),
+      model: get_anthropic_model(model_id).to_string(),
       max_tokens: 4096,
       ..Default::default()
     },
@@ -263,12 +263,12 @@ pub async fn exec_tool(
           .or(get_api_request(
             &full_config,
             secrets_path_str,
-            &Model::Model(Provider::Groq, GROQ_MIXTRAL.to_string()),
+            &Model::Model(Provider::Groq, "llama3-8b-8192".to_owned()),
           ))
           .or(get_api_request(
             &full_config,
             secrets_path_str,
-            &Model::Model(Provider::OpenAI, OPENAI_GPT_TURBO.to_string()),
+            &Model::Model(Provider::OpenAI, "gpt-4o-mini".to_string()),
           ))?;
       used_model = get_used_model(
         &Model::Model(req.provider.clone(), req.model.clone()), //
@@ -373,10 +373,7 @@ mod tests {
   async fn test_submit_empty_prompt() {
     let prompt = "";
     let result = exec_tool(
-      &Some(&Model::Model(
-        Provider::OpenAI,
-        OPENAI_GPT_TURBO.to_string(),
-      )),
+      &Some(&Model::Model(Provider::OpenAI, "gpt-4o-mini".to_owned())),
       &ExecOptions { is_raw: false },
       &prompt,
     )

@@ -3,8 +3,7 @@ use std::io::{read_to_string, IsTerminal};
 
 use cai::{
   exec_tool, groq_models_pretty, ollama_models_pretty, openai_models_pretty,
-  submit_prompt, ExecOptions, Model, Provider, CLAUDE_HAIKU, CLAUDE_OPUS,
-  CLAUDE_SONNET, GROQ_LLAMA, GROQ_MIXTRAL, OPENAI_GPT, OPENAI_GPT_TURBO,
+  submit_prompt, ExecOptions, Model, Provider,
 };
 use clap::{builder::styling, crate_version, Parser, Subcommand};
 use color_print::cformat;
@@ -15,6 +14,7 @@ const CRATE_VERSION: &str = crate_version!();
 #[derive(Subcommand, Debug, PartialEq)]
 #[clap(args_conflicts_with_subcommands = false, arg_required_else_help(true))]
 enum Commands {
+  /// Groq
   #[clap(visible_alias = "gr")]
   Groq {
     #[clap(help = groq_models_pretty!("Following aliases are available:"))]
@@ -23,15 +23,15 @@ enum Commands {
     #[clap(required(true))]
     prompt: Vec<String>,
   },
-  /// - Mixtral shortcut
-  #[clap(name = "mi")]
-  Mixtral {
-    /// The prompt to send to the AI model
-    prompt: Vec<String>,
-  },
   /// - Llama 3 shortcut (🏆 Default)
   #[clap(name = "ll")]
   Llama3 {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// - Mixtral shortcut
+  #[clap(name = "mi")]
+  Mixtral {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
@@ -47,26 +47,26 @@ enum Commands {
     #[clap(required(true))]
     prompt: Vec<String>,
   },
-  /// - GPT 4 shortcut
+  /// - GPT-4o shortcut
   #[clap(name = "gp")]
   Gpt {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
-  /// - GPT 4 Turbo shortcut
-  #[clap(name = "gt")]
-  GptTurbo {
+  /// - GPT-4o mini shortcut
+  #[clap(name = "gm")]
+  GptMini {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Anthropic
   #[clap(visible_alias = "an")]
   Anthropic {
-    /// The model to use
-    /// - opus
-    /// - sonnet
-    /// - haiku
-    /// - <model-id> from https://docs.anthropic.com/claude/docs/models-overview
+    #[clap(help = openai_models_pretty!(
+      "Following aliases are available
+(Check out https://docs.anthropic.com/claude/docs/models-overview \
+for all supported model ids):"
+    ))]
     #[clap(verbatim_doc_comment)] // Include linebreaks
     model: String,
     /// The prompt to send to the AI model
@@ -109,11 +109,11 @@ enum Commands {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
-  /// Send prompt to each provider's default model simultaneously
+  /// Simultaneously send prompt to each provider's default model:
   /// - Groq Llama3
-  /// - Antropic Claude Haiku
-  /// - OpenAI GPT 4 Turbo
-  /// - Ollama Phi3
+  /// - Antropic Claude Sonnet 3.5
+  /// - OpenAI GPT-4o mini
+  /// - Ollama Llama3
   /// - Llamafile
   #[clap(verbatim_doc_comment)] // Include linebreaks
   All {
@@ -208,7 +208,10 @@ async fn exec_with_args(args: Args, stdin: &str) {
       }
       Commands::Mixtral { prompt } => {
         submit_prompt(
-          &Some(&Model::Model(Provider::Groq, GROQ_MIXTRAL.to_string())),
+          &Some(&Model::Model(
+            Provider::Groq,
+            "mixtral-8x7b-32768".to_string(),
+          )),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
@@ -216,7 +219,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       }
       Commands::Llama3 { prompt } => {
         submit_prompt(
-          &Some(&Model::Model(Provider::Groq, GROQ_LLAMA.to_string())),
+          &Some(&Model::Model(Provider::Groq, "llama3-8b-8192".to_string())),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
@@ -232,18 +235,15 @@ async fn exec_with_args(args: Args, stdin: &str) {
       }
       Commands::Gpt { prompt } => {
         submit_prompt(
-          &Some(&Model::Model(Provider::OpenAI, OPENAI_GPT.to_string())),
+          &Some(&Model::Model(Provider::OpenAI, "gpt-4o".to_string())),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
-      Commands::GptTurbo { prompt } => {
+      Commands::GptMini { prompt } => {
         submit_prompt(
-          &Some(&Model::Model(
-            Provider::OpenAI,
-            OPENAI_GPT_TURBO.to_string(),
-          )),
+          &Some(&Model::Model(Provider::OpenAI, "gpt-4o-mini".to_string())),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
@@ -259,7 +259,10 @@ async fn exec_with_args(args: Args, stdin: &str) {
       }
       Commands::ClaudeOpus { prompt } => {
         submit_prompt(
-          &Some(&Model::Model(Provider::Anthropic, CLAUDE_OPUS.to_string())),
+          &Some(&Model::Model(
+            Provider::Anthropic,
+            "claude-3-opus-20240229".to_string(),
+          )),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
@@ -269,7 +272,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
         submit_prompt(
           &Some(&Model::Model(
             Provider::Anthropic,
-            CLAUDE_SONNET.to_string(),
+            "claude-3-5-sonnet-20240620".to_string(),
           )),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
@@ -278,7 +281,10 @@ async fn exec_with_args(args: Args, stdin: &str) {
       }
       Commands::ClaudeHaiku { prompt } => {
         submit_prompt(
-          &Some(&Model::Model(Provider::Anthropic, CLAUDE_HAIKU.to_string())),
+          &Some(&Model::Model(
+            Provider::Anthropic,
+            "claude-3-haiku-20240307".to_string(),
+          )),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
@@ -302,10 +308,13 @@ async fn exec_with_args(args: Args, stdin: &str) {
       }
       Commands::All { prompt } => {
         let models = vec![
-          Model::Model(Provider::Anthropic, CLAUDE_HAIKU.to_string()),
-          Model::Model(Provider::Groq, GROQ_LLAMA.to_string()),
-          Model::Model(Provider::OpenAI, OPENAI_GPT_TURBO.to_string()),
-          Model::Model(Provider::Ollama, "phi3".to_string()),
+          Model::Model(
+            Provider::Anthropic,
+            "claude-3-5-sonnet-20240620".to_string(),
+          ),
+          Model::Model(Provider::Groq, "llama3-8b-8192".to_string()),
+          Model::Model(Provider::OpenAI, "gpt-4o-mini".to_string()),
+          Model::Model(Provider::Ollama, "llama3".to_string()),
           Model::Model(Provider::Llamafile, "".to_string()),
         ];
 

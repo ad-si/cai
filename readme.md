@@ -65,23 +65,23 @@ The fastest CLI tool for prompting LLMs
 Usage: cai [OPTIONS] [PROMPT]... [COMMAND]
 
 Commands:
-  groq       [aliases: gr]
-  mi         - Mixtral shortcut
+  groq       Groq [aliases: gr]
   ll         - Llama 3 shortcut (🏆 Default)
+  mi         - Mixtral shortcut
   openai     OpenAI [aliases: op]
-  gp         - GPT 4 shortcut
-  gt         - GPT 4 Turbo shortcut
+  gp         - GPT-4o shortcut
+  gm         - GPT-4o mini shortcut
   anthropic  Anthropic [aliases: an]
   cl         - Claude Opus
   so         - Claude Sonnet
   ha         - Claude Haiku
   llamafile  Llamafile server hosted at http://localhost:8080 [aliases: lf]
   ollama     Ollama server hosted at http://localhost:11434 [aliases: ol]
-  all        Send prompt to each provider's default model simultaneously
+  all        Simultaneously send prompt to each provider's default model:
                  - Groq Llama3
-                 - Antropic Claude Haiku
-                 - OpenAI GPT 4 Turbo
-                 - Ollama Phi3
+                 - Antropic Claude Sonnet 3.5
+                 - OpenAI GPT-4o mini
+                 - Ollama Llama3
                  - Llamafile
   help       Print this message or the help of the given subcommand(s)
 

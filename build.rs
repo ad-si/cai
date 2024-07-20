@@ -2,79 +2,97 @@ use std::env;
 use std::fs;
 use std::path::Path;
 
-const CONST_ASSIGNMENTS: [(&str, &str); 9] = [
-  // GROQ
-  ("GROQ_LLAMA", "llama3-8b-8192"),
-  ("GROQ_LLAMA_70", "llama3-70b-8192"),
-  ("GROQ_MIXTRAL", "mixtral-8x7b-32768"),
-  ("GROQ_GEMMA", "gemma-7b-it"),
-  // OPENAI
-  ("OPENAI_GPT", "gpt-4"),
-  ("OPENAI_GPT_TURBO", "gpt-4-turbo"),
-  // ANTHROPIC
-  ("CLAUDE_OPUS", "claude-3-opus-20240229"),
-  ("CLAUDE_SONNET", "claude-3-sonnet-20240229"),
-  ("CLAUDE_HAIKU", "claude-3-haiku-20240307"),
+const GROQ_MODEL_MAPPING_SRC: [(&str, &str); 13] = [
+  // Default models
+  ("llama", "llama3-8b-8192"),
+  ("ll", "llama3-8b-8192"),
+  ("l", "llama3-8b-8192"),
+  ("mixtral", "mixtral-8x7b-32768"),
+  ("mi", "mixtral-8x7b-32768"),
+  ("m", "mixtral-8x7b-32768"),
+  ("gemma", "gemma-7b-it"),
+  ("ge", "gemma-7b-it"),
+  ("g", "gemma-7b-it"),
+  // Specific versions
+  ("llama3", "llama3-8b-8192"),
+  ("llama3-8b", "llama3-8b-8192"),
+  ("llama3-70b", "llama3-70b-8192"),
+  ("mixtral-8x7b", "mixtral-8x7b-32768"),
 ];
 
-const GROQ_MODEL_MAPPING_SRC: [(&str, &str); 12] = [
-  ("llama3", "GROQ_LLAMA"),
-  ("llama", "GROQ_LLAMA"),
-  ("ll", "GROQ_LLAMA"),
-  ("llama3-70", "GROQ_LLAMA_70"),
-  ("llama-70", "GROQ_LLAMA_70"),
-  ("ll-70", "GROQ_LLAMA_70"),
-  ("ll70", "GROQ_LLAMA_70"),
-  ("mixtral", "GROQ_MIXTRAL"),
-  ("mix", "GROQ_MIXTRAL"),
-  ("mi", "GROQ_MIXTRAL"),
-  ("gemma", "GROQ_GEMMA"),
-  ("ge", "GROQ_GEMMA"),
-];
-
-const OLLAMA_MODEL_MAPPING_SRC: [(&str, &str); 11] = [
+const OLLAMA_MODEL_MAPPING_SRC: [(&str, &str); 20] = [
+  // Default models
   ("llama", "llama3"),
   ("ll", "llama3"),
-  ("llama2", "llama2"),
-  ("ll2", "llama2"),
+  ("l", "llama3"),
+  ("mixtral", "mixtral"),
   ("mix", "mixtral"),
-  ("mi", "mixtral"),
+  ("m", "mixtral"),
+  ("mistral", "mistral"),
   ("mis", "mistral"),
+  ("gemma", "gemma"),
   ("ge", "gemma"),
+  ("g", "gemma"),
+  ("codegemma", "codegemma"),
   ("cg", "codegemma"),
+  ("c", "codegemma"),
+  ("command-r", "command-r"),
   ("cr", "command-r"),
+  ("command-r-plus", "command-r-plus"),
   ("crp", "command-r-plus"),
+  // Specific versions
+  ("llama3", "llama3"),
+  ("llama2", "llama2"),
 ];
 
-const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 11] = [
+const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 13] = [
+  // Default models
   ("gpt", "gpt-4o"),
   ("omni", "gpt-4o"),
-  ("4o", "gpt-4o"),
-  ("gpt4", "gpt-4"),
-  ("4", "gpt-4"),
   ("mini", "gpt-4o-mini"),
   ("m", "gpt-4o-mini"),
   ("turbo", "gpt-4-turbo"),
   ("t", "gpt-4-turbo"),
-  ("turbo3", "gpt-3.5-turbo"),
-  ("t3", "gpt-3.5-turbo"),
+  // Specific versions
+  ("4o", "gpt-4o"),
+  ("gpt4", "gpt-4"),
+  ("4", "gpt-4"),
+  ("turbo4", "gpt-4-turbo"),
+  ("t4", "gpt-4-turbo"),
+  ("turbo35", "gpt-3.5-turbo"),
+  ("t35", "gpt-3.5-turbo"),
 ];
 
-fn pretty_print_mapping(use_lookup: bool, mapping: &[(&str, &str)]) -> String {
+const ANTHROPIC_MODEL_MAPPING_SRC: [(&str, &str); 20] = [
+  // Default models
+  ("claude-opus", "claude-3-opus-20240229"),
+  ("opus", "claude-3-opus-20240229"),
+  ("op", "claude-3-opus-20240229"),
+  ("o", "claude-3-opus-20240229"),
+  ("claude-sonnet", "claude-3-5-sonnet-20240620"),
+  ("sonnet", "claude-3-5-sonnet-20240620"),
+  ("so", "claude-3-5-sonnet-20240620"),
+  ("s", "claude-3-5-sonnet-20240620"),
+  ("claude-haiku", "claude-3-haiku-20240307"),
+  ("haiku", "claude-3-haiku-20240307"),
+  ("ha", "claude-3-haiku-20240307"),
+  ("h", "claude-3-haiku-20240307"),
+  // Version 3.5 models
+  ("claude-sonnet-3-5", "claude-3-5-sonnet-20240620"),
+  ("sonnet-3-5", "claude-3-5-sonnet-20240620"),
+  // Version 3 models
+  ("claude-opus-3", "claude-3-opus-20240229"),
+  ("opus-3", "claude-3-opus-20240229"),
+  ("claude-sonnet-3", "claude-3-sonnet-20240229"),
+  ("sonnet-3", "claude-3-sonnet-20240229"),
+  ("claude-haiku-3", "claude-3-haiku-20240307"),
+  ("haiku-3", "claude-3-haiku-20240307"),
+];
+
+fn pretty_print_mapping(mapping: &[(&str, &str)]) -> String {
   mapping
     .iter()
-    .map(|(alias, model)| {
-      let full_name = if use_lookup {
-        CONST_ASSIGNMENTS
-          .iter()
-          .find(|(constant_name, _)| constant_name == model)
-          .unwrap()
-          .1
-      } else {
-        model
-      };
-      format!("  {: <9} → {full_name}\n", *alias)
-    })
+    .map(|(alias, model)| format!("  {: <9} → {model}\n", *alias))
     .collect::<String>()
 }
 
@@ -87,31 +105,15 @@ fn main() {
   // Write the hashmap and its pretty representation to the file
   let code = models_rs_content
     .replace(
-      "// {const_assignments}",
-      &CONST_ASSIGNMENTS
-        .iter()
-        .map(|(constant, value)| {
-          format!("pub const {constant}: &str = \"{value}\";\n")
-        })
-        .collect::<String>(),
-    )
-    .replace(
       "// {groq_model_hashmap}",
       &GROQ_MODEL_MAPPING_SRC
         .iter()
-        .map(|(model, constant)| {
-          let full_name = CONST_ASSIGNMENTS
-            .iter()
-            .find(|(constant_name, _)| constant_name == constant)
-            .unwrap()
-            .1;
-          format!("(\"{model}\", \"{full_name}\"),\n")
-        })
+        .map(|(model, constant)| format!("(\"{model}\", \"{constant}\"),\n"))
         .collect::<String>(),
     )
     .replace(
       "{groq_models_pretty}",
-      &pretty_print_mapping(true, &GROQ_MODEL_MAPPING_SRC),
+      &pretty_print_mapping(&GROQ_MODEL_MAPPING_SRC),
     )
     .replace(
       "// {ollama_model_hashmap}",
@@ -122,7 +124,7 @@ fn main() {
     )
     .replace(
       "{ollama_models_pretty}",
-      &pretty_print_mapping(false, &OLLAMA_MODEL_MAPPING_SRC),
+      &pretty_print_mapping(&OLLAMA_MODEL_MAPPING_SRC),
     )
     .replace(
       "// {openai_model_hashmap}",
@@ -133,7 +135,18 @@ fn main() {
     )
     .replace(
       "{openai_models_pretty}",
-      &pretty_print_mapping(false, &OPENAI_MODEL_MAPPING_SRC),
+      &pretty_print_mapping(&OPENAI_MODEL_MAPPING_SRC),
+    )
+    .replace(
+      "// {anthropic_model_hashmap}",
+      &ANTHROPIC_MODEL_MAPPING_SRC
+        .iter()
+        .map(|(model, constant)| format!("(\"{model}\", \"{constant}\"),\n"))
+        .collect::<String>(),
+    )
+    .replace(
+      "{anthropic_models_pretty}",
+      &pretty_print_mapping(&ANTHROPIC_MODEL_MAPPING_SRC),
     );
 
   fs::write(&dest_path, code).unwrap();
