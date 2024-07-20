@@ -3,8 +3,8 @@ use std::io::{read_to_string, IsTerminal};
 
 use cai::{
   exec_tool, groq_models_pretty, ollama_models_pretty, openai_models_pretty,
-  submit_prompt, Model, Provider, CLAUDE_HAIKU, CLAUDE_OPUS, CLAUDE_SONNET,
-  GROQ_LLAMA, GROQ_MIXTRAL, OPENAI_GPT, OPENAI_GPT_TURBO,
+  submit_prompt, ExecOptions, Model, Provider, CLAUDE_HAIKU, CLAUDE_OPUS,
+  CLAUDE_SONNET, GROQ_LLAMA, GROQ_MIXTRAL, OPENAI_GPT, OPENAI_GPT_TURBO,
 };
 use clap::{builder::styling, crate_version, Parser, Subcommand};
 use color_print::cformat;
@@ -13,7 +13,7 @@ use futures::future::join_all;
 const CRATE_VERSION: &str = crate_version!();
 
 #[derive(Subcommand, Debug, PartialEq)]
-#[clap(args_conflicts_with_subcommands = true, arg_required_else_help(true))]
+#[clap(args_conflicts_with_subcommands = false, arg_required_else_help(true))]
 enum Commands {
   #[clap(visible_alias = "gr")]
   Groq {
@@ -160,6 +160,9 @@ enum Commands {
     .placeholder(styling::AnsiColor::Yellow.on_default())
 )]
 struct Args {
+  #[arg(long, short, action, help = "Print raw response without any metadata")]
+  raw: bool,
+
   #[command(subcommand)]
   command: Option<Commands>,
 
@@ -182,12 +185,14 @@ async fn exec_with_args(args: Args, stdin: &str) {
   } else {
     format!("{}\n", stdin)
   };
+  let opts = ExecOptions { is_raw: args.raw };
 
   match args.command {
     None => {
       // No subcommand provided -> Use input as prompt for the default model
       submit_prompt(
         &None,
+        &opts,
         &format!("{stdin}{}", &args.prompt.join(" ")), //
       )
       .await
@@ -196,6 +201,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Groq { model, prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::Groq, model)),
+          &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
@@ -203,6 +209,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Mixtral { prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::Groq, GROQ_MIXTRAL.to_string())),
+          &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
@@ -210,6 +217,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Llama3 { prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::Groq, GROQ_LLAMA.to_string())),
+          &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
@@ -217,6 +225,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Openai { model, prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::OpenAI, model)),
+          &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
@@ -224,6 +233,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Gpt { prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::OpenAI, OPENAI_GPT.to_string())),
+          &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
@@ -234,6 +244,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
             Provider::OpenAI,
             OPENAI_GPT_TURBO.to_string(),
           )),
+          &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
@@ -241,6 +252,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Anthropic { model, prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::Anthropic, model)),
+          &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
@@ -248,6 +260,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::ClaudeOpus { prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::Anthropic, CLAUDE_OPUS.to_string())),
+          &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
@@ -258,6 +271,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
             Provider::Anthropic,
             CLAUDE_SONNET.to_string(),
           )),
+          &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
@@ -265,6 +279,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::ClaudeHaiku { prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::Anthropic, CLAUDE_HAIKU.to_string())),
+          &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
@@ -272,6 +287,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Llamafile { prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::Llamafile, "".to_string())),
+          &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await //
@@ -279,6 +295,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Ollama { model, prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::Ollama, model)),
+          &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await //
@@ -299,7 +316,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
           let model_fmt = model.to_string();
 
           handles.push(tokio::spawn(async move {
-            match exec_tool(&Some(&model), &prompt_str).await {
+            match exec_tool(&Some(&model), &opts, &prompt_str).await {
               Ok(_) => {}
               Err(err) => {
                 let err_fmt = capitalize_str(&err.to_string());

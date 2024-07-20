@@ -62,8 +62,7 @@ Cai 0.6.0
 
 The fastest CLI tool for prompting LLMs
 
-Usage: cai [PROMPT]...
-       cai <COMMAND>
+Usage: cai [OPTIONS] [PROMPT]... [COMMAND]
 
 Commands:
   groq       [aliases: gr]
@@ -90,6 +89,7 @@ Arguments:
   [PROMPT]...  The prompt to send to the AI model
 
 Options:
+  -r, --raw   Print raw response without any metadata
   -h, --help  Print help
 
 

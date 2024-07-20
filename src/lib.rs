@@ -15,6 +15,11 @@ use xdg::BaseDirectories;
 include!(concat!(env!("OUT_DIR"), "/models.rs"));
 
 #[derive(Serialize, Debug, PartialEq, Default, Clone, Copy)]
+pub struct ExecOptions {
+  pub is_raw: bool,
+}
+
+#[derive(Serialize, Debug, PartialEq, Default, Clone, Copy)]
 pub enum Provider {
   #[default]
   Anthropic,
@@ -210,6 +215,7 @@ fn get_used_model(model: &Model) -> String {
 
 pub async fn exec_tool(
   optional_model: &Option<&Model>,
+  opts: &ExecOptions,
   user_input: &str,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
   let start = Instant::now();
@@ -321,21 +327,29 @@ pub async fn exec_tool(
       }
       _ => {
         let ai_response = resp.json::<AiResponse>().await?;
-        "\n".to_owned() + &ai_response.choices[0].message.content.clone()
+        ai_response.choices[0].message.content.clone()
       }
     };
 
-    cprintln!("<bold>⏱️{: >5} ms</bold> | {used_model}", elapsed_time,);
-    highlight::text_via_bat(&msg);
-    println!("\n");
+    if opts.is_raw {
+      println!("{}", msg);
+    } else {
+      cprintln!("<bold>⏱️{: >5} ms</bold> | {used_model}\n", elapsed_time,);
+      highlight::text_via_bat(&msg);
+      println!("\n");
+    }
   }
   Ok(())
 }
 
-pub async fn submit_prompt(optional_model: &Option<&Model>, user_input: &str) {
+pub async fn submit_prompt(
+  optional_model: &Option<&Model>,
+  opts: &ExecOptions,
+  user_input: &str,
+) {
   // Necessary to wrap the execution function,
   // because a `main` function that returns a `Result` quotes any errors.
-  match exec_tool(optional_model, user_input).await {
+  match exec_tool(optional_model, &opts, user_input).await {
     Ok(_) => (),
     Err(err) => {
       let model_str = optional_model
@@ -363,6 +377,7 @@ mod tests {
         Provider::OpenAI,
         OPENAI_GPT_TURBO.to_string(),
       )),
+      &ExecOptions { is_raw: false },
       &prompt,
     )
     .await;
