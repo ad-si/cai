@@ -163,6 +163,9 @@ struct Args {
   #[arg(long, short, action, help = "Print raw response without any metadata")]
   raw: bool,
 
+  #[arg(long, short, action, help = "Prompt LLM in JSON output mode")]
+  json: bool,
+
   #[command(subcommand)]
   command: Option<Commands>,
 
@@ -185,7 +188,10 @@ async fn exec_with_args(args: Args, stdin: &str) {
   } else {
     format!("{}\n", stdin)
   };
-  let opts = ExecOptions { is_raw: args.raw };
+  let opts = ExecOptions {
+    is_raw: args.raw,
+    is_json: args.json,
+  };
 
   match args.command {
     None => {

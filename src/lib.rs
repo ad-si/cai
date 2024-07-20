@@ -16,7 +16,8 @@ include!(concat!(env!("OUT_DIR"), "/models.rs"));
 
 #[derive(Serialize, Debug, PartialEq, Default, Clone, Copy)]
 pub struct ExecOptions {
-  pub is_raw: bool,
+  pub is_raw: bool, // Raw output mode (no metadata and no syntax highlighting)
+  pub is_json: bool, // JSON output mode
 }
 
 #[derive(Serialize, Debug, PartialEq, Default, Clone, Copy)]
@@ -296,6 +297,28 @@ pub async fn exec_tool(
       "max_tokens".to_string(),
       Value::Number(http_req.max_tokens.into()),
     );
+    if opts.is_json {
+      match http_req.provider {
+        Provider::OpenAI | Provider::Groq | Provider::Ollama => {
+          map.insert(
+            "response_format".to_string(),
+            Value::Object(Map::from_iter([(
+              "type".to_string(),
+              Value::String("json_object".to_string()),
+            )])),
+          );
+        }
+        provider => {
+          eprintln!(
+            "{}",
+            cformat!(
+              "<red>ERROR: {provider} doesn't support a JSON mode</red>",
+            )
+          );
+          std::process::exit(1);
+        }
+      }
+    }
     map.insert(
       "messages".to_string(),
       Value::Array(vec![Value::Object(Map::from_iter([
@@ -381,7 +404,10 @@ mod tests {
     let prompt = "";
     let result = exec_tool(
       &Some(&Model::Model(Provider::OpenAI, "gpt-4o-mini".to_owned())),
-      &ExecOptions { is_raw: false },
+      &ExecOptions {
+        is_raw: false,
+        is_json: false,
+      },
       &prompt,
     )
     .await;

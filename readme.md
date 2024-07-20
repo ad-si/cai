@@ -90,6 +90,7 @@ Arguments:
 
 Options:
   -r, --raw   Print raw response without any metadata
+  -j, --json  Prompt LLM in JSON output mode
   -h, --help  Print help
 
 
