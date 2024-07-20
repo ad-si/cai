@@ -209,7 +209,14 @@ fn get_used_model(model: &Model) -> String {
   if model_id.is_empty() {
     cformat!("<bold>🧠 {}</bold>", provider)
   } else {
-    cformat!("<bold>🧠 {} {}</bold>", provider, model_id)
+    let full_model_id = match provider {
+      Provider::Groq => get_groq_model(model_id),
+      Provider::OpenAI => get_openai_model(model_id),
+      Provider::Anthropic => get_anthropic_model(model_id),
+      Provider::Llamafile => model_id,
+      Provider::Ollama => get_ollama_model(model_id),
+    };
+    cformat!("<bold>🧠 {} {}</bold>", provider, full_model_id)
   }
 }
 
