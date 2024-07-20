@@ -2,9 +2,9 @@ use std::io::stdin;
 use std::io::{read_to_string, IsTerminal};
 
 use cai::{
-  exec_tool, groq_models_pretty, ollama_models_pretty, submit_prompt, Model,
-  Provider, CLAUDE_HAIKU, CLAUDE_OPUS, CLAUDE_SONNET, GROQ_LLAMA, GROQ_MIXTRAL,
-  OPENAI_GPT, OPENAI_GPT_TURBO,
+  exec_tool, groq_models_pretty, ollama_models_pretty, openai_models_pretty,
+  submit_prompt, Model, Provider, CLAUDE_HAIKU, CLAUDE_OPUS, CLAUDE_SONNET,
+  GROQ_LLAMA, GROQ_MIXTRAL, OPENAI_GPT, OPENAI_GPT_TURBO,
 };
 use clap::{builder::styling, crate_version, Parser, Subcommand};
 use color_print::cformat;
@@ -38,11 +38,10 @@ enum Commands {
   /// OpenAI
   #[clap(visible_alias = "op")]
   Openai {
-    /// The model to use
-    /// - gpt4
-    /// - gpt4-turbo
-    /// - <model-id> from https://platform.openai.com/docs/models
-    #[clap(verbatim_doc_comment)] // Include linebreaks
+    #[clap(help = openai_models_pretty!(
+      "Following aliases are available
+(Check out https://platform.openai.com/docs/models for all supported model ids):"
+    ))]
     model: String,
     /// The prompt to send to the AI model
     #[clap(required(true))]

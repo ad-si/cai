@@ -128,7 +128,7 @@ fn default_req_for_model(model: &Model) -> AiRequest {
     Provider::OpenAI => AiRequest {
       provider: Provider::OpenAI,
       url: "https://api.openai.com/v1/chat/completions".to_string(),
-      model: OPENAI_GPT_TURBO.to_string(),
+      model: get_openai_model(model_id).to_string(),
       ..Default::default()
     },
     Provider::Anthropic => AiRequest {

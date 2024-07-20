@@ -46,6 +46,20 @@ const OLLAMA_MODEL_MAPPING_SRC: [(&str, &str); 11] = [
   ("crp", "command-r-plus"),
 ];
 
+const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 11] = [
+  ("gpt", "gpt-4o"),
+  ("omni", "gpt-4o"),
+  ("4o", "gpt-4o"),
+  ("gpt4", "gpt-4"),
+  ("4", "gpt-4"),
+  ("mini", "gpt-4o-mini"),
+  ("m", "gpt-4o-mini"),
+  ("turbo", "gpt-4-turbo"),
+  ("t", "gpt-4-turbo"),
+  ("turbo3", "gpt-3.5-turbo"),
+  ("t3", "gpt-3.5-turbo"),
+];
+
 fn pretty_print_mapping(use_lookup: bool, mapping: &[(&str, &str)]) -> String {
   mapping
     .iter()
@@ -109,6 +123,17 @@ fn main() {
     .replace(
       "{ollama_models_pretty}",
       &pretty_print_mapping(false, &OLLAMA_MODEL_MAPPING_SRC),
+    )
+    .replace(
+      "// {openai_model_hashmap}",
+      &OPENAI_MODEL_MAPPING_SRC
+        .iter()
+        .map(|(model, constant)| format!("(\"{model}\", \"{constant}\"),\n"))
+        .collect::<String>(),
+    )
+    .replace(
+      "{openai_models_pretty}",
+      &pretty_print_mapping(false, &OPENAI_MODEL_MAPPING_SRC),
     );
 
   fs::write(&dest_path, code).unwrap();
