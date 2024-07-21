@@ -36,6 +36,11 @@ test-cli:
 test: test-units update-readme
 
 
+.PHONY: release
+release:
+	@echo 'Run `cargo release major / minor / patch`'
+
+
 .PHONY: install
 install: update-readme
 	cargo install --path .
