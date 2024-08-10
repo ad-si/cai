@@ -120,6 +120,7 @@ Examples:
 
 - [AI CLI] - Get answers for CLI commands from ChatGPT. (TypeScript)
 - [AIChat] - All-in-one chat and copilot CLI for 10+ AI platforms. (Rust)
+- [Ell] - CLI tool for LLMs written in Bash.
 - [ja] - CLI / TUI app to work with AI tools. (Rust)
 - [llm] - Access large language models from the command-line. (Python)
 - [smartcat] - Integrate LLMs in the Unix command ecosystem. (Rust)
@@ -127,6 +128,7 @@ Examples:
 
 [AI CLI]: https://github.com/abhagsain/ai-cli
 [AIChat]: https://github.com/sigoden/aichat
+[Ell]: https://github.com/simonmysun/ell
 [ja]: https://github.com/joshka/ja
 [llm]: https://github.com/simonw/llm
 [smartcat]: https://github.com/efugier/smartcat
