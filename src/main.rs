@@ -2,8 +2,8 @@ use std::io::stdin;
 use std::io::{read_to_string, IsTerminal};
 
 use cai::{
-  exec_tool, groq_models_pretty, ollama_models_pretty, openai_models_pretty,
-  submit_prompt, ExecOptions, Model, Provider,
+  exec_tool, generate_changelog, groq_models_pretty, ollama_models_pretty,
+  openai_models_pretty, submit_prompt, ExecOptions, Model, Provider,
 };
 use clap::{builder::styling, crate_version, Parser, Subcommand};
 use color_print::cformat;
@@ -120,7 +120,13 @@ for all supported model ids):"
     /// The prompt to send to the AI models simultaneously
     prompt: Vec<String>,
   },
-  // => https://stackoverflow.com/questions/51044467/how-can-i-perform-parallel-asynchronous-http-get-requests-with-reqwest
+  /// Generate a changelog starting from a given commit
+  /// using OpenAI's GPT-4o
+  #[clap()]
+  Changelog {
+    /// The commit hash to start the changelog from
+    commit_hash: String,
+  },
 }
 
 #[derive(Parser, Debug)]
@@ -353,6 +359,12 @@ async fn exec_with_args(args: Args, stdin: &str) {
         }
 
         join_all(handles).await;
+      }
+      Commands::Changelog { commit_hash } => {
+        if let Err(err) = generate_changelog(&commit_hash).await {
+          eprintln!("Error generating changelog: {}", err);
+          std::process::exit(1);
+        }
       }
     },
   };

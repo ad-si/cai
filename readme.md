@@ -83,6 +83,7 @@ Commands:
                  - OpenAI GPT-4o mini
                  - Ollama Llama 3
                  - Llamafile
+  changelog  Generate a changelog starting from a given commit using OpenAI's GPT-4o
   help       Print this message or the help of the given subcommand(s)
 
 Arguments:

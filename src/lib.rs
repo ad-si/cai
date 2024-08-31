@@ -395,6 +395,41 @@ pub async fn submit_prompt(
   }
 }
 
+pub async fn generate_changelog(
+  commit_hash: &str,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+  let output = std::process::Command::new("git")
+    .args(&[
+      "log",
+      "--date=short",
+      "--pretty=format:%cd - %s%d", // date - subject (refs)
+      &format!("{}..HEAD", commit_hash),
+    ])
+    .output()
+    .expect("Failed to execute git command");
+
+  let changelog = String::from_utf8_lossy(&output.stdout);
+
+  let prompt = format!(
+    "Summarize the following git commit log into a concise markdown changelog.\n
+    Only include user-facing changes (i.e. no code refactorings or similar).\n
+    Use the tags to group the changes, and if there are no tags use the dates.\n
+    Include the date and the tag in the header.\n
+    Don't sub-categorize the changes, just list them.\n
+    Insert a blank line after each header and sub-header.\n
+    \n\n{}",
+    changelog
+  );
+
+  let model = Model::Model(Provider::OpenAI, "gpt-4o".to_string());
+  let opts = ExecOptions {
+    is_raw: true,
+    is_json: false,
+  };
+
+  exec_tool(&Some(&model), &opts, &prompt).await
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
