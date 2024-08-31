@@ -49,7 +49,7 @@ pub enum Model {
 
 impl Default for Model {
   fn default() -> Model {
-    Model::Model(Provider::Groq, "llama3-8b-8192".to_owned())
+    Model::Model(Provider::Groq, "llama-3.1-8b-instant".to_owned())
   }
 }
 
@@ -271,7 +271,7 @@ pub async fn exec_tool(
           .or(get_api_request(
             &full_config,
             secrets_path_str,
-            &Model::Model(Provider::Groq, "llama3-8b-8192".to_owned()),
+            &Model::Model(Provider::Groq, "llama-3.1-8b-instant".to_owned()),
           ))
           .or(get_api_request(
             &full_config,

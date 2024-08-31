@@ -110,10 +110,10 @@ for all supported model ids):"
     prompt: Vec<String>,
   },
   /// Simultaneously send prompt to each provider's default model:
-  /// - Groq Llama3
+  /// - Groq Llama 3.1
   /// - Antropic Claude Sonnet 3.5
   /// - OpenAI GPT-4o mini
-  /// - Ollama Llama3
+  /// - Ollama Llama 3
   /// - Llamafile
   #[clap(verbatim_doc_comment)] // Include linebreaks
   All {
@@ -225,7 +225,10 @@ async fn exec_with_args(args: Args, stdin: &str) {
       }
       Commands::Llama3 { prompt } => {
         submit_prompt(
-          &Some(&Model::Model(Provider::Groq, "llama3-8b-8192".to_string())),
+          &Some(&Model::Model(
+            Provider::Groq,
+            "llama-3.1-8b-instant".to_string(),
+          )),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
@@ -318,7 +321,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
             Provider::Anthropic,
             "claude-3-5-sonnet-20240620".to_string(),
           ),
-          Model::Model(Provider::Groq, "llama3-8b-8192".to_string()),
+          Model::Model(Provider::Groq, "llama-3.1-8b-instant".to_string()),
           Model::Model(Provider::OpenAI, "gpt-4o-mini".to_string()),
           Model::Model(Provider::Ollama, "llama3".to_string()),
           Model::Model(Provider::Llamafile, "".to_string()),

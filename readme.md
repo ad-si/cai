@@ -58,7 +58,7 @@ Full help output:
 
 ```txt
 $ cai help
-Cai 0.6.0
+Cai 0.7.0
 
 The fastest CLI tool for prompting LLMs
 
@@ -78,10 +78,10 @@ Commands:
   llamafile  Llamafile server hosted at http://localhost:8080 [aliases: lf]
   ollama     Ollama server hosted at http://localhost:11434 [aliases: ol]
   all        Simultaneously send prompt to each provider's default model:
-                 - Groq Llama3
+                 - Groq Llama 3.1
                  - Antropic Claude Sonnet 3.5
                  - OpenAI GPT-4o mini
-                 - Ollama Llama3
+                 - Ollama Llama 3
                  - Llamafile
   help       Print this message or the help of the given subcommand(s)
 

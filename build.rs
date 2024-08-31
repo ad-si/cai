@@ -2,21 +2,34 @@ use std::env;
 use std::fs;
 use std::path::Path;
 
-const GROQ_MODEL_MAPPING_SRC: [(&str, &str); 13] = [
-  // Default models
-  ("llama", "llama3-8b-8192"),
-  ("ll", "llama3-8b-8192"),
-  ("l", "llama3-8b-8192"),
+const GROQ_MODEL_MAPPING_SRC: [(&str, &str); 20] = [
+  ///// Default models /////
+  // Llama
+  ("llama", "llama-3.1-8b-instant"),
+  ("ll", "llama-3.1-8b-instant"),
+  ("l", "llama-3.1-8b-instant"),
+  ("llama-8b", "llama-3.1-8b-instant"),
+  ("llama-70b", "llama-3.1-70b-versatile"),
+  ("llama-405b", "llama-3.1-405b-reasoning"),
+  // Mixtral
   ("mixtral", "mixtral-8x7b-32768"),
   ("mi", "mixtral-8x7b-32768"),
   ("m", "mixtral-8x7b-32768"),
+  // Gemma
   ("gemma", "gemma-7b-it"),
   ("ge", "gemma-7b-it"),
   ("g", "gemma-7b-it"),
-  // Specific versions
+  ///// Specific versions /////
+  // Llama 3.1
+  ("llama31", "llama-3.1-8b-instant"),
+  ("llama31-8b", "llama-3.1-8b-instant"),
+  ("llama31-70b", "llama-3.1-70b-versatile"),
+  ("llama31-405b", "llama-3.1-405b-reasoning"),
+  // Llama 3.0
   ("llama3", "llama3-8b-8192"),
   ("llama3-8b", "llama3-8b-8192"),
   ("llama3-70b", "llama3-70b-8192"),
+  // Mixtral
   ("mixtral-8x7b", "mixtral-8x7b-32768"),
 ];
 
