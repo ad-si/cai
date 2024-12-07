@@ -1,0 +1,14 @@
+# model: openai/o1
+# model: openai/gpt-4o
+
+auto-test: true
+test-cmd: make test
+
+auto-lint: true
+lint-cmd: rustfmt
+
+auto-commits: false
+attribute-committer: false
+
+file: [readme.md, Cargo.toml, src/main.rs, src/lib.rs]
+read: [tests/integration_tests.rs]
