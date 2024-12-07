@@ -478,21 +478,28 @@ pub async fn analyze_file_content(
   let prompt = format!(
         "Analyze this file content and return:\n\
          1. A very short (2-4 words) description that captures its main purpose\n\
-         2. Any timestamp/date found in the content (in YYYY-MM-DDThhmm format)\n\n\
-         Return as JSON with 'description' and 'timestamp' fields. Example:\n\
+         2. Any timestamp/date found in the content.\n\
+            If it includes only a date use the `YYYY-MM-DD` format.\n\
+            If it inlucdes date and time use the `YYYY-MM-DDThh:mmZ` format.\n\
+            Note that in German dates are usually written as `DD.MM.YYYY`.\n\
+         Return as JSON with a `description` and `timestamp` field.\n\
+         Example:\n\
          {{\n\
            \"description\": \"meeting notes\",\n\
-           \"timestamp\": \"2024-03-15t1430\"\n\
-         }}\n\n\
-         Content to analyze:\n{}",
-        content
+           \"timestamp\": \"2024-03-15t14:30\"\n\
+         }}\n\
+         \n\
+         Content to analyze:\n{content}",
     );
   let mut opts = opts.clone();
   opts.is_json = true;
   let secrets_path_str = get_secrets_path_str();
   let full_config = get_full_config(&secrets_path_str)?;
-  let (_used_model, http_req) =
-    get_http_req(&None, &secrets_path_str, &full_config)?;
+  let (_used_model, http_req) = get_http_req(
+    &Some(&Model::Model(Provider::OpenAI, "gpt-4o-mini".to_string())),
+    &secrets_path_str,
+    &full_config,
+  )?;
   let req_body_obj = get_req_body_obj(&opts, &http_req, &prompt);
   let resp = exec_request(&http_req, &req_body_obj).await?;
 

@@ -537,13 +537,24 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Rename { file } => {
         match analyze_file_content(&opts, &file).await {
           Ok(analysis) => {
-            let timestamp = analysis
-              .timestamp
-              .unwrap_or_else(|| {
-                chrono::Local::now().format("%Y-%m-%dT%H%M").to_string()
-              })
-              .trim()
-              .to_lowercase();
+            let timestamp_str = analysis.timestamp.unwrap_or_default();
+            let timestamp_norm = timestamp_str.trim().to_lowercase();
+            let valid_timestamp = chrono::NaiveDateTime::parse_from_str(
+              &timestamp_norm,
+              "%Y-%m-%dt%H:%Mz",
+            )
+            .or_else(|_| {
+              chrono::NaiveDateTime::parse_from_str(&timestamp_norm, "%Y-%m-%d")
+            })
+            .is_ok();
+            let timestamp = if valid_timestamp {
+              timestamp_norm
+                .replace(":", "")
+                .replace("z", "")
+                .replace("t0000", "")
+            } else {
+              chrono::Local::now().format("%Y-%m-%dT%H%M").to_string()
+            };
             let description =
               analysis.description.trim().to_lowercase().replace(' ', "_");
             let path = std::path::Path::new(&file);
