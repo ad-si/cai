@@ -536,10 +536,16 @@ async fn exec_with_args(args: Args, stdin: &str) {
       }
       Commands::Rename { file } => {
         match analyze_file_content(&opts, &file).await {
-          Ok(description) => {
-            let timestamp = chrono::Local::now().format("%Y-%m-%dT%H%M");
+          Ok(analysis) => {
+            let timestamp = analysis
+              .timestamp
+              .unwrap_or_else(|| {
+                chrono::Local::now().format("%Y-%m-%dT%H%M").to_string()
+              })
+              .trim()
+              .to_lowercase();
             let description =
-              description.trim().to_lowercase().replace(' ', "_");
+              analysis.description.trim().to_lowercase().replace(' ', "_");
             let path = std::path::Path::new(&file);
             let extension =
               path.extension().and_then(|ext| ext.to_str()).unwrap_or("");

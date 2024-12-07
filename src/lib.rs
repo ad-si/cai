@@ -7,6 +7,7 @@ use std::time::Instant;
 
 use color_print::{cformat, cprintln};
 use config::Config;
+use reqwest::Response;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use xdg::BaseDirectories;
@@ -221,21 +222,21 @@ fn get_used_model(model: &Model) -> String {
   }
 }
 
-pub async fn exec_tool(
-  optional_model: &Option<&Model>,
-  opts: &ExecOptions,
-  user_input: &str,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-  let start = Instant::now();
+fn get_secrets_path_str() -> String {
   let xdg_dirs = BaseDirectories::with_prefix("cai").unwrap();
   let secrets_path = xdg_dirs
     .place_config_file("secrets.yaml")
     .expect("Couldn't create configuration directory");
-
   let _ = std::fs::File::create_new(&secrets_path);
+  secrets_path.to_str().unwrap().to_string()
+}
 
-  let secrets_path_str = secrets_path.to_str().unwrap();
-
+pub fn get_full_config(
+  secrets_path_str: &str,
+) -> Result<
+  HashMap<std::string::String, std::string::String>,
+  config::ConfigError,
+> {
   let config = Config::builder()
     .set_default(
       "anthropic_api_key",
@@ -249,96 +250,127 @@ pub async fn exec_tool(
       "groq_api_key", //
       env::var("GROQ_API_KEY").unwrap_or_default(),
     )?
-    .add_source(config::File::with_name(secrets_path_str))
+    .add_source(config::File::with_name(&secrets_path_str))
     .add_source(config::Environment::with_prefix("CAI"))
     .build()
     .unwrap();
 
-  let full_config = config //
-    .try_deserialize::<HashMap<String, String>>()
-    .unwrap();
+  Ok(
+    config //
+      .try_deserialize::<HashMap<String, String>>()
+      .unwrap(),
+  )
+}
 
-  let used_model: String;
-  let http_req = match optional_model {
+fn get_http_req(
+  optional_model: &Option<&Model>,
+  secrets_path_str: &str,
+  full_config: &HashMap<String, String>,
+) -> Result<(String, AiRequest), std::string::String> {
+  match optional_model {
     Some(model) => {
-      used_model = get_used_model(&model);
-      get_api_request(&full_config, secrets_path_str, model)?
+      let used_model = get_used_model(&model);
+      get_api_request(&full_config, &secrets_path_str, model)
+        .map(|req| (used_model, req))
     }
     // Use the first provider that has an API key
     None => {
       let req =
-        get_api_request(&full_config, secrets_path_str, &Default::default())
+        get_api_request(&full_config, &secrets_path_str, &Default::default())
           .or(get_api_request(
             &full_config,
-            secrets_path_str,
+            &secrets_path_str,
             &Model::Model(Provider::Groq, "llama-3.1-8b-instant".to_owned()),
           ))
           .or(get_api_request(
             &full_config,
-            secrets_path_str,
+            &secrets_path_str,
             &Model::Model(Provider::OpenAI, "gpt-4o-mini".to_string()),
           ))?;
-      used_model = get_used_model(
+      let used_model = get_used_model(
         &Model::Model(req.provider.clone(), req.model.clone()), //
       );
-      req
+      Ok((used_model, req))
     }
+  }
+}
+
+fn get_req_body_obj(
+  opts: &ExecOptions,
+  http_req: &AiRequest,
+  user_input: &str,
+) -> Value {
+  let mut map = Map::new();
+  map.insert("model".to_string(), Value::String(http_req.model.clone()));
+  map.insert(
+    "max_tokens".to_string(),
+    Value::Number(http_req.max_tokens.into()),
+  );
+  if opts.is_json {
+    match http_req.provider {
+      Provider::OpenAI | Provider::Groq | Provider::Ollama => {
+        map.insert(
+          "response_format".to_string(),
+          Value::Object(Map::from_iter([(
+            "type".to_string(),
+            Value::String("json_object".to_string()),
+          )])),
+        );
+      }
+      provider => {
+        eprintln!(
+          "{}",
+          cformat!("<red>ERROR: {provider} doesn't support a JSON mode</red>",)
+        );
+        std::process::exit(1);
+      }
+    }
+  }
+  map.insert(
+    "messages".to_string(),
+    Value::Array(vec![Value::Object(Map::from_iter([
+      ("role".to_string(), "user".into()),
+      ("content".to_string(), Value::String(user_input.to_string())),
+    ]))]),
+  );
+  Value::Object(map)
+}
+
+async fn exec_request(
+  http_req: &AiRequest,
+  req_body_obj: &Value,
+) -> Result<Response, reqwest::Error> {
+  let client = reqwest::Client::new();
+  let req_base = client.post(http_req.url.clone()).json(&req_body_obj);
+  let req = match http_req.provider {
+    Provider::Anthropic => req_base
+      .header("anthropic-version", "2023-06-01")
+      .header("x-api-key", &http_req.api_key),
+    _ => req_base.bearer_auth(&http_req.api_key),
   };
+  req.send().await
+}
+
+pub async fn exec_tool(
+  optional_model: &Option<&Model>,
+  opts: &ExecOptions,
+  user_input: &str,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+  let start = Instant::now();
+  let secrets_path_str = get_secrets_path_str();
+  let full_config = get_full_config(&secrets_path_str)?;
+  let (used_model, http_req) =
+    get_http_req(optional_model, &secrets_path_str, &full_config)?;
 
   // This is checked here, so that the missing API key message comes first
   if user_input.is_empty() {
     Err("No prompt was provided")?;
   }
 
-  let req_body_obj = {
-    let mut map = Map::new();
-    map.insert("model".to_string(), Value::String(http_req.model));
-    map.insert(
-      "max_tokens".to_string(),
-      Value::Number(http_req.max_tokens.into()),
-    );
-    if opts.is_json {
-      match http_req.provider {
-        Provider::OpenAI | Provider::Groq | Provider::Ollama => {
-          map.insert(
-            "response_format".to_string(),
-            Value::Object(Map::from_iter([(
-              "type".to_string(),
-              Value::String("json_object".to_string()),
-            )])),
-          );
-        }
-        provider => {
-          eprintln!(
-            "{}",
-            cformat!(
-              "<red>ERROR: {provider} doesn't support a JSON mode</red>",
-            )
-          );
-          std::process::exit(1);
-        }
-      }
-    }
-    map.insert(
-      "messages".to_string(),
-      Value::Array(vec![Value::Object(Map::from_iter([
-        ("role".to_string(), "user".into()),
-        ("content".to_string(), Value::String(user_input.to_string())),
-      ]))]),
-    );
-    Value::Object(map)
-  };
+  let req_body_obj =
+    get_req_body_obj(&opts, &http_req, &user_input.to_string());
 
-  let client = reqwest::Client::new();
-  let req_base = client.post(http_req.url.clone()).json(&req_body_obj);
-  let req = match http_req.provider {
-    Provider::Anthropic => req_base
-      .header("anthropic-version", "2023-06-01")
-      .header("x-api-key", http_req.api_key),
-    _ => req_base.bearer_auth(http_req.api_key),
-  };
-
-  let resp = req.send().await?;
+  let resp = exec_request(&http_req, &req_body_obj).await?;
   let elapsed_time: String = start.elapsed().as_millis().to_string();
 
   if !&resp.status().is_success() {
@@ -426,10 +458,16 @@ pub async fn generate_changelog(
   exec_tool(&Some(&model), &opts, &prompt).await
 }
 
+#[derive(Deserialize)]
+pub struct FileAnalysis {
+  pub description: String,
+  pub timestamp: Option<String>,
+}
+
 pub async fn analyze_file_content(
-  _opts: &ExecOptions,
+  opts: &ExecOptions,
   file_path: &str,
-) -> Result<String, Box<dyn Error + Send + Sync>> {
+) -> Result<FileAnalysis, Box<dyn Error + Send + Sync>> {
   let content = if file_path.to_lowercase().ends_with(".pdf") {
     pdf_extract::extract_text(file_path)
       .map_err(|e| format!("Failed to extract PDF text: {}", e))?
@@ -438,60 +476,42 @@ pub async fn analyze_file_content(
   };
 
   let prompt = format!(
-    "Analyze this file content and provide a very short (2-4 words) description that captures its main purpose:\n\n{}",
-    content
-  );
-
-  let model = Model::Model(Provider::OpenAI, "gpt-4o-mini".to_string());
-
-  let client = reqwest::Client::new();
-  let xdg_dirs = BaseDirectories::with_prefix("cai").unwrap();
-  let secrets_path = xdg_dirs
-    .place_config_file("secrets.yaml")
-    .expect("Couldn't create configuration directory");
-  let secrets_path_str = secrets_path.to_str().unwrap();
-
-  let config = Config::builder()
-    .set_default(
-      "openai_api_key",
-      env::var("OPENAI_API_KEY").unwrap_or_default(),
-    )?
-    .add_source(config::File::with_name(secrets_path_str))
-    .add_source(config::Environment::with_prefix("CAI"))
-    .build()
-    .unwrap();
-
-  let full_config =
-    config.try_deserialize::<HashMap<String, String>>().unwrap();
-  let http_req = get_api_request(&full_config, secrets_path_str, &model)?;
-
-  let req_body_obj = {
-    let mut map = Map::new();
-    map.insert("model".to_string(), Value::String(http_req.model));
-    map.insert("max_tokens".to_string(), Value::Number(100.into()));
-    map.insert(
-      "messages".to_string(),
-      Value::Array(vec![Value::Object(Map::from_iter([
-        ("role".to_string(), "user".into()),
-        ("content".to_string(), Value::String(prompt)),
-      ]))]),
+        "Analyze this file content and return:\n\
+         1. A very short (2-4 words) description that captures its main purpose\n\
+         2. Any timestamp/date found in the content (in YYYY-MM-DDThhmm format)\n\n\
+         Return as JSON with 'description' and 'timestamp' fields. Example:\n\
+         {{\n\
+           \"description\": \"meeting notes\",\n\
+           \"timestamp\": \"2024-03-15t1430\"\n\
+         }}\n\n\
+         Content to analyze:\n{}",
+        content
     );
-    Value::Object(map)
-  };
+  let mut opts = opts.clone();
+  opts.is_json = true;
+  let secrets_path_str = get_secrets_path_str();
+  let full_config = get_full_config(&secrets_path_str)?;
+  let (_used_model, http_req) =
+    get_http_req(&None, &secrets_path_str, &full_config)?;
+  let req_body_obj = get_req_body_obj(&opts, &http_req, &prompt);
+  let resp = exec_request(&http_req, &req_body_obj).await?;
 
-  let resp = client
-    .post(http_req.url)
-    .json(&req_body_obj)
-    .bearer_auth(http_req.api_key)
-    .send()
-    .await?;
-
-  if !resp.status().is_success() {
-    let resp_json = resp.json::<Value>().await?;
-    Err(format!("API error: {}", resp_json))?
-  } else {
+  if resp.status().is_success() {
     let ai_response = resp.json::<AiResponse>().await?;
-    Ok(ai_response.choices[0].message.content.clone())
+    let content = ai_response.choices[0].message.content.clone();
+    let analysis: FileAnalysis =
+      serde_json::from_str(&content).map_err(|e| {
+        format!(
+          "Failed to parse LLM response as JSON\n
+            Response: {content}\n
+            Error: {e}\n",
+        )
+      })?;
+    Ok(analysis)
+  } else {
+    let json_val = resp.json::<Value>().await?;
+    let json_str = serde_json::to_string_pretty(&json_val).unwrap();
+    Err(json_str.into())
   }
 }
 
