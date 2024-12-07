@@ -5,7 +5,7 @@ auto-test: true
 test-cmd: make test
 
 auto-lint: true
-lint-cmd: rustfmt
+lint-cmd: cargo fmt
 
 auto-commits: false
 attribute-committer: false
