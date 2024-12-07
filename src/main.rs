@@ -151,7 +151,7 @@ for all supported model ids):"
   <b>cai anthropic claude-opus</b> Which year did the Titanic sink
   <b>cai an claude-opus</b> Which year did the Titanic sink
   <b>cai cl</b> Which year did the Titanic sink
-  <b>cai anthropic claude-3-opus-20240229</b> Which year did the Titanic sink
+  <b>cai anthropic claude-3-opus-latest</b> Which year did the Titanic sink
 
   <dim># Send a prompt to locally running Ollama server</dim>
   <b>cai ollama llama3</b> Which year did the Titanic sink
@@ -276,7 +276,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
         submit_prompt(
           &Some(&Model::Model(
             Provider::Anthropic,
-            "claude-3-opus-20240229".to_string(),
+            "claude-3-opus-latest".to_string(),
           )),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
@@ -287,7 +287,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
         submit_prompt(
           &Some(&Model::Model(
             Provider::Anthropic,
-            "claude-3-5-sonnet-20240620".to_string(),
+            "claude-3-5-sonnet-latest".to_string(),
           )),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
@@ -298,7 +298,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
         submit_prompt(
           &Some(&Model::Model(
             Provider::Anthropic,
-            "claude-3-haiku-20240307".to_string(),
+            "claude-3-5-haiku-latest".to_string(),
           )),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
@@ -325,7 +325,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
         let models = vec![
           Model::Model(
             Provider::Anthropic,
-            "claude-3-5-sonnet-20240620".to_string(),
+            "claude-3-5-sonnet-latest".to_string(),
           ),
           Model::Model(Provider::Groq, "llama-3.1-8b-instant".to_string()),
           Model::Model(Provider::OpenAI, "gpt-4o-mini".to_string()),

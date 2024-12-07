@@ -106,7 +106,7 @@ Examples:
   cai anthropic claude-opus Which year did the Titanic sink
   cai an claude-opus Which year did the Titanic sink
   cai cl Which year did the Titanic sink
-  cai anthropic claude-3-opus-20240229 Which year did the Titanic sink
+  cai anthropic claude-3-opus-latest Which year did the Titanic sink
 
   # Send a prompt to locally running Ollama server
   cai ollama llama3 Which year did the Titanic sink
