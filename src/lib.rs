@@ -430,30 +430,39 @@ pub async fn analyze_file_content(
   _opts: &ExecOptions,
   file_path: &str,
 ) -> Result<String, Box<dyn Error + Send + Sync>> {
-  let content = std::fs::read_to_string(file_path)?;
-  
+  let content = if file_path.to_lowercase().ends_with(".pdf") {
+    pdf_extract::extract_text(file_path)
+      .map_err(|e| format!("Failed to extract PDF text: {}", e))?
+  } else {
+    std::fs::read_to_string(file_path)?
+  };
+
   let prompt = format!(
     "Analyze this file content and provide a very short (2-4 words) description that captures its main purpose:\n\n{}",
     content
   );
 
   let model = Model::Model(Provider::OpenAI, "gpt-4o-mini".to_string());
-  
+
   let client = reqwest::Client::new();
   let xdg_dirs = BaseDirectories::with_prefix("cai").unwrap();
   let secrets_path = xdg_dirs
     .place_config_file("secrets.yaml")
     .expect("Couldn't create configuration directory");
   let secrets_path_str = secrets_path.to_str().unwrap();
-  
+
   let config = Config::builder()
-    .set_default("openai_api_key", env::var("OPENAI_API_KEY").unwrap_or_default())?
+    .set_default(
+      "openai_api_key",
+      env::var("OPENAI_API_KEY").unwrap_or_default(),
+    )?
     .add_source(config::File::with_name(secrets_path_str))
     .add_source(config::Environment::with_prefix("CAI"))
     .build()
     .unwrap();
 
-  let full_config = config.try_deserialize::<HashMap<String, String>>().unwrap();
+  let full_config =
+    config.try_deserialize::<HashMap<String, String>>().unwrap();
   let http_req = get_api_request(&full_config, secrets_path_str, &model)?;
 
   let req_body_obj = {

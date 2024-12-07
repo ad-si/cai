@@ -538,11 +538,14 @@ async fn exec_with_args(args: Args, stdin: &str) {
         match analyze_file_content(&opts, &file).await {
           Ok(description) => {
             let timestamp = chrono::Local::now().format("%Y-%m-%dT%H%M");
-            let description = description.trim().to_lowercase().replace(' ', "_");
+            let description =
+              description.trim().to_lowercase().replace(' ', "_");
             let path = std::path::Path::new(&file);
-            let extension = path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
-            let new_name = format!("{}_{}.{}", timestamp, description, extension);
-            
+            let extension =
+              path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
+            let new_name =
+              format!("{}_{}.{}", timestamp, description, extension);
+
             if let Err(err) = std::fs::rename(&file, &new_name) {
               eprintln!("Error renaming file: {}", err);
               std::process::exit(1);
