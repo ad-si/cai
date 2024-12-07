@@ -3,7 +3,8 @@ use std::io::{read_to_string, IsTerminal};
 
 use cai::{
   exec_tool, generate_changelog, groq_models_pretty, ollama_models_pretty,
-  openai_models_pretty, submit_prompt, ExecOptions, Model, Provider,
+  openai_models_pretty, prompt_with_lang_cntxt, submit_prompt, ExecOptions,
+  Model, Provider,
 };
 use clap::{builder::styling, crate_version, Parser, Subcommand};
 use color_print::cformat;
@@ -126,6 +127,166 @@ for all supported model ids):"
   Changelog {
     /// The commit hash to start the changelog from
     commit_hash: String,
+  },
+
+  /////////////////////////////////////////
+  //========== LANGUAGE CONTEXTS ==========
+  /////////////////////////////////////////
+  /// Use Bash development as the prompt context
+  #[clap()]
+  Bash {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use C development as the prompt context
+  #[clap()]
+  C {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use C++ development as the prompt context
+  #[clap()]
+  Cpp {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use C# development as the prompt context
+  #[clap()]
+  Cs {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use Elm development as the prompt context
+  #[clap()]
+  Elm {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use F# development as the prompt context
+  #[clap()]
+  Fs {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use Godot and GDScript development as the prompt context
+  #[clap()]
+  Gd {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use Gleam development as the prompt context
+  #[clap()]
+  Gl {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use Go development as the prompt context
+  #[clap()]
+  Go {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use Haskell development as the prompt context
+  #[clap()]
+  Hs {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use Java development as the prompt context
+  #[clap()]
+  Java {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use JavaScript development as the prompt context
+  #[clap()]
+  Js {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use Kotlin development as the prompt context
+  #[clap()]
+  Kt {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use Lua development as the prompt context
+  #[clap()]
+  Lua {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use OCaml development as the prompt context
+  #[clap()]
+  Oc {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use PHP development as the prompt context
+  #[clap()]
+  Php {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use Postgres development as the prompt context
+  #[clap()]
+  Po {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use PureScript development as the prompt context
+  #[clap()]
+  Ps {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use Python development as the prompt context
+  #[clap()]
+  Py {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use Ruby development as the prompt context
+  #[clap()]
+  Rb {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use Rust development as the prompt context
+  #[clap()]
+  Rs {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use SQLite development as the prompt context
+  #[clap()]
+  Sql {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use Swift development as the prompt context
+  #[clap()]
+  Sw {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use TypeScript development as the prompt context
+  #[clap()]
+  Ts {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use Wolfram Language and Mathematica development as the prompt context
+  #[clap()]
+  Wl {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use Zig development as the prompt context
+  #[clap()]
+  Zig {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
   },
 }
 
@@ -361,8 +522,180 @@ async fn exec_with_args(args: Args, stdin: &str) {
         join_all(handles).await;
       }
       Commands::Changelog { commit_hash } => {
-        if let Err(err) = generate_changelog(&commit_hash).await {
+        if let Err(err) = generate_changelog(&opts, &commit_hash).await {
           eprintln!("Error generating changelog: {}", err);
+          std::process::exit(1);
+        }
+      }
+      /////////////////////////////////////////
+      //========== LANGUAGE CONTEXTS ==========
+      /////////////////////////////////////////
+      Commands::Bash { prompt } => {
+        if let Err(err) = prompt_with_lang_cntxt(&opts, "Bash", prompt).await {
+          eprintln!("Error prompting with Bash context: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::C { prompt } => {
+        if let Err(err) = prompt_with_lang_cntxt(&opts, "C", prompt).await {
+          eprintln!("Error prompting with C context: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Cpp { prompt } => {
+        if let Err(err) = prompt_with_lang_cntxt(&opts, "C++", prompt).await {
+          eprintln!("Error prompting with C++ context: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Cs { prompt } => {
+        if let Err(err) = prompt_with_lang_cntxt(&opts, "C#", prompt).await {
+          eprintln!("Error prompting with C# context: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Elm { prompt } => {
+        if let Err(err) = prompt_with_lang_cntxt(&opts, "Elm", prompt).await {
+          eprintln!("Error prompting with Elm context: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Fs { prompt } => {
+        if let Err(err) = prompt_with_lang_cntxt(&opts, "F#", prompt).await {
+          eprintln!("Error prompting with F# context: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Gd { prompt } => {
+        if let Err(err) = prompt_with_lang_cntxt(&opts, "Godot", prompt).await {
+          eprintln!("Error prompting with Godot context: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Gl { prompt } => {
+        if let Err(err) = prompt_with_lang_cntxt(&opts, "Gleam", prompt).await {
+          eprintln!("Error prompting with Gleam context: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Go { prompt } => {
+        if let Err(err) = prompt_with_lang_cntxt(&opts, "Go", prompt).await {
+          eprintln!("Error prompting with Go context: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Hs { prompt } => {
+        if let Err(err) = prompt_with_lang_cntxt(&opts, "Haskell", prompt).await
+        {
+          eprintln!("Error prompting with Haskell context: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Java { prompt } => {
+        if let Err(err) = prompt_with_lang_cntxt(&opts, "Java", prompt).await {
+          eprintln!("Error prompting with Java context: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Js { prompt } => {
+        if let Err(err) =
+          prompt_with_lang_cntxt(&opts, "JavaScript", prompt).await
+        {
+          eprintln!("Error prompting with JavaScript context: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Kt { prompt } => {
+        if let Err(err) = prompt_with_lang_cntxt(&opts, "Kotlin", prompt).await
+        {
+          eprintln!("Error prompting with Kotlin context: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Lua { prompt } => {
+        if let Err(err) = prompt_with_lang_cntxt(&opts, "Lua", prompt).await {
+          eprintln!("Error prompting with Lua context: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Oc { prompt } => {
+        if let Err(err) = prompt_with_lang_cntxt(&opts, "OCaml", prompt).await {
+          eprintln!("Error prompting with OCaml context: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Php { prompt } => {
+        if let Err(err) = prompt_with_lang_cntxt(&opts, "PHP", prompt).await {
+          eprintln!("Error prompting with PHP context: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Po { prompt } => {
+        if let Err(err) =
+          prompt_with_lang_cntxt(&opts, "Postgres", prompt).await
+        {
+          eprintln!("Error prompting with Postgres context: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Ps { prompt } => {
+        if let Err(err) =
+          prompt_with_lang_cntxt(&opts, "PureScript", prompt).await
+        {
+          eprintln!("Error prompting with PureScript context: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Py { prompt } => {
+        if let Err(err) = prompt_with_lang_cntxt(&opts, "Python", prompt).await
+        {
+          eprintln!("Error prompting with Python context: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Rb { prompt } => {
+        if let Err(err) = prompt_with_lang_cntxt(&opts, "Ruby", prompt).await {
+          eprintln!("Error prompting with Ruby context: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Rs { prompt } => {
+        if let Err(err) = prompt_with_lang_cntxt(&opts, "Rust", prompt).await {
+          eprintln!("Error prompting with Rust context: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Sql { prompt } => {
+        if let Err(err) = prompt_with_lang_cntxt(&opts, "SQLite", prompt).await
+        {
+          eprintln!("Error prompting with SQLite context: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Sw { prompt } => {
+        if let Err(err) = prompt_with_lang_cntxt(&opts, "Swift", prompt).await {
+          eprintln!("Error prompting with Swift context: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Ts { prompt } => {
+        if let Err(err) =
+          prompt_with_lang_cntxt(&opts, "TypeScript", prompt).await
+        {
+          eprintln!("Error prompting with TypeScript context: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Wl { prompt } => {
+        if let Err(err) = prompt_with_lang_cntxt(&opts, "Wolfram", prompt).await
+        {
+          eprintln!("Error prompting with Wolfram context: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Zig { prompt } => {
+        if let Err(err) = prompt_with_lang_cntxt(&opts, "Zig", prompt).await {
+          eprintln!("Error prompting with Zig context: {}", err);
           std::process::exit(1);
         }
       }

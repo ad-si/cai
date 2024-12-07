@@ -84,6 +84,32 @@ Commands:
                  - Ollama Llama 3
                  - Llamafile
   changelog  Generate a changelog starting from a given commit using OpenAI's GPT-4o
+  bash       Use Bash development as the prompt context
+  c          Use C development as the prompt context
+  cpp        Use C++ development as the prompt context
+  cs         Use C# development as the prompt context
+  elm        Use Elm development as the prompt context
+  fs         Use F# development as the prompt context
+  gd         Use Godot and GDScript development as the prompt context
+  gl         Use Gleam development as the prompt context
+  go         Use Go development as the prompt context
+  hs         Use Haskell development as the prompt context
+  java       Use Java development as the prompt context
+  js         Use JavaScript development as the prompt context
+  kt         Use Kotlin development as the prompt context
+  lua        Use Lua development as the prompt context
+  oc         Use OCaml development as the prompt context
+  php        Use PHP development as the prompt context
+  po         Use Postgres development as the prompt context
+  ps         Use PureScript development as the prompt context
+  py         Use Python development as the prompt context
+  rb         Use Ruby development as the prompt context
+  rs         Use Rust development as the prompt context
+  sql        Use SQLite development as the prompt context
+  sw         Use Swift development as the prompt context
+  ts         Use TypeScript development as the prompt context
+  wl         Use Wolfram Language and Mathematica development as the prompt context
+  zig        Use Zig development as the prompt context
   help       Print this message or the help of the given subcommand(s)
 
 Arguments:

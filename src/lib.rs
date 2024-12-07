@@ -396,6 +396,7 @@ pub async fn submit_prompt(
 }
 
 pub async fn generate_changelog(
+  opts: &ExecOptions,
   commit_hash: &str,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
   let output = std::process::Command::new("git")
@@ -417,17 +418,36 @@ pub async fn generate_changelog(
     Include the date and the tag in the header.\n
     Don't sub-categorize the changes, just list them.\n
     Insert a blank line after each header and sub-header.\n
-    \n\n{}",
-    changelog
+    \n\n{changelog}"
   );
 
   let model = Model::Model(Provider::OpenAI, "gpt-4o".to_string());
-  let opts = ExecOptions {
-    is_raw: true,
-    is_json: false,
-  };
 
   exec_tool(&Some(&model), &opts, &prompt).await
+}
+
+pub async fn prompt_with_lang_cntxt(
+  opts: &ExecOptions,
+  prog_lang: &str,
+  prompt: Vec<String>,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+  let system_prompt = format!(
+    "You're a professional {prog_lang} developer.\n
+    Answer the following question in the context of {prog_lang}.\n
+    Keep your answer concise and to the point.\n"
+  );
+
+  let model = Model::Model(
+    Provider::Anthropic,
+    "claude-3-5-sonnet-latest".to_string(), //
+  );
+
+  exec_tool(
+    &Some(&model),
+    &opts,
+    &(system_prompt.to_owned() + &prompt.join(" ")), //
+  )
+  .await
 }
 
 #[cfg(test)]
