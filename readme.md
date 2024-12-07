@@ -84,6 +84,7 @@ Commands:
                  - Ollama Llama 3
                  - Llamafile
   changelog  Generate a changelog starting from a given commit using OpenAI's GPT-4o
+  rename     Analyze and rename a file with timestamp and description
   bash       Use Bash development as the prompt context
   c          Use C development as the prompt context
   cpp        Use C++ development as the prompt context

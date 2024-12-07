@@ -426,6 +426,66 @@ pub async fn generate_changelog(
   exec_tool(&Some(&model), &opts, &prompt).await
 }
 
+pub async fn analyze_file_content(
+  _opts: &ExecOptions,
+  file_path: &str,
+) -> Result<String, Box<dyn Error + Send + Sync>> {
+  let content = std::fs::read_to_string(file_path)?;
+  
+  let prompt = format!(
+    "Analyze this file content and provide a very short (2-4 words) description that captures its main purpose:\n\n{}",
+    content
+  );
+
+  let model = Model::Model(Provider::OpenAI, "gpt-4o-mini".to_string());
+  
+  let client = reqwest::Client::new();
+  let xdg_dirs = BaseDirectories::with_prefix("cai").unwrap();
+  let secrets_path = xdg_dirs
+    .place_config_file("secrets.yaml")
+    .expect("Couldn't create configuration directory");
+  let secrets_path_str = secrets_path.to_str().unwrap();
+  
+  let config = Config::builder()
+    .set_default("openai_api_key", env::var("OPENAI_API_KEY").unwrap_or_default())?
+    .add_source(config::File::with_name(secrets_path_str))
+    .add_source(config::Environment::with_prefix("CAI"))
+    .build()
+    .unwrap();
+
+  let full_config = config.try_deserialize::<HashMap<String, String>>().unwrap();
+  let http_req = get_api_request(&full_config, secrets_path_str, &model)?;
+
+  let req_body_obj = {
+    let mut map = Map::new();
+    map.insert("model".to_string(), Value::String(http_req.model));
+    map.insert("max_tokens".to_string(), Value::Number(100.into()));
+    map.insert(
+      "messages".to_string(),
+      Value::Array(vec![Value::Object(Map::from_iter([
+        ("role".to_string(), "user".into()),
+        ("content".to_string(), Value::String(prompt)),
+      ]))]),
+    );
+    Value::Object(map)
+  };
+
+  let resp = client
+    .post(http_req.url)
+    .json(&req_body_obj)
+    .bearer_auth(http_req.api_key)
+    .send()
+    .await?;
+
+  if !resp.status().is_success() {
+    let resp_json = resp.json::<Value>().await?;
+    Err(format!("API error: {}", resp_json))?
+  } else {
+    let ai_response = resp.json::<AiResponse>().await?;
+    Ok(ai_response.choices[0].message.content.clone())
+  }
+}
+
 pub async fn prompt_with_lang_cntxt(
   opts: &ExecOptions,
   prog_lang: &str,

@@ -2,9 +2,9 @@ use std::io::stdin;
 use std::io::{read_to_string, IsTerminal};
 
 use cai::{
-  exec_tool, generate_changelog, groq_models_pretty, ollama_models_pretty,
-  openai_models_pretty, prompt_with_lang_cntxt, submit_prompt, ExecOptions,
-  Model, Provider,
+  analyze_file_content, exec_tool, generate_changelog, groq_models_pretty,
+  ollama_models_pretty, openai_models_pretty, prompt_with_lang_cntxt,
+  submit_prompt, ExecOptions, Model, Provider,
 };
 use clap::{builder::styling, crate_version, Parser, Subcommand};
 use color_print::cformat;
@@ -127,6 +127,13 @@ for all supported model ids):"
   Changelog {
     /// The commit hash to start the changelog from
     commit_hash: String,
+  },
+
+  /// Analyze and rename a file with timestamp and description
+  #[clap()]
+  Rename {
+    /// The file to analyze and rename
+    file: String,
   },
 
   /////////////////////////////////////////
@@ -525,6 +532,27 @@ async fn exec_with_args(args: Args, stdin: &str) {
         if let Err(err) = generate_changelog(&opts, &commit_hash).await {
           eprintln!("Error generating changelog: {}", err);
           std::process::exit(1);
+        }
+      }
+      Commands::Rename { file } => {
+        match analyze_file_content(&opts, &file).await {
+          Ok(description) => {
+            let timestamp = chrono::Local::now().format("%Y-%m-%dT%H%M");
+            let description = description.trim().to_lowercase().replace(' ', "_");
+            let path = std::path::Path::new(&file);
+            let extension = path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
+            let new_name = format!("{}_{}.{}", timestamp, description, extension);
+            
+            if let Err(err) = std::fs::rename(&file, &new_name) {
+              eprintln!("Error renaming file: {}", err);
+              std::process::exit(1);
+            }
+            println!("Renamed {} to {}", file, new_name);
+          }
+          Err(err) => {
+            eprintln!("Error analyzing file: {}", err);
+            std::process::exit(1);
+          }
         }
       }
       /////////////////////////////////////////
