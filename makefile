@@ -38,7 +38,9 @@ test: test-units update-readme
 
 .PHONY: release
 release:
-	@echo 'Run `cargo release major / minor / patch`'
+	@echo '1. Update ./changelog.md with `cai changelog <commit-hash>`'
+	@echo '2. Run `cargo release major / minor / patch`'
+	@echo '3. Announce release on https://x.com and https://bsky.app'
 
 
 .PHONY: install
