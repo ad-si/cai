@@ -365,6 +365,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
   let opts = ExecOptions {
     is_raw: args.raw,
     is_json: args.json,
+    json_schema: None,
   };
 
   match args.command {
@@ -506,9 +507,10 @@ async fn exec_with_args(args: Args, stdin: &str) {
         for model in models.into_iter() {
           let prompt_str = format!("{}\n{}", stdin, prompt.join(" "));
           let model_fmt = model.to_string();
+          let opts_clone = opts.clone();
 
           handles.push(tokio::spawn(async move {
-            match exec_tool(&Some(&model), &opts, &prompt_str).await {
+            match exec_tool(&Some(&model), &opts_clone, &prompt_str).await {
               Ok(_) => {}
               Err(err) => {
                 let err_fmt = capitalize_str(&err.to_string());

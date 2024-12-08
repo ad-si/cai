@@ -9,16 +9,17 @@ use color_print::{cformat, cprintln};
 use config::Config;
 use reqwest::Response;
 use serde_derive::{Deserialize, Serialize};
-use serde_json::{Map, Value};
+use serde_json::{json, Map, Value};
 use xdg::BaseDirectories;
 
 // Includes `GROQ_MODEL_MAPPING` and `OLLAMA_MODEL_MAPPING` from `/build.rs`
 include!(concat!(env!("OUT_DIR"), "/models.rs"));
 
-#[derive(Serialize, Debug, PartialEq, Default, Clone, Copy)]
+#[derive(Serialize, Debug, PartialEq, Default, Clone)]
 pub struct ExecOptions {
   pub is_raw: bool, // Raw output mode (no metadata and no syntax highlighting)
   pub is_json: bool, // JSON output mode
+  pub json_schema: Option<Value>, // JSON schema of expected output
 }
 
 #[derive(Serialize, Debug, PartialEq, Default, Clone, Copy)]
@@ -306,6 +307,7 @@ fn get_req_body_obj(
     "max_tokens".to_string(),
     Value::Number(http_req.max_tokens.into()),
   );
+
   if opts.is_json {
     match http_req.provider {
       Provider::OpenAI | Provider::Groq | Provider::Ollama => {
@@ -326,6 +328,31 @@ fn get_req_body_obj(
       }
     }
   }
+
+  if opts.json_schema.is_some() {
+    match http_req.provider {
+      Provider::OpenAI | Provider::Groq | Provider::Ollama => {
+        let mut json_schema = Map::new();
+        json_schema.insert("type".to_string(), "json_schema".into());
+        json_schema.insert(
+          "json_schema".to_string(),
+          opts.json_schema.clone().unwrap(), //
+        );
+
+        map.insert("response_format".to_string(), Value::Object(json_schema));
+      }
+      provider => {
+        eprintln!(
+          "{}",
+          cformat!(
+            "<red>ERROR: {provider} doesn't support a JSON schema mode</red>",
+          )
+        );
+        std::process::exit(1);
+      }
+    }
+  }
+
   map.insert(
     "messages".to_string(),
     Value::Array(vec![Value::Object(Map::from_iter([
@@ -333,6 +360,7 @@ fn get_req_body_obj(
       ("content".to_string(), Value::String(user_input.to_string())),
     ]))]),
   );
+
   Value::Object(map)
 }
 
@@ -476,23 +504,35 @@ pub async fn analyze_file_content(
   };
 
   let prompt = format!(
-        "Analyze this file content and return:\n\
-         1. A very short (2-4 words) description that captures its main purpose\n\
-         2. Any timestamp/date found in the content.\n\
-            If it includes only a date use the `YYYY-MM-DD` format.\n\
-            If it inlucdes date and time use the `YYYY-MM-DDThh:mmZ` format.\n\
-            Note that in German dates are usually written as `DD.MM.YYYY`.\n\
-         Return as JSON with a `description` and `timestamp` field.\n\
-         Example:\n\
-         {{\n\
-           \"description\": \"meeting notes\",\n\
-           \"timestamp\": \"2024-03-15t14:30\"\n\
-         }}\n\
-         \n\
-         Content to analyze:\n{content}",
-    );
+    "Analyze following file content and return a file analysis JSON object:\n\
+    \n\
+    {content}\n",
+  );
   let mut opts = opts.clone();
-  opts.is_json = true;
+
+  opts.json_schema = Some(json!({
+    "name": "file_analysis",
+    "strict": true,
+    "schema": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string",
+          "description":
+            "A short (1-4 words) description that captures its main purpose",
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Any timestamp/date found in the content. \
+            If it includes only a date use the `YYYY-MM-DD` format. \
+            If it includes date and time use the `YYYY-MM-DDThh:mmZ` format. \
+            Note that in German dates are usually written as `DD.MM.YYYY`.",
+        }
+      },
+      "required": [ "description", "timestamp" ],
+      "additionalProperties": false,
+    },
+  }));
   let secrets_path_str = get_secrets_path_str();
   let full_config = get_full_config(&secrets_path_str)?;
   let (_used_model, http_req) = get_http_req(
@@ -558,6 +598,7 @@ mod tests {
       &ExecOptions {
         is_raw: false,
         is_json: false,
+        json_schema: None,
       },
       &prompt,
     )
