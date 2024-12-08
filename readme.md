@@ -58,7 +58,7 @@ Full help output:
 
 ```txt
 $ cai help
-Cai 0.7.0
+Cai 0.8.0
 
 The fastest CLI tool for prompting LLMs
 
