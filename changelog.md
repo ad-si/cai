@@ -1,5 +1,30 @@
 # Changelog
 
+# 2024-12-08 - v0.8.0
+
+- Add new sub-command `ocr` to extract text from images
+- Add new sub-command `rename` to rename files based on their content
+- Add sub-commands with a programming language as the prompt context
+- Add new sub-command `changelog` to generate a changelog from git commits
+- Always use the latest versions of Anthropic's 3.5 models
+- Update default Llama versions
+
+
+## 2024-07-21 - v0.7.0
+
+- Add flag `--json` to activate JSON output mode
+- Add flag `--raw` to print the raw LLM response without any metadata
+- Add more aliases for Anthropic, use new versions as default models
+- CLI output: Show resolved model id instead of the used alias
+- Add more aliases for OpenAI models
+
+
+## 2024-04-30 - v0.6.0
+
+- Add support for all Groq and Ollama models
+- List aliases in Ollama help text
+
+
 ## 2024-04-14 - v0.5.0
 
 - Support adding text to the prompt via stdin
