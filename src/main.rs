@@ -557,19 +557,12 @@ async fn exec_with_args(args: Args, stdin: &str) {
             } else {
               chrono::Local::now().format("%Y-%m-%dT%H%M").to_string()
             };
-            let description =
-              analysis.description.trim().to_lowercase().replace(' ', "_");
-            let path = std::path::Path::new(&file);
-            let extension =
-              path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
-            let new_name =
-              format!("{}_{}.{}", timestamp, description, extension);
-
-            if let Err(err) = std::fs::rename(&file, &new_name) {
-              eprintln!("Error renaming file: {}", err);
-              std::process::exit(1);
-            }
-            println!("Renamed {} to {}", file, new_name);
+            let description = analysis //
+              .description
+              .trim()
+              .to_lowercase()
+              .replace(' ', "_");
+            rename_file(file, timestamp, description);
           }
           Err(err) => {
             eprintln!("Error analyzing file: {}", err);
@@ -751,6 +744,28 @@ async fn exec_with_args(args: Args, stdin: &str) {
       }
     },
   };
+}
+
+fn rename_file(file: String, timestamp: String, description: String) {
+  let path = std::path::Path::new(&file);
+  let ext = path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
+  let mut new_name = format!("{}_{}.{}", timestamp, description, ext);
+
+  let mut counter = 0;
+  loop {
+    if std::path::Path::new(&new_name).exists() {
+      counter += 1;
+      new_name = format!("{}_{}_{}.{}", timestamp, description, counter, ext)
+    } else {
+      break;
+    }
+  }
+
+  if let Err(err) = std::fs::rename(&file, &new_name) {
+    eprintln!("Error renaming file: {}", err);
+    std::process::exit(1);
+  }
+  println!("Renamed {} to {}", file, new_name);
 }
 
 #[tokio::main]
