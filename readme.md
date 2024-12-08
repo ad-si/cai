@@ -90,6 +90,7 @@ Commands:
   cpp        Use C++ development as the prompt context
   cs         Use C# development as the prompt context
   elm        Use Elm development as the prompt context
+  fish       Use Fish development as the prompt context
   fs         Use F# development as the prompt context
   gd         Use Godot and GDScript development as the prompt context
   gl         Use Gleam development as the prompt context

@@ -169,6 +169,12 @@ for all supported model ids):"
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
+  /// Use Fish development as the prompt context
+  #[clap()]
+  Fish {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
   /// Use F# development as the prompt context
   #[clap()]
   Fs {
@@ -600,6 +606,12 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Elm { prompt } => {
         if let Err(err) = prompt_with_lang_cntxt(&opts, "Elm", prompt).await {
           eprintln!("Error prompting with Elm context: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Fish { prompt } => {
+        if let Err(err) = prompt_with_lang_cntxt(&opts, "Fish", prompt).await {
+          eprintln!("Error prompting with Fish context: {}", err);
           std::process::exit(1);
         }
       }
