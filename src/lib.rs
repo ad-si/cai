@@ -1,5 +1,6 @@
 mod highlight;
 
+use base64::Engine;
 use std::env;
 use std::error::Error;
 use std::str;
@@ -143,7 +144,6 @@ fn default_req_for_model(model: &Model) -> AiRequest {
       provider: Provider::Anthropic,
       url: "https://api.anthropic.com/v1/messages".to_string(),
       model: get_anthropic_model(model_id).to_string(),
-      max_tokens: 4096,
       ..Default::default()
     },
     Provider::Llamafile => AiRequest {
@@ -301,6 +301,12 @@ fn get_req_body_obj(
   http_req: &AiRequest,
   user_input: &str,
 ) -> Value {
+  // Handle case where input is already a complete JSON string
+  match serde_json::from_str(user_input) {
+    Ok(json) => return json,
+    Err(_) => (),
+  }
+
   let mut map = Map::new();
   map.insert("model".to_string(), Value::String(http_req.model.clone()));
   map.insert(
@@ -404,7 +410,7 @@ pub async fn exec_tool(
   if !&resp.status().is_success() {
     let resp_json = resp.json::<Value>().await?;
     let resp_formatted = serde_json::to_string_pretty(&resp_json).unwrap();
-    Err(format!(
+    Err(cformat!(
       "<bold>⏱️ {: >5} ms</bold> | {used_model}\n\
       \n{resp_formatted}",
       elapsed_time,
@@ -560,6 +566,39 @@ pub async fn analyze_file_content(
     let json_str = serde_json::to_string_pretty(&json_val).unwrap();
     Err(json_str.into())
   }
+}
+
+pub async fn extract_text_from_file(
+  opts: &ExecOptions,
+  file_path: &str,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+  let file_content = std::fs::read(file_path)?;
+  let base64_content =
+    base64::engine::general_purpose::STANDARD.encode(&file_content);
+  let model_id = "gpt-4o";
+  let model = &Model::Model(Provider::OpenAI, model_id.to_string());
+  let prompt = json!({
+    "model": format!("{model_id}"),
+    "max_tokens": default_req_for_model(model).max_tokens,
+    "messages": [{
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Extract and return all text from this image."
+        },
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": format!("data:image/jpeg;base64,{base64_content}")
+          }
+        }
+      ]
+    }]
+  })
+  .to_string();
+
+  exec_tool(&Some(model), &opts, &prompt).await
 }
 
 pub async fn prompt_with_lang_cntxt(

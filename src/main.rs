@@ -2,9 +2,9 @@ use std::io::stdin;
 use std::io::{read_to_string, IsTerminal};
 
 use cai::{
-  analyze_file_content, exec_tool, generate_changelog, groq_models_pretty,
-  ollama_models_pretty, openai_models_pretty, prompt_with_lang_cntxt,
-  submit_prompt, ExecOptions, Model, Provider,
+  analyze_file_content, exec_tool, extract_text_from_file, generate_changelog,
+  groq_models_pretty, ollama_models_pretty, openai_models_pretty,
+  prompt_with_lang_cntxt, submit_prompt, ExecOptions, Model, Provider,
 };
 use clap::{builder::styling, crate_version, Parser, Subcommand};
 use color_print::cformat;
@@ -133,6 +133,13 @@ for all supported model ids):"
   #[clap()]
   Rename {
     /// The file to analyze and rename
+    file: String,
+  },
+
+  /// Extract text from an image
+  #[clap()]
+  Ocr {
+    /// The file to extract text from
     file: String,
   },
 
@@ -579,6 +586,12 @@ async fn exec_with_args(args: Args, stdin: &str) {
       /////////////////////////////////////////
       //========== LANGUAGE CONTEXTS ==========
       /////////////////////////////////////////
+      Commands::Ocr { file } => {
+        if let Err(err) = extract_text_from_file(&opts, &file).await {
+          eprintln!("Error extracting text: {}", err);
+          std::process::exit(1);
+        }
+      }
       Commands::Bash { prompt } => {
         if let Err(err) = prompt_with_lang_cntxt(&opts, "Bash", prompt).await {
           eprintln!("Error prompting with Bash context: {}", err);

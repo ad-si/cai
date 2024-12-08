@@ -78,13 +78,14 @@ Commands:
   llamafile  Llamafile server hosted at http://localhost:8080 [aliases: lf]
   ollama     Ollama server hosted at http://localhost:11434 [aliases: ol]
   all        Simultaneously send prompt to each provider's default model:
-                 - Groq Llama 3.1
-                 - Antropic Claude Sonnet 3.5
-                 - OpenAI GPT-4o mini
-                 - Ollama Llama 3
-                 - Llamafile
+             - Groq Llama 3.1
+             - Antropic Claude Sonnet 3.5
+             - OpenAI GPT-4o mini
+             - Ollama Llama 3
+             - Llamafile
   changelog  Generate a changelog starting from a given commit using OpenAI's GPT-4o
   rename     Analyze and rename a file with timestamp and description
+  ocr        Extract text from an image
   bash       Use Bash development as the prompt context
   c          Use C development as the prompt context
   cpp        Use C++ development as the prompt context
