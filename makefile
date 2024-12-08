@@ -40,7 +40,8 @@ test: test-units update-readme
 release:
 	@echo '1. Update ./changelog.md with `cai changelog <commit-hash>`'
 	@echo '2. Run `cargo release major / minor / patch`'
-	@echo '3. Announce release on https://x.com and https://bsky.app'
+	@echo '3. Create a new GitHub release at https://github.com/ad-si/cai/releases/new'
+	@echo '4. Announce release on https://x.com and https://bsky.app'
 
 
 .PHONY: install
