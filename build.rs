@@ -33,11 +33,11 @@ const GROQ_MODEL_MAPPING_SRC: [(&str, &str); 20] = [
   ("mixtral-8x7b", "mixtral-8x7b-32768"),
 ];
 
-const OLLAMA_MODEL_MAPPING_SRC: [(&str, &str); 20] = [
+const OLLAMA_MODEL_MAPPING_SRC: [(&str, &str); 21] = [
   // Default models
-  ("llama", "llama3"),
-  ("ll", "llama3"),
-  ("l", "llama3"),
+  ("llama", "llama3.1"),
+  ("ll", "llama3.1"),
+  ("l", "llama3.1"),
   ("mixtral", "mixtral"),
   ("mix", "mixtral"),
   ("m", "mixtral"),
@@ -54,7 +54,8 @@ const OLLAMA_MODEL_MAPPING_SRC: [(&str, &str); 20] = [
   ("command-r-plus", "command-r-plus"),
   ("crp", "command-r-plus"),
   // Specific versions
-  ("llama3", "llama3"),
+  ("llama3", "llama3.1"),
+  ("llama3.0", "llama3"),
   ("llama2", "llama2"),
 ];
 
