@@ -9,6 +9,7 @@ use cai::{
 use clap::{builder::styling, crate_version, Parser, Subcommand};
 use color_print::cformat;
 use futures::future::join_all;
+use serde_json::{json, Value};
 
 const CRATE_VERSION: &str = crate_version!();
 
@@ -340,7 +341,14 @@ for all supported model ids):"
 
   <dim># Add data via stdin</dim>
   cat main.rs | <b>cai</b> Explain this code
-"
+
+  <dim># Use a JSON schema to specify the output format</dim>
+  <b>cai \
+    --json-schema='{}' \
+    gp Barack Obama
+  </b>
+",
+"{\"properties\":{\"age\":{\"type\":\"number\"}},\"required\":[\"age\"]}"
   ),
   styles = styling::Styles::styled()
     .literal(styling::AnsiColor::Blue.on_default() | styling::Effects::BOLD)
@@ -352,6 +360,9 @@ struct Args {
 
   #[arg(long, short, action, help = "Prompt LLM in JSON output mode")]
   json: bool,
+
+  #[arg(long, action, help = "JSON schema to validate the output against")]
+  json_schema: Option<String>,
 
   #[command(subcommand)]
   command: Option<Commands>,
@@ -378,7 +389,24 @@ async fn exec_with_args(args: Args, stdin: &str) {
   let opts = ExecOptions {
     is_raw: args.raw,
     is_json: args.json,
-    json_schema: None,
+    json_schema: args
+      .json_schema
+      .map(|schema_str| {
+        serde_json::from_str(&schema_str).expect("Invalid JSON schema")
+      })
+      .map(|schema: Value| {
+        let mut schema_obj = schema.as_object().unwrap().clone();
+        schema_obj.insert("additionalProperties".to_string(), false.into());
+        if !schema_obj.contains_key("type") {
+          schema_obj.insert("type".to_string(), "object".into());
+        }
+        let api_object = json!({
+          "name": "requested_json_schema",
+          "strict": true,
+          "schema": schema_obj,
+        });
+        api_object
+      }),
   };
 
   match args.command {

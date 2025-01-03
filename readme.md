@@ -119,9 +119,10 @@ Arguments:
   [PROMPT]...  The prompt to send to the AI model
 
 Options:
-  -r, --raw   Print raw response without any metadata
-  -j, --json  Prompt LLM in JSON output mode
-  -h, --help  Print help
+  -r, --raw                        Print raw response without any metadata
+  -j, --json                       Prompt LLM in JSON output mode
+      --json-schema <JSON_SCHEMA>  JSON schema to validate the output against
+  -h, --help                       Print help
 
 
 Examples:
@@ -143,6 +144,10 @@ Examples:
 
   # Add data via stdin
   cat main.rs | cai Explain this code
+
+  # Use a JSON schema to specify the output format
+  cai --json-schema='{"properties":{"age":{"type":"number"}},"required":["age"]}' gp Barack Obama
+  
 ```
 
 

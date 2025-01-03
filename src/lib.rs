@@ -337,7 +337,7 @@ fn get_req_body_obj(
 
   if opts.json_schema.is_some() {
     match http_req.provider {
-      Provider::OpenAI | Provider::Groq | Provider::Ollama => {
+      Provider::OpenAI | Provider::Ollama => {
         let mut json_schema = Map::new();
         json_schema.insert("type".to_string(), "json_schema".into());
         json_schema.insert(
@@ -525,7 +525,9 @@ pub async fn analyze_file_content(
         "description": {
           "type": "string",
           "description":
-            "A short (1-4 words) description that captures its main purpose",
+            "A short (1-4 words) description that captures its main purpose. \
+            Avoid using only generic terms like \
+            analysis, summary, transaction, document, etc.",
         },
         "timestamp": {
           "type": "string",
