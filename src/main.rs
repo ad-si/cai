@@ -568,7 +568,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
                 .replace("z", "")
                 .replace("t0000", "")
             } else {
-              chrono::Local::now().format("%Y-%m-%dT%H%M").to_string()
+              chrono::Local::now().format("%Y-%m-%dt%H%M").to_string()
             };
             let description = analysis //
               .description
