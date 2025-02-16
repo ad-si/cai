@@ -308,10 +308,47 @@ async fn exec_with_args(args: Args, stdin: &str) {
               .replace(' ', "_");
             rename_file(file.to_string(), timestamp, description);
           }
-          Err(err) => {
-            eprintln!("Error analyzing file: {}", err);
-            std::process::exit(1);
-          }
+          Err(error) => match error.downcast_ref::<std::io::Error>() {
+            Some(err) if err.kind() == std::io::ErrorKind::InvalidData => {
+              // If it's not a text file, use the creation time
+              let timestamp = std::fs::metadata(&file)
+                .map(|meta| {
+                  meta
+                    .created()
+                    .map(|created| {
+                      chrono::DateTime::<chrono::Local>::from(created)
+                        .format("%Y-%m-%dt%H%M")
+                        .to_string()
+                    })
+                    .unwrap_or_else(|_| {
+                      chrono::Local::now().format("%Y-%m-%dt%H%M").to_string()
+                    })
+                    .to_string()
+                })
+                .unwrap_or_else(|_| {
+                  chrono::Local::now().format("%Y-%m-%dt%H%M").to_string()
+                });
+
+              std::path::Path::new(&file)
+                .file_stem()
+                .map(|file_name_no_ext| {
+                  file_name_no_ext.to_str().unwrap_or_default().to_string()
+                })
+                .map(|file_name| {
+                  rename_file(file.to_string(), timestamp, file_name)
+                })
+                .unwrap_or_else(|| {
+                  dbg!(err);
+                  std::process::exit(1);
+                });
+            }
+            err => {
+              err.map(|e| {
+                eprintln!("{}", e);
+              });
+              std::process::exit(1);
+            }
+          },
         }
       }
       /////////////////////////////////////////
@@ -417,7 +454,13 @@ async fn exec_with_args(args: Args, stdin: &str) {
 fn rename_file(file: String, timestamp: String, description: String) {
   let path = std::path::Path::new(&file);
   let ext = path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
-  let mut new_name = format!("{}_{}.{}", timestamp, description, ext);
+  let mut new_name = path
+    .parent()
+    .unwrap_or_else(|| std::path::Path::new(""))
+    .join(format!("{}_{}.{}", timestamp, description, ext))
+    .to_str()
+    .unwrap()
+    .to_string();
 
   let mut counter = 0;
   loop {
