@@ -153,6 +153,14 @@ async fn exec_with_args(args: Args, stdin: &str) {
         )
         .await
       }
+      Commands::Cerebras { model, prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(Provider::Cerebras, model.to_string())),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
       Commands::Openai { model, prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::OpenAI, model.to_string())),
@@ -240,6 +248,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
             Provider::Anthropic,
             "claude-3-5-sonnet-latest".to_string(),
           ),
+          Model::Model(Provider::Cerebras, "llama-3.1-8b".to_string()),
           Model::Model(Provider::Groq, "llama-3.1-8b-instant".to_string()),
           Model::Model(Provider::OpenAI, "gpt-4o-mini".to_string()),
           Model::Model(Provider::Ollama, "llama3".to_string()),

@@ -29,6 +29,15 @@ pub enum Commands {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
+  /// Cerebras
+  #[clap(visible_alias = "ce")]
+  Cerebras {
+    #[clap(help = cerebras_models_pretty!("Following aliases are available:"))]
+    model: String,
+    /// The prompt to send to the AI model
+    #[clap(required(true))]
+    prompt: Vec<String>,
+  },
   /// OpenAI
   #[clap(visible_alias = "op")]
   Openai {
@@ -325,6 +334,7 @@ impl Commands {
   pub fn to_string_pretty(&self) -> Option<String> {
     match &self {
       Commands::Groq { .. } => None,
+      Commands::Cerebras { .. } => None,
       Commands::Llama3 { .. } => None,
       Commands::Mixtral { .. } => None,
       Commands::Openai { .. } => None,

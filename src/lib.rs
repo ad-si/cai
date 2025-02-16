@@ -28,6 +28,7 @@ pub struct ExecOptions {
 pub enum Provider {
   #[default]
   Anthropic,
+  Cerebras,
   Groq,
   OpenAI,
   Llamafile,
@@ -38,6 +39,7 @@ impl std::fmt::Display for Provider {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
       Provider::Anthropic => write!(f, "Anthropic"),
+      Provider::Cerebras => write!(f, "Cerebras"),
       Provider::Groq => write!(f, "Groq"),
       Provider::OpenAI => write!(f, "OpenAI"),
       Provider::Llamafile => write!(f, "Llamafile"),
@@ -129,6 +131,18 @@ fn default_req_for_model(model: &Model) -> AiRequest {
   let Model::Model(provider, model_id) = model;
 
   match provider {
+    Provider::Anthropic => AiRequest {
+      provider: Provider::Anthropic,
+      url: "https://api.anthropic.com/v1/messages".to_string(),
+      model: types::get_anthropic_model(model_id).to_string(),
+      ..Default::default()
+    },
+    Provider::Cerebras => AiRequest {
+      provider: Provider::Cerebras,
+      url: "https://api.cerebras.ai/v1/chat/completions".to_string(),
+      model: types::get_cerebras_model(model_id).to_string(),
+      ..Default::default()
+    },
     Provider::Groq => AiRequest {
       provider: Provider::Groq,
       url: "https://api.groq.com/openai/v1/chat/completions".to_string(),
@@ -139,12 +153,6 @@ fn default_req_for_model(model: &Model) -> AiRequest {
       provider: Provider::OpenAI,
       url: "https://api.openai.com/v1/chat/completions".to_string(),
       model: types::get_openai_model(model_id).to_string(),
-      ..Default::default()
-    },
-    Provider::Anthropic => AiRequest {
-      provider: Provider::Anthropic,
-      url: "https://api.anthropic.com/v1/messages".to_string(),
-      model: types::get_anthropic_model(model_id).to_string(),
       ..Default::default()
     },
     Provider::Llamafile => AiRequest {
@@ -185,11 +193,12 @@ fn get_api_request(
 
   {
     match provider {
-      Provider::Groq => full_config.get("groq_api_key"),
-      Provider::OpenAI => full_config.get("openai_api_key"),
       Provider::Anthropic => full_config.get("anthropic_api_key"),
+      Provider::Cerebras => full_config.get("cerebras_api_key"),
+      Provider::Groq => full_config.get("groq_api_key"),
       Provider::Llamafile => Some(&dummy_key),
       Provider::Ollama => Some(&dummy_key),
+      Provider::OpenAI => full_config.get("openai_api_key"),
     }
   }
   .and_then(|api_key| {
@@ -214,11 +223,12 @@ fn get_used_model(model: &Model) -> String {
     cformat!("<bold>🧠 {}</bold>", provider)
   } else {
     let full_model_id = match provider {
-      Provider::Groq => types::get_groq_model(model_id),
-      Provider::OpenAI => types::get_openai_model(model_id),
       Provider::Anthropic => types::get_anthropic_model(model_id),
+      Provider::Cerebras => types::get_cerebras_model(model_id),
+      Provider::Groq => types::get_groq_model(model_id),
       Provider::Llamafile => model_id,
       Provider::Ollama => types::get_ollama_model(model_id),
+      Provider::OpenAI => types::get_openai_model(model_id),
     };
     cformat!("<bold>🧠 {} {}</bold>", provider, full_model_id)
   }

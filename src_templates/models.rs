@@ -1,4 +1,52 @@
 //////////////////////////////////////////////////
+/////////////////// ANTHROPIC ////////////////////
+
+// Pretty-printed string representation of the hashmap
+pub const ANTHROPIC_MODEL_MAPPING: &[(&str, &str)] = &[
+  // This will be replaced by build.rs:
+  // {anthropic_model_hashmap}
+];
+
+pub fn get_anthropic_model(model_id: &str) -> &str {
+  ANTHROPIC_MODEL_MAPPING
+    .iter()
+    .find(|(key, _)| key == &model_id)
+    .map_or(model_id, |(_, value)| *value)
+}
+
+macro_rules! anthropic_models_pretty {
+  ($prefix: expr) => {
+    // This will be replaced by build.rs
+    concat!($prefix, "\n", "{anthropic_models_pretty}")
+  };
+}
+
+//////////////////////////////////////////////////
+//////////////////// CEREBRAS ////////////////////
+
+// {const_assignments}
+
+// Static mapping accessible from other files
+pub const CEREBRAS_MODEL_MAPPING: &[(&str, &str)] = &[
+  // This will be replaced by build.rs:
+  // {cerebras_model_hashmap}
+];
+
+pub fn get_cerebras_model(model_id: &str) -> &str {
+  CEREBRAS_MODEL_MAPPING
+    .iter()
+    .find(|(key, _)| key == &model_id)
+    .map_or(model_id, |(_, value)| *value)
+}
+
+macro_rules! cerebras_models_pretty {
+  ($prefix: expr) => {
+    // This will be replaced by build.rs
+    concat!($prefix, "\n", "{cerebras_models_pretty}")
+  };
+}
+
+//////////////////////////////////////////////////
 ////////////////////// GROQ //////////////////////
 
 // {const_assignments}
@@ -66,28 +114,5 @@ macro_rules! openai_models_pretty {
   ($prefix: expr) => {
     // This will be replaced by build.rs
     concat!($prefix, "\n", "{openai_models_pretty}")
-  };
-}
-
-//////////////////////////////////////////////////
-/////////////////// ANTHROPIC ////////////////////
-
-// Pretty-printed string representation of the hashmap
-pub const ANTHROPIC_MODEL_MAPPING: &[(&str, &str)] = &[
-  // This will be replaced by build.rs:
-  // {anthropic_model_hashmap}
-];
-
-pub fn get_anthropic_model(model_id: &str) -> &str {
-  ANTHROPIC_MODEL_MAPPING
-    .iter()
-    .find(|(key, _)| key == &model_id)
-    .map_or(model_id, |(_, value)| *value)
-}
-
-macro_rules! anthropic_models_pretty {
-  ($prefix: expr) => {
-    // This will be replaced by build.rs
-    concat!($prefix, "\n", "{anthropic_models_pretty}")
   };
 }
