@@ -167,4 +167,5 @@ fn main() {
 
   fs::write(&dest_path, code).unwrap();
   println!("cargo:rerun-if-changed=build.rs");
+  println!("cargo:rerun-if-changed=src_templates/models.rs");
 }

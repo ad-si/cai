@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 //////////////////////////////////////////////////
 ////////////////////// GROQ //////////////////////
 
@@ -11,18 +9,13 @@ pub const GROQ_MODEL_MAPPING: &[(&str, &str)] = &[
   // {groq_model_hashmap}
 ];
 
-fn get_groq_model(model_id: &str) -> &str {
+pub fn get_groq_model(model_id: &str) -> &str {
   GROQ_MODEL_MAPPING
     .iter()
     .find(|(key, _)| key == &model_id)
     .map_or(model_id, |(_, value)| *value)
 }
 
-pub const GROQ_MODELS_PRETTY: &str =
-  // This will be replaced by build.rs
-  "{groq_models_pretty}";
-
-#[macro_export]
 macro_rules! groq_models_pretty {
   ($prefix: expr) => {
     // This will be replaced by build.rs
@@ -39,18 +32,13 @@ pub const OLLAMA_MODEL_MAPPING: &[(&str, &str)] = &[
   // {ollama_model_hashmap}
 ];
 
-fn get_ollama_model(model_id: &str) -> &str {
+pub fn get_ollama_model(model_id: &str) -> &str {
   OLLAMA_MODEL_MAPPING
     .iter()
     .find(|(key, _)| key == &model_id)
     .map_or(model_id, |(_, value)| *value)
 }
 
-pub const OLLAMA_MODELS_PRETTY: &str =
-  // This will be replaced by build.rs:
-  "{ollama_models_pretty}";
-
-#[macro_export]
 macro_rules! ollama_models_pretty {
   ($prefix: expr) => {
     // This will be replaced by build.rs
@@ -67,18 +55,13 @@ pub const OPENAI_MODEL_MAPPING: &[(&str, &str)] = &[
   // {openai_model_hashmap}
 ];
 
-fn get_openai_model(model_id: &str) -> &str {
+pub fn get_openai_model(model_id: &str) -> &str {
   OPENAI_MODEL_MAPPING
     .iter()
     .find(|(key, _)| key == &model_id)
     .map_or(model_id, |(_, value)| *value)
 }
 
-pub const OPENAI_MODELS_PRETTY: &str =
-  // This will be replaced by build.rs:
-  "{openai_models_pretty}";
-
-#[macro_export]
 macro_rules! openai_models_pretty {
   ($prefix: expr) => {
     // This will be replaced by build.rs
@@ -95,18 +78,13 @@ pub const ANTHROPIC_MODEL_MAPPING: &[(&str, &str)] = &[
   // {anthropic_model_hashmap}
 ];
 
-fn get_anthropic_model(model_id: &str) -> &str {
+pub fn get_anthropic_model(model_id: &str) -> &str {
   ANTHROPIC_MODEL_MAPPING
     .iter()
     .find(|(key, _)| key == &model_id)
     .map_or(model_id, |(_, value)| *value)
 }
 
-pub const ANTHROPIC_MODELS_PRETTY: &str =
-  // This will be replaced by build.rs:
-  "{anthropic_models_pretty}";
-
-#[macro_export]
 macro_rules! anthropic_models_pretty {
   ($prefix: expr) => {
     // This will be replaced by build.rs

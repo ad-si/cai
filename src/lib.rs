@@ -1,6 +1,8 @@
 mod highlight;
+mod types;
 
 use base64::Engine;
+use std::collections::HashMap;
 use std::env;
 use std::error::Error;
 use std::str;
@@ -11,16 +13,15 @@ use config::Config;
 use reqwest::Response;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
+pub use types::Commands;
 use xdg::BaseDirectories;
-
-// Includes `GROQ_MODEL_MAPPING` and `OLLAMA_MODEL_MAPPING` from `/build.rs`
-include!(concat!(env!("OUT_DIR"), "/models.rs"));
 
 #[derive(Serialize, Debug, PartialEq, Default, Clone)]
 pub struct ExecOptions {
   pub is_raw: bool, // Raw output mode (no metadata and no syntax highlighting)
   pub is_json: bool, // JSON output mode
   pub json_schema: Option<Value>, // JSON schema of expected output
+  pub subcommand: Option<Commands>, // Optional subcommand that was executed
 }
 
 #[derive(Serialize, Debug, PartialEq, Default, Clone, Copy)]
@@ -131,19 +132,19 @@ fn default_req_for_model(model: &Model) -> AiRequest {
     Provider::Groq => AiRequest {
       provider: Provider::Groq,
       url: "https://api.groq.com/openai/v1/chat/completions".to_string(),
-      model: get_groq_model(model_id).to_string(),
+      model: types::get_groq_model(model_id).to_string(),
       ..Default::default()
     },
     Provider::OpenAI => AiRequest {
       provider: Provider::OpenAI,
       url: "https://api.openai.com/v1/chat/completions".to_string(),
-      model: get_openai_model(model_id).to_string(),
+      model: types::get_openai_model(model_id).to_string(),
       ..Default::default()
     },
     Provider::Anthropic => AiRequest {
       provider: Provider::Anthropic,
       url: "https://api.anthropic.com/v1/messages".to_string(),
-      model: get_anthropic_model(model_id).to_string(),
+      model: types::get_anthropic_model(model_id).to_string(),
       ..Default::default()
     },
     Provider::Llamafile => AiRequest {
@@ -154,7 +155,7 @@ fn default_req_for_model(model: &Model) -> AiRequest {
     Provider::Ollama => AiRequest {
       provider: Provider::Ollama,
       url: "http://localhost:11434/v1/chat/completions".to_string(),
-      model: get_ollama_model(model_id).to_string(),
+      model: types::get_ollama_model(model_id).to_string(),
       ..Default::default()
     },
   }
@@ -213,11 +214,11 @@ fn get_used_model(model: &Model) -> String {
     cformat!("<bold>🧠 {}</bold>", provider)
   } else {
     let full_model_id = match provider {
-      Provider::Groq => get_groq_model(model_id),
-      Provider::OpenAI => get_openai_model(model_id),
-      Provider::Anthropic => get_anthropic_model(model_id),
+      Provider::Groq => types::get_groq_model(model_id),
+      Provider::OpenAI => types::get_openai_model(model_id),
+      Provider::Anthropic => types::get_anthropic_model(model_id),
       Provider::Llamafile => model_id,
-      Provider::Ollama => get_ollama_model(model_id),
+      Provider::Ollama => types::get_ollama_model(model_id),
     };
     cformat!("<bold>🧠 {} {}</bold>", provider, full_model_id)
   }
@@ -406,12 +407,18 @@ pub async fn exec_tool(
 
   let resp = exec_request(&http_req, &req_body_obj).await?;
   let elapsed_time: String = start.elapsed().as_millis().to_string();
+  let subcommand = opts
+    .subcommand
+    .as_ref()
+    .and_then(|x| x.to_string_pretty())
+    .map(|subcom| format!("| ➡️ {}", subcom))
+    .unwrap_or_default();
 
   if !&resp.status().is_success() {
     let resp_json = resp.json::<Value>().await?;
     let resp_formatted = serde_json::to_string_pretty(&resp_json).unwrap();
     Err(cformat!(
-      "<bold>⏱️ {: >5} ms</bold> | {used_model}\n\
+      "<bold>⏱️ {: >5} ms</bold> | {used_model} {subcommand}\n\
       \n{resp_formatted}",
       elapsed_time,
     ))?;
@@ -430,7 +437,10 @@ pub async fn exec_tool(
     if opts.is_raw {
       println!("{}", msg);
     } else {
-      cprintln!("<bold>⏱️{: >5} ms</bold> | {used_model}\n", elapsed_time,);
+      cprintln!(
+        "<bold>⏱️{: >5} ms</bold> | {used_model} {subcommand}\n",
+        elapsed_time,
+      );
       highlight::text_via_bat(&msg);
       println!("\n");
     }
@@ -605,9 +615,10 @@ pub async fn extract_text_from_file(
 
 pub async fn prompt_with_lang_cntxt(
   opts: &ExecOptions,
-  prog_lang: &str,
-  prompt: Vec<String>,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
+  cmd: &Commands,
+  prompt: &Vec<String>,
+) {
+  let prog_lang = cmd.to_string_pretty().unwrap_or_default();
   let system_prompt = format!(
     "You're a professional {prog_lang} developer.\n
     Answer the following question in the context of {prog_lang}.\n
@@ -619,12 +630,16 @@ pub async fn prompt_with_lang_cntxt(
     "claude-3-5-sonnet-latest".to_string(), //
   );
 
-  exec_tool(
+  if let Err(err) = exec_tool(
     &Some(&model),
     &opts,
     &(system_prompt.to_owned() + &prompt.join(" ")), //
   )
   .await
+  {
+    eprintln!("Error prompting with OCaml context: {}", err);
+    std::process::exit(1);
+  }
 }
 
 #[cfg(test)]
@@ -640,6 +655,7 @@ mod tests {
         is_raw: false,
         is_json: false,
         json_schema: None,
+        subcommand: None,
       },
       &prompt,
     )

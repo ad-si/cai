@@ -1,5 +1,5 @@
-# model: openai/o1
-# model: openai/gpt-4o
+model: openai/gpt-4o
+# model: anthropic/claude-3-5-sonnet-20241022
 
 auto-test: true
 test-cmd: make test
@@ -10,5 +10,12 @@ lint-cmd: rustfmt --edition 2021
 auto-commits: false
 attribute-committer: false
 
-file: [readme.md, Cargo.toml, src/main.rs, src/lib.rs]
-read: [tests/integration_tests.rs]
+file:
+  - readme.md
+  - Cargo.toml
+  - src/main.rs
+  - src/lib.rs
+  - src/types.rs
+
+read:
+  - tests/integration_tests.rs
