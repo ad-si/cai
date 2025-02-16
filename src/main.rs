@@ -483,24 +483,32 @@ fn rename_file(file: String, timestamp: String, description: String) {
 async fn main() {
   let stdin = stdin();
   let mut args_vector = std::env::args().collect::<Vec<_>>();
+  let args = Args::parse_from(&args_vector);
 
-  if stdin.is_terminal() {
-    exec_with_args(Args::parse_from(args_vector), "").await;
-  } else {
-    let input = read_to_string(stdin).unwrap();
-    let only_stdin = !input.is_empty() && args_vector.len() <= 1;
-
-    if only_stdin {
-      args_vector.push("".to_string());
-    }
-
-    let mut args = Args::parse_from(args_vector);
-
-    if only_stdin {
-      args.prompt = vec![input];
+  match &args.command {
+    Some(Commands::Rename { .. }) => {
       exec_with_args(args, "").await;
-    } else {
-      exec_with_args(args, input.trim()).await;
+    }
+    _ => {
+      if stdin.is_terminal() {
+        exec_with_args(args, "").await;
+      } else {
+        let input = read_to_string(stdin).unwrap();
+        let only_stdin = !input.is_empty() && args_vector.len() <= 1;
+
+        if only_stdin {
+          args_vector.push("".to_string());
+        }
+
+        let mut args = Args::parse_from(args_vector);
+
+        if only_stdin {
+          args.prompt = vec![input];
+          exec_with_args(args, "").await;
+        } else {
+          exec_with_args(args, input.trim()).await;
+        }
+      }
     }
   }
 }
