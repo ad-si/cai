@@ -29,6 +29,7 @@ pub enum Provider {
   #[default]
   Anthropic,
   Cerebras,
+  DeepSeek,
   Groq,
   OpenAI,
   Llamafile,
@@ -40,6 +41,7 @@ impl std::fmt::Display for Provider {
     match self {
       Provider::Anthropic => write!(f, "Anthropic"),
       Provider::Cerebras => write!(f, "Cerebras"),
+      Provider::DeepSeek => write!(f, "DeepSeek"),
       Provider::Groq => write!(f, "Groq"),
       Provider::OpenAI => write!(f, "OpenAI"),
       Provider::Llamafile => write!(f, "Llamafile"),
@@ -143,6 +145,12 @@ fn default_req_for_model(model: &Model) -> AiRequest {
       model: types::get_cerebras_model(model_id).to_string(),
       ..Default::default()
     },
+    Provider::DeepSeek => AiRequest {
+      provider: Provider::DeepSeek,
+      url: "https://api.deepseek.com/chat/completions".to_string(),
+      model: types::get_cerebras_model(model_id).to_string(),
+      ..Default::default()
+    },
     Provider::Groq => AiRequest {
       provider: Provider::Groq,
       url: "https://api.groq.com/openai/v1/chat/completions".to_string(),
@@ -195,6 +203,7 @@ fn get_api_request(
     match provider {
       Provider::Anthropic => full_config.get("anthropic_api_key"),
       Provider::Cerebras => full_config.get("cerebras_api_key"),
+      Provider::DeepSeek => full_config.get("deepseek_api_key"),
       Provider::Groq => full_config.get("groq_api_key"),
       Provider::Llamafile => Some(&dummy_key),
       Provider::Ollama => Some(&dummy_key),
@@ -225,6 +234,7 @@ fn get_used_model(model: &Model) -> String {
     let full_model_id = match provider {
       Provider::Anthropic => types::get_anthropic_model(model_id),
       Provider::Cerebras => types::get_cerebras_model(model_id),
+      Provider::DeepSeek => types::get_deepseek_model(model_id),
       Provider::Groq => types::get_groq_model(model_id),
       Provider::Llamafile => model_id,
       Provider::Ollama => types::get_ollama_model(model_id),

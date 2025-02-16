@@ -69,6 +69,7 @@ Commands:
   ll         - Llama 3 shortcut (🏆 Default)
   mi         - Mixtral shortcut
   cerebras   Cerebras [aliases: ce]
+  deepseek   DeepSeek [aliases: de]
   openai     OpenAI [aliases: op]
   gp         - GPT-4o shortcut
   gm         - GPT-4o mini shortcut

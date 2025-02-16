@@ -161,6 +161,14 @@ async fn exec_with_args(args: Args, stdin: &str) {
         )
         .await
       }
+      Commands::Deepseek { model, prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(Provider::DeepSeek, model.to_string())),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
       Commands::Openai { model, prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::OpenAI, model.to_string())),

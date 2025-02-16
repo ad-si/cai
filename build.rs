@@ -84,6 +84,11 @@ const CEREBRAS_MODEL_MAPPING_SRC: [(&str, &str); 13] = [
   ("deepseek-r1", "deepseek-r1-distill-llama-70b"),
 ];
 
+const DEEPSEEK_MODEL_MAPPING_SRC: [(&str, &str); 2] = [
+  ("chat", "deepseek-chat"),
+  ("reasoner", "deepseek-reasoner"), //
+];
+
 const OLLAMA_MODEL_MAPPING_SRC: [(&str, &str); 21] = [
   // Default models
   ("llama", "llama3.1"),
@@ -163,6 +168,17 @@ fn main() {
     .replace(
       "{cerebras_models_pretty}",
       &pretty_print_mapping(&CEREBRAS_MODEL_MAPPING_SRC),
+    )
+    .replace(
+      "// {deepseek_model_hashmap}",
+      &DEEPSEEK_MODEL_MAPPING_SRC
+        .iter()
+        .map(|(model, constant)| format!("(\"{model}\", \"{constant}\"),\n"))
+        .collect::<String>(),
+    )
+    .replace(
+      "{deepseek_models_pretty}",
+      &pretty_print_mapping(&DEEPSEEK_MODEL_MAPPING_SRC),
     )
     .replace(
       "// {groq_model_hashmap}",

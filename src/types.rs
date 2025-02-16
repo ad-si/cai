@@ -38,6 +38,15 @@ pub enum Commands {
     #[clap(required(true))]
     prompt: Vec<String>,
   },
+  /// DeepSeek
+  #[clap(visible_alias = "de")]
+  Deepseek {
+    #[clap(help = deepseek_models_pretty!("Following aliases are available:"))]
+    model: String,
+    /// The prompt to send to the AI model
+    #[clap(required(true))]
+    prompt: Vec<String>,
+  },
   /// OpenAI
   #[clap(visible_alias = "op")]
   Openai {
@@ -335,6 +344,7 @@ impl Commands {
     match &self {
       Commands::Groq { .. } => None,
       Commands::Cerebras { .. } => None,
+      Commands::Deepseek { .. } => None,
       Commands::Llama3 { .. } => None,
       Commands::Mixtral { .. } => None,
       Commands::Openai { .. } => None,

@@ -47,6 +47,31 @@ macro_rules! cerebras_models_pretty {
 }
 
 //////////////////////////////////////////////////
+//////////////////// DEEPSEEK ////////////////////
+
+// {const_assignments}
+
+// Static mapping accessible from other files
+pub const DEEPSEEK_MODEL_MAPPING: &[(&str, &str)] = &[
+  // This will be replaced by build.rs:
+  // {deepseek_model_hashmap}
+];
+
+pub fn get_deepseek_model(model_id: &str) -> &str {
+  DEEPSEEK_MODEL_MAPPING
+    .iter()
+    .find(|(key, _)| key == &model_id)
+    .map_or(model_id, |(_, value)| *value)
+}
+
+macro_rules! deepseek_models_pretty {
+  ($prefix: expr) => {
+    // This will be replaced by build.rs
+    concat!($prefix, "\n", "{deepseek_models_pretty}")
+  };
+}
+
+//////////////////////////////////////////////////
 ////////////////////// GROQ //////////////////////
 
 // {const_assignments}
