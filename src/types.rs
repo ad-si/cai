@@ -223,6 +223,12 @@ for all supported model ids):"
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
+  /// Use LilyPond development as the prompt context
+  #[clap()]
+  Ly {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
   /// Use Lua development as the prompt context
   #[clap()]
   Lua {
@@ -243,7 +249,7 @@ for all supported model ids):"
   },
   /// Use Postgres development as the prompt context
   #[clap()]
-  Po {
+  Pg {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
@@ -286,6 +292,12 @@ for all supported model ids):"
   /// Use TypeScript development as the prompt context
   #[clap()]
   Ts {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use Typst development as the prompt context
+  #[clap()]
+  Ty {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
@@ -345,9 +357,10 @@ impl Commands {
       Commands::Js { .. } => Some("JavaScript"),
       Commands::Kt { .. } => Some("Kotlin"),
       Commands::Lua { .. } => Some("Lua"),
+      Commands::Ly { .. } => Some("LilyPond"),
       Commands::Oc { .. } => Some("OCaml"),
       Commands::Php { .. } => Some("PHP"),
-      Commands::Po { .. } => Some("Postgres"),
+      Commands::Pg { .. } => Some("Postgres"),
       Commands::Ps { .. } => Some("PureScript"),
       Commands::Py { .. } => Some("Python"),
       Commands::Rb { .. } => Some("Ruby"),
@@ -355,6 +368,7 @@ impl Commands {
       Commands::Sql { .. } => Some("SQLite"),
       Commands::Sw { .. } => Some("Swift"),
       Commands::Ts { .. } => Some("TypeScript"),
+      Commands::Ty { .. } => Some("Typst"),
       Commands::Wl { .. } => Some("Wolfram Language"),
       Commands::Zig { .. } => Some("Zig"),
     }

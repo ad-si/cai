@@ -365,6 +365,9 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Kt { prompt } => {
         prompt_with_lang_cntxt(&opts, &cmd, prompt).await
       }
+      Commands::Ly { prompt } => {
+        prompt_with_lang_cntxt(&opts, &cmd, prompt).await
+      }
       Commands::Lua { prompt } => {
         prompt_with_lang_cntxt(&opts, &cmd, prompt).await
       }
@@ -374,7 +377,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Php { prompt } => {
         prompt_with_lang_cntxt(&opts, &cmd, prompt).await
       }
-      Commands::Po { prompt } => {
+      Commands::Pg { prompt } => {
         prompt_with_lang_cntxt(&opts, &cmd, prompt).await
       }
       Commands::Ps { prompt } => {
@@ -396,6 +399,9 @@ async fn exec_with_args(args: Args, stdin: &str) {
         prompt_with_lang_cntxt(&opts, &cmd, prompt).await
       }
       Commands::Ts { prompt } => {
+        prompt_with_lang_cntxt(&opts, &cmd, prompt).await
+      }
+      Commands::Ty { prompt } => {
         prompt_with_lang_cntxt(&opts, &cmd, prompt).await
       }
       Commands::Wl { prompt } => {

@@ -100,10 +100,11 @@ Commands:
   java       Use Java development as the prompt context
   js         Use JavaScript development as the prompt context
   kt         Use Kotlin development as the prompt context
+  ly         Use LilyPond development as the prompt context
   lua        Use Lua development as the prompt context
   oc         Use OCaml development as the prompt context
   php        Use PHP development as the prompt context
-  po         Use Postgres development as the prompt context
+  pg         Use Postgres development as the prompt context
   ps         Use PureScript development as the prompt context
   py         Use Python development as the prompt context
   rb         Use Ruby development as the prompt context
@@ -111,6 +112,7 @@ Commands:
   sql        Use SQLite development as the prompt context
   sw         Use Swift development as the prompt context
   ts         Use TypeScript development as the prompt context
+  ty         Use Typst development as the prompt context
   wl         Use Wolfram Language and Mathematica development as the prompt context
   zig        Use Zig development as the prompt context
   help       Print this message or the help of the given subcommand(s)
