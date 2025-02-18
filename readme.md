@@ -77,6 +77,8 @@ Commands:
   cl         - Claude Opus
   so         - Claude Sonnet
   ha         - Claude Haiku
+  xai        xAI
+  grok       - Grok
   llamafile  Llamafile server hosted at http://localhost:8080 [aliases: lf]
   ollama     Ollama server hosted at http://localhost:11434 [aliases: ol]
   all        Simultaneously send prompt to each provider's default model:

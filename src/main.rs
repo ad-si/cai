@@ -250,6 +250,22 @@ async fn exec_with_args(args: Args, stdin: &str) {
         )
         .await //
       }
+      Commands::Xai { model, prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(Provider::XAI, model.to_string())),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await //
+      }
+      Commands::Grok { prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(Provider::XAI, "grok-2-latest".to_string())),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
       Commands::All { prompt } => {
         let models = vec![
           Model::Model(
@@ -258,9 +274,10 @@ async fn exec_with_args(args: Args, stdin: &str) {
           ),
           Model::Model(Provider::Cerebras, "llama-3.1-8b".to_string()),
           Model::Model(Provider::Groq, "llama-3.1-8b-instant".to_string()),
-          Model::Model(Provider::OpenAI, "gpt-4o-mini".to_string()),
-          Model::Model(Provider::Ollama, "llama3".to_string()),
           Model::Model(Provider::Llamafile, "".to_string()),
+          Model::Model(Provider::Ollama, "llama3".to_string()),
+          Model::Model(Provider::OpenAI, "gpt-4o-mini".to_string()),
+          Model::Model(Provider::XAI, "grok-2-latest".to_string()),
         ];
 
         let mut handles = vec![];

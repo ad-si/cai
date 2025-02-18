@@ -103,6 +103,23 @@ for all supported model ids):"
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
+  /// xAI
+  Xai {
+    #[clap(help = xai_models_pretty!(
+      "Following aliases are available
+(Check out https://docs.x.ai/docs/models for all supported model ids):"
+    ))]
+    model: String,
+    /// The prompt to send to the AI model
+    #[clap(required(true))]
+    prompt: Vec<String>,
+  },
+  /// - Grok
+  #[clap(name = "grok")]
+  Grok {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
   /// Llamafile server hosted at http://localhost:8080
   #[clap(visible_alias = "lf")]
   Llamafile {
@@ -354,6 +371,8 @@ impl Commands {
       Commands::ClaudeOpus { .. } => None,
       Commands::ClaudeSonnet { .. } => None,
       Commands::ClaudeHaiku { .. } => None,
+      Commands::Xai { .. } => None,
+      Commands::Grok { .. } => None,
       Commands::Llamafile { .. } => None,
       Commands::Ollama { .. } => None,
       Commands::All { .. } => None,

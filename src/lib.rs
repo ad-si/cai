@@ -34,6 +34,7 @@ pub enum Provider {
   OpenAI,
   Llamafile,
   Ollama,
+  XAI,
 }
 
 impl std::fmt::Display for Provider {
@@ -43,9 +44,10 @@ impl std::fmt::Display for Provider {
       Provider::Cerebras => write!(f, "Cerebras"),
       Provider::DeepSeek => write!(f, "DeepSeek"),
       Provider::Groq => write!(f, "Groq"),
-      Provider::OpenAI => write!(f, "OpenAI"),
       Provider::Llamafile => write!(f, "Llamafile"),
       Provider::Ollama => write!(f, "Ollama"),
+      Provider::OpenAI => write!(f, "OpenAI"),
+      Provider::XAI => write!(f, "xAI"),
     }
   }
 }
@@ -134,44 +136,50 @@ fn default_req_for_model(model: &Model) -> AiRequest {
 
   match provider {
     Provider::Anthropic => AiRequest {
-      provider: Provider::Anthropic,
+      provider: *provider,
       url: "https://api.anthropic.com/v1/messages".to_string(),
       model: types::get_anthropic_model(model_id).to_string(),
       ..Default::default()
     },
     Provider::Cerebras => AiRequest {
-      provider: Provider::Cerebras,
+      provider: *provider,
       url: "https://api.cerebras.ai/v1/chat/completions".to_string(),
       model: types::get_cerebras_model(model_id).to_string(),
       ..Default::default()
     },
     Provider::DeepSeek => AiRequest {
-      provider: Provider::DeepSeek,
+      provider: *provider,
       url: "https://api.deepseek.com/chat/completions".to_string(),
       model: types::get_cerebras_model(model_id).to_string(),
       ..Default::default()
     },
     Provider::Groq => AiRequest {
-      provider: Provider::Groq,
+      provider: *provider,
       url: "https://api.groq.com/openai/v1/chat/completions".to_string(),
       model: types::get_groq_model(model_id).to_string(),
       ..Default::default()
     },
-    Provider::OpenAI => AiRequest {
-      provider: Provider::OpenAI,
-      url: "https://api.openai.com/v1/chat/completions".to_string(),
-      model: types::get_openai_model(model_id).to_string(),
-      ..Default::default()
-    },
     Provider::Llamafile => AiRequest {
-      provider: Provider::Llamafile,
+      provider: *provider,
       url: "http://localhost:8080/v1/chat/completions".to_string(),
       ..Default::default()
     },
     Provider::Ollama => AiRequest {
-      provider: Provider::Ollama,
+      provider: *provider,
       url: "http://localhost:11434/v1/chat/completions".to_string(),
       model: types::get_ollama_model(model_id).to_string(),
+      ..Default::default()
+    },
+    Provider::OpenAI => AiRequest {
+      provider: *provider,
+      url: "https://api.openai.com/v1/chat/completions".to_string(),
+      model: types::get_openai_model(model_id).to_string(),
+      ..Default::default()
+    },
+    Provider::XAI => AiRequest {
+      provider: *provider,
+      url: "https://api.x.ai/v1/chat/completions".to_string(),
+      model: types::get_xai_model(model_id).to_string(),
       ..Default::default()
     },
   }
@@ -208,6 +216,7 @@ fn get_api_request(
       Provider::Llamafile => Some(&dummy_key),
       Provider::Ollama => Some(&dummy_key),
       Provider::OpenAI => full_config.get("openai_api_key"),
+      Provider::XAI => full_config.get("xai_api_key"),
     }
   }
   .and_then(|api_key| {
@@ -239,6 +248,7 @@ fn get_used_model(model: &Model) -> String {
       Provider::Llamafile => model_id,
       Provider::Ollama => types::get_ollama_model(model_id),
       Provider::OpenAI => types::get_openai_model(model_id),
+      Provider::XAI => types::get_xai_model(model_id),
     };
     cformat!("<bold>🧠 {} {}</bold>", provider, full_model_id)
   }
@@ -308,6 +318,14 @@ fn get_http_req(
             &full_config,
             &secrets_path_str,
             &Model::Model(Provider::OpenAI, "gpt-4o-mini".to_string()),
+          ))
+          .or(get_api_request(
+            &full_config,
+            &secrets_path_str,
+            &Model::Model(
+              Provider::Anthropic,
+              "claude-3-5-sonnet-latest".to_string(),
+            ),
           ))?;
       let used_model = get_used_model(
         &Model::Model(req.provider.clone(), req.model.clone()), //

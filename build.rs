@@ -132,6 +132,20 @@ const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 13] = [
   ("turbo35", "gpt-3.5-turbo"),
   ("t35", "gpt-3.5-turbo"),
 ];
+
+const XAI_MODEL_MAPPING_SRC: [(&str, &str); 8] = [
+  // Default models
+  ("grok", "grok-2-latest"),
+  ("grok-mini", "grok-3-mini-latest"),
+  ("grok-vision", "grok-2-vision-latest"),
+  // Specific versions
+  ("grok-2", "grok-2-1212"),
+  ("grok-2-vision", "grok-2-vision-1212"),
+  ("grok-3", "grok-3-latest"),
+  ("grok-3-mini", "grok-3-mini-latest"),
+  ("grok-3-vision", "grok-3-vision-latest"),
+];
+
 fn pretty_print_mapping(mapping: &[(&str, &str)]) -> String {
   mapping
     .iter()
@@ -212,6 +226,17 @@ fn main() {
     .replace(
       "{openai_models_pretty}",
       &pretty_print_mapping(&OPENAI_MODEL_MAPPING_SRC),
+    )
+    .replace(
+      "// {xai_model_hashmap}",
+      &XAI_MODEL_MAPPING_SRC
+        .iter()
+        .map(|(model, constant)| format!("(\"{model}\", \"{constant}\"),\n"))
+        .collect::<String>(),
+    )
+    .replace(
+      "{x_models_pretty}",
+      &pretty_print_mapping(&XAI_MODEL_MAPPING_SRC),
     );
 
   fs::write(&dest_path, code).unwrap();
