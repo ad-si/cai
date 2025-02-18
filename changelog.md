@@ -1,5 +1,19 @@
 # Changelog
 
+# 2025-02-18 - v0.9.0
+
+- Add support for [DeepSeek](https://deepseek.com)
+- Add support for [Cerebras](https://cerebras.ai)
+- Add support for [xAI's Grok](https://x.ai/grok)
+- Don't read stdin for commands which don't support it
+- Don't move file to current directory when renaming in another directory
+- Add subcommands for Typst (`ty`) and LilyPond (`ly`)
+- Display used subcommand in status line
+- Update Ollama default models
+- Add `--json-schema` CLI flag
+- `rename`: Always use a lowercase `t` for timestamp and improve prompt
+
+
 # 2024-12-08 - v0.8.0
 
 - New sub-command `ocr` to extract text from images
