@@ -11,10 +11,13 @@ auto-commits: false
 attribute-committer: false
 
 file:
-  - readme.md
+  - build.rs
   - Cargo.toml
-  - src/main.rs
+  - readme.md
+  - src_templates/models.rs
+  - src/highlight.rs
   - src/lib.rs
+  - src/main.rs
   - src/types.rs
 
 read:

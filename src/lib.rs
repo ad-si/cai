@@ -324,7 +324,7 @@ fn get_http_req(
             &secrets_path_str,
             &Model::Model(
               Provider::Anthropic,
-              "claude-3-5-sonnet-latest".to_string(),
+              "claude-3-7-sonnet-latest".to_string(),
             ),
           ))?;
       let used_model = get_used_model(
@@ -665,7 +665,7 @@ pub async fn prompt_with_lang_cntxt(
 
   let model = Model::Model(
     Provider::Anthropic,
-    "claude-3-5-sonnet-latest".to_string(), //
+    "claude-3-7-sonnet-latest".to_string(), //
   );
 
   if let Err(err) = exec_tool(

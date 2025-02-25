@@ -140,7 +140,7 @@ for all supported model ids):"
   },
   /// Simultaneously send prompt to each provider's default model:
   /// - Groq Llama 3.1
-  /// - Antropic Claude Sonnet 3.5
+  /// - Antropic Claude Sonnet 3.7
   /// - OpenAI GPT-4o mini
   /// - Ollama Llama 3
   /// - Llamafile

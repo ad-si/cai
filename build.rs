@@ -2,20 +2,23 @@ use std::env;
 use std::fs;
 use std::path::Path;
 
-const ANTHROPIC_MODEL_MAPPING_SRC: [(&str, &str); 22] = [
+const ANTHROPIC_MODEL_MAPPING_SRC: [(&str, &str); 26] = [
   // Default models
   ("claude-opus", "claude-3-opus-latest"),
   ("opus", "claude-3-opus-latest"),
   ("op", "claude-3-opus-latest"),
   ("o", "claude-3-opus-latest"),
-  ("claude-sonnet", "claude-3-5-sonnet-latest"),
-  ("sonnet", "claude-3-5-sonnet-latest"),
-  ("so", "claude-3-5-sonnet-latest"),
-  ("s", "claude-3-5-sonnet-latest"),
+  ("claude-sonnet", "claude-3-7-sonnet-latest"),
+  ("sonnet", "claude-3-7-sonnet-latest"),
+  ("so", "claude-3-7-sonnet-latest"),
+  ("s", "claude-3-7-sonnet-latest"),
   ("claude-haiku", "claude-3-5-haiku-latest"),
   ("haiku", "claude-3-5-haiku-latest"),
   ("ha", "claude-3-5-haiku-latest"),
   ("h", "claude-3-5-haiku-latest"),
+  // Version 3.7 models
+  ("claude-sonnet-3-7", "claude-3-7-sonnet-latest"),
+  ("sonnet-3-7", "claude-3-7-sonnet-latest"),
   // Version 3.5 models
   ("claude-sonnet-3-5", "claude-3-5-sonnet-latest"),
   ("sonnet-3-5", "claude-3-5-sonnet-latest"),
@@ -28,6 +31,8 @@ const ANTHROPIC_MODEL_MAPPING_SRC: [(&str, &str); 22] = [
   ("sonnet-3", "claude-3-sonnet-20240229"),
   ("claude-haiku-3", "claude-3-haiku-20240307"),
   ("haiku-3", "claude-3-haiku-20240307"),
+  ("claude-sonnet-3-7", "claude-3-7-sonnet-20250219"),
+  ("sonnet-3-7", "claude-3-7-sonnet-20250219"),
 ];
 
 const GROQ_MODEL_MAPPING_SRC: [(&str, &str); 20] = [

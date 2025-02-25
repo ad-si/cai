@@ -216,7 +216,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
         submit_prompt(
           &Some(&Model::Model(
             Provider::Anthropic,
-            "claude-3-5-sonnet-latest".to_string(),
+            "claude-3-7-sonnet-latest".to_string(),
           )),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
@@ -270,7 +270,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
         let models = vec![
           Model::Model(
             Provider::Anthropic,
-            "claude-3-5-sonnet-latest".to_string(),
+            "claude-3-7-sonnet-latest".to_string(),
           ),
           Model::Model(Provider::Cerebras, "llama-3.1-8b".to_string()),
           Model::Model(Provider::Groq, "llama-3.1-8b-instant".to_string()),
