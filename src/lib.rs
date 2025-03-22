@@ -30,6 +30,7 @@ pub enum Provider {
   Anthropic,
   Cerebras,
   DeepSeek,
+  Google,
   Groq,
   OpenAI,
   Llamafile,
@@ -43,6 +44,7 @@ impl std::fmt::Display for Provider {
       Provider::Anthropic => write!(f, "Anthropic"),
       Provider::Cerebras => write!(f, "Cerebras"),
       Provider::DeepSeek => write!(f, "DeepSeek"),
+      Provider::Google => write!(f, "Google"),
       Provider::Groq => write!(f, "Groq"),
       Provider::Llamafile => write!(f, "Llamafile"),
       Provider::Ollama => write!(f, "Ollama"),
@@ -153,6 +155,12 @@ fn default_req_for_model(model: &Model) -> AiRequest {
       model: types::get_cerebras_model(model_id).to_string(),
       ..Default::default()
     },
+    Provider::Google => AiRequest {
+      provider: *provider,
+      url: "https://generativelanguage.googleapis.com/v1beta/models".to_string(),
+      model: types::get_google_model(model_id).to_string(),
+      ..Default::default()
+    },
     Provider::Groq => AiRequest {
       provider: *provider,
       url: "https://api.groq.com/openai/v1/chat/completions".to_string(),
@@ -190,11 +198,11 @@ fn get_key_setup_msg(secrets_path_str: &str) -> String {
     "An API key must be provided. Use one of the following options:\n\
         \n\
         1. Set one or more API keys in {secrets_path_str}\n\
-           (`anthropic_api_key`, `groq_api_key`, `openai_api_key`)\n\
+           (`anthropic_api_key`, `google_api_key`, `groq_api_key`, `openai_api_key`)\n\
         2. Set one or more cai specific env variables\n\
-            (CAI_ANTHROPIC_API_KEY, CAI_GROQ_API_KEY, CAI_OPENAI_API_KEY)\n\
+            (CAI_ANTHROPIC_API_KEY, CAI_GOOGLE_API_KEY, CAI_GROQ_API_KEY, CAI_OPENAI_API_KEY)\n\
         3. Set one or more generic env variables\n\
-            (ANTHROPIC_API_KEY, GROQ_API_KEY, OPENAI_API_KEY)\n\
+            (ANTHROPIC_API_KEY, GOOGLE_API_KEY, GROQ_API_KEY, OPENAI_API_KEY)\n\
         ",
   )
 }
@@ -212,6 +220,7 @@ fn get_api_request(
       Provider::Anthropic => full_config.get("anthropic_api_key"),
       Provider::Cerebras => full_config.get("cerebras_api_key"),
       Provider::DeepSeek => full_config.get("deepseek_api_key"),
+      Provider::Google => full_config.get("google_api_key"),
       Provider::Groq => full_config.get("groq_api_key"),
       Provider::Llamafile => Some(&dummy_key),
       Provider::Ollama => Some(&dummy_key),
@@ -244,6 +253,7 @@ fn get_used_model(model: &Model) -> String {
       Provider::Anthropic => types::get_anthropic_model(model_id),
       Provider::Cerebras => types::get_cerebras_model(model_id),
       Provider::DeepSeek => types::get_deepseek_model(model_id),
+      Provider::Google => types::get_google_model(model_id),
       Provider::Groq => types::get_groq_model(model_id),
       Provider::Llamafile => model_id,
       Provider::Ollama => types::get_ollama_model(model_id),
@@ -277,6 +287,10 @@ pub fn get_full_config(
     .set_default(
       "openai_api_key",
       env::var("OPENAI_API_KEY").unwrap_or_default(),
+    )?
+    .set_default(
+      "google_api_key",
+      env::var("GOOGLE_API_KEY").unwrap_or_default(),
     )?
     .set_default(
       "groq_api_key", //
@@ -346,6 +360,31 @@ fn get_req_body_obj(
     Err(_) => (),
   }
 
+  // Special handling for Google's Gemini API
+  if http_req.provider == Provider::Google {
+    let mut contents = Map::new();
+    contents.insert("role".to_string(), "user".into());
+    contents.insert("parts".to_string(),
+      Value::Array(vec![
+        Value::Object(Map::from_iter([
+          ("text".to_string(), Value::String(user_input.to_string())),
+        ]))
+      ])
+    );
+
+    let mut generation_config = Map::new();
+    generation_config.insert("maxOutputTokens".to_string(),
+                           Value::Number(http_req.max_tokens.into()));
+
+    let mut map = Map::new();
+    map.insert("contents".to_string(),
+              Value::Array(vec![Value::Object(contents)]));
+    map.insert("generationConfig".to_string(), Value::Object(generation_config));
+
+    return Value::Object(map);
+  }
+
+  // For all other providers
   let mut map = Map::new();
   map.insert("model".to_string(), Value::String(http_req.model.clone()));
   map.insert(
@@ -419,6 +458,13 @@ async fn exec_request(
     Provider::Anthropic => req_base
       .header("anthropic-version", "2023-06-01")
       .header("x-api-key", &http_req.api_key),
+    Provider::Google => {
+      // For Google's Gemini API we need to append the model name and ":generateContent"
+      // to the URL along with the API key as a query parameter
+      let model = &http_req.model;
+      let url = format!("{}/{model}:generateContent?key={}", http_req.url, http_req.api_key);
+      client.post(url).json(&req_body_obj)
+    },
     _ => req_base.bearer_auth(&http_req.api_key),
   };
   req.send().await
@@ -465,6 +511,17 @@ pub async fn exec_tool(
       Provider::Anthropic => {
         let anth_response = resp.json::<AnthropicAiResponse>().await?;
         anth_response.content[0].text.clone()
+      }
+      Provider::Google => {
+        // Handle Google's unique response format
+        let response_text = resp.text().await?;
+        let response_json: Value = serde_json::from_str(&response_text)?;
+
+        // Extract the text from the Gemini response format
+        response_json["candidates"][0]["content"]["parts"][0]["text"]
+          .as_str()
+          .unwrap_or_default()
+          .to_string()
       }
       _ => {
         let ai_response = resp.json::<AiResponse>().await?;

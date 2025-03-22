@@ -72,6 +72,29 @@ macro_rules! deepseek_models_pretty {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////// GOOGLE ////////////////////////////////////
+
+// Pretty-printed string representation of the hashmap
+pub const GOOGLE_MODEL_MAPPING: &[(&str, &str)] = &[
+  // This will be replaced by build.rs:
+  // {google_model_hashmap}
+];
+
+pub fn get_google_model(model_id: &str) -> &str {
+  GOOGLE_MODEL_MAPPING
+    .iter()
+    .find(|(key, _)| key == &model_id)
+    .map_or(model_id, |(_, value)| *value)
+}
+
+macro_rules! google_models_pretty {
+  ($prefix: expr) => {
+    // This will be replaced by build.rs
+    concat!($prefix, "\n", "{google_models_pretty}")
+  };
+}
+
+////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////// GROQ /////////////////////////////////////
 
 // {const_assignments}

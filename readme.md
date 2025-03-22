@@ -65,6 +65,9 @@ The fastest CLI tool for prompting LLMs
 Usage: cai [OPTIONS] [PROMPT]... [COMMAND]
 
 Commands:
+  google     Google [aliases: go]
+  ge         - Gemini Pro shortcut
+  gf         - Gemini Flash shortcut
   groq       Groq [aliases: gr]
   ll         - Llama 3 shortcut (🏆 Default)
   mi         - Mixtral shortcut
@@ -84,6 +87,7 @@ Commands:
   all        Simultaneously send prompt to each provider's default model:
              - Groq Llama 3.1
              - Antropic Claude Sonnet 3.7
+             - Google Gemini 2.0 Flash
              - OpenAI GPT-4o mini
              - Ollama Llama 3
              - Llamafile
@@ -99,7 +103,7 @@ Commands:
   fs         Use F# development as the prompt context
   gd         Use Godot and GDScript development as the prompt context
   gl         Use Gleam development as the prompt context
-  go         Use Go development as the prompt context
+  golang     Use Go development as the prompt context
   hs         Use Haskell development as the prompt context
   java       Use Java development as the prompt context
   js         Use JavaScript development as the prompt context

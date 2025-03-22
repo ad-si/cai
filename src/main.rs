@@ -123,6 +123,36 @@ async fn exec_with_args(args: Args, stdin: &str) {
       .await
     }
     Some(cmd) => match &cmd {
+      Commands::Google { model, prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(Provider::Google, model.to_string())),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
+      Commands::Gemini { prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(
+            Provider::Google,
+            "gemini-2.0-flash".to_string(),
+          )),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
+      Commands::GeminiFlash { prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(
+            Provider::Google,
+            "gemini-2.0-flash".to_string(),
+          )),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
       Commands::Groq { model, prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::Groq, model.to_string())),
@@ -273,6 +303,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
             "claude-3-7-sonnet-latest".to_string(),
           ),
           Model::Model(Provider::Cerebras, "llama-3.1-8b".to_string()),
+          Model::Model(Provider::Google, "gemini-2.0-flash".to_string()),
           Model::Model(Provider::Groq, "llama-3.1-8b-instant".to_string()),
           Model::Model(Provider::Llamafile, "".to_string()),
           Model::Model(Provider::Ollama, "llama3".to_string()),
@@ -421,7 +452,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Gl { prompt } => {
         prompt_with_lang_cntxt(&opts, &cmd, prompt).await
       }
-      Commands::Go { prompt } => {
+      Commands::Golang { prompt } => {
         prompt_with_lang_cntxt(&opts, &cmd, prompt).await
       }
       Commands::Hs { prompt } => {

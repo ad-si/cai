@@ -2,6 +2,22 @@ use std::env;
 use std::fs;
 use std::path::Path;
 
+const GOOGLE_MODEL_MAPPING_SRC: [(&str, &str); 11] = [
+  // Default models
+  ("gemini", "gemini-2.0-flash"),
+  ("g", "gemini-2.0-flash"),
+  ("flash", "gemini-2.0-flash"),
+  ("f", "gemini-2.0-flash"),
+  ("gemini-pro", "gemini-2.0-pro-exp-02-05"),
+  ("pro", "gemini-2.0-pro-exp-02-05"),
+  ("gemini-flash-lite", "gemini-2.0-flash-lite"),
+  ("flast-lite", "gemini-2.0-flash-lite"),
+  ("lite", "gemini-2.0-flash-lite"),
+  // Version 1.5 models
+  ("gemini-1.5-flash", "gemini-1.5-flash"),
+  ("gemini-1.5-pro", "gemini-1.5-pro"),
+];
+
 const ANTHROPIC_MODEL_MAPPING_SRC: [(&str, &str); 26] = [
   // Default models
   ("claude-opus", "claude-3-opus-latest"),
@@ -200,6 +216,17 @@ fn main() {
       &pretty_print_mapping(&DEEPSEEK_MODEL_MAPPING_SRC),
     )
     .replace(
+      "// {google_model_hashmap}",
+      &GOOGLE_MODEL_MAPPING_SRC
+        .iter()
+        .map(|(model, constant)| format!("(\"{model}\", \"{constant}\"),\n"))
+        .collect::<String>(),
+    )
+    .replace(
+      "{google_models_pretty}",
+      &pretty_print_mapping(&GOOGLE_MODEL_MAPPING_SRC),
+    )
+    .replace(
       "// {groq_model_hashmap}",
       &GROQ_MODEL_MAPPING_SRC
         .iter()
@@ -242,6 +269,10 @@ fn main() {
     .replace(
       "{xai_models_pretty}",
       &pretty_print_mapping(&XAI_MODEL_MAPPING_SRC),
+    )
+    .replace(
+      "{google_models_pretty}",
+      &pretty_print_mapping(&GOOGLE_MODEL_MAPPING_SRC),
     );
 
   fs::write(&dest_path, code).unwrap();

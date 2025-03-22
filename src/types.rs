@@ -8,6 +8,27 @@ use serde_derive::Serialize;
 #[clap(args_conflicts_with_subcommands = false, arg_required_else_help(true))]
 pub enum Commands {
   #[allow(dead_code)]
+  /// Google
+  #[clap(visible_alias = "go")]
+  Google {
+    #[clap(help = google_models_pretty!("Following aliases are available:"))]
+    model: String,
+    /// The prompt to send to the AI model
+    #[clap(required(true))]
+    prompt: Vec<String>,
+  },
+  /// - Gemini Pro shortcut
+  #[clap(name = "ge")]
+  Gemini {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// - Gemini Flash shortcut
+  #[clap(name = "gf")]
+  GeminiFlash {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
   /// Groq
   #[clap(visible_alias = "gr")]
   Groq {
@@ -141,6 +162,7 @@ for all supported model ids):"
   /// Simultaneously send prompt to each provider's default model:
   /// - Groq Llama 3.1
   /// - Antropic Claude Sonnet 3.7
+  /// - Google Gemini 2.0 Flash
   /// - OpenAI GPT-4o mini
   /// - Ollama Llama 3
   /// - Llamafile
@@ -230,7 +252,7 @@ for all supported model ids):"
   },
   /// Use Go development as the prompt context
   #[clap()]
-  Go {
+  Golang {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
@@ -359,6 +381,9 @@ impl std::fmt::Display for Commands {
 impl Commands {
   pub fn to_string_pretty(&self) -> Option<String> {
     match &self {
+      Commands::Google { .. } => None,
+      Commands::Gemini { .. } => None,
+      Commands::GeminiFlash { .. } => None,
       Commands::Groq { .. } => None,
       Commands::Cerebras { .. } => None,
       Commands::Deepseek { .. } => None,
@@ -390,7 +415,7 @@ impl Commands {
       Commands::Fs { .. } => Some("F#"),
       Commands::Gd { .. } => Some("GDScript"),
       Commands::Gl { .. } => Some("Gleam"),
-      Commands::Go { .. } => Some("Go"),
+      Commands::Golang { .. } => Some("Go"),
       Commands::Hs { .. } => Some("Haskell"),
       Commands::Java { .. } => Some("Java"),
       Commands::Js { .. } => Some("JavaScript"),
