@@ -240,7 +240,7 @@ fn main() {
         .collect::<String>(),
     )
     .replace(
-      "{x_models_pretty}",
+      "{xai_models_pretty}",
       &pretty_print_mapping(&XAI_MODEL_MAPPING_SRC),
     );
 
