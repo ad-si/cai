@@ -370,6 +370,12 @@ for all supported model ids):"
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
+  /// Use Docker development as the prompt context
+  #[clap()]
+  Docker {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
 }
 
 impl std::fmt::Display for Commands {
@@ -435,6 +441,7 @@ impl Commands {
       Commands::Ty { .. } => Some("Typst"),
       Commands::Wl { .. } => Some("Wolfram Language"),
       Commands::Zig { .. } => Some("Zig"),
+      Commands::Docker { .. } => Some("Docker"),
     }
     .map(|s| s.to_string())
   }
