@@ -3,14 +3,29 @@
 ## Features
 
 - Build with Rust 🦀 for supreme performance and speed! 🏎️
-- Support for models by [Groq], [OpenAI], [Anthropic], and local LLMs. 📚
+- High level commands like `cai ocr` for better usability. 💡
+- Support for models by
+  - [Anthropic]
+  - [OpenAI]
+  - [Google]
+  - [Groq]
+  - [Cerebras]
+  - [Deepseek]
+  - [xAI]
+  - Local LLMs via [Ollama] and [Llamafile]
 - Prompt several models at once. 🤼
     ![Demo of cai's all command](screenshots/2024-04-13t1627_all.png)
 - Syntax highlighting for better readability of code snippets. 🌈
 
+[Anthropic]: https://docs.anthropic.com/en/docs/about-claude/models/all-models
+[Cerebras]: https://inference-docs.cerebras.ai/introduction
+[Deepseek]: https://api-docs.deepseek.com/quick_start/pricing
+[Google]: https://ai.google.dev/gemini-api/docs/models
 [Groq]: https://console.groq.com/docs/models
+[Llamafile]: https://github.com/Mozilla-Ocho/llamafile
+[Ollama]: https://ollama.com
 [OpenAI]: https://platform.openai.com/docs/models
-[Anthropic]: https://docs.anthropic.com/claude/docs/models-overview
+[xAI]: https://x.ai/api#pricing
 
 
 ## Demo
@@ -38,9 +53,6 @@ Cai supports the following APIs:
     [Create new API key](https://console.anthropic.com/settings/keys).
 - **Llamafile** - Local [Llamafile] server running at http://localhost:8080.
 - **Ollama** - Local [Ollama] server running at http://localhost:11434.
-
-[Llamafile]: https://github.com/Mozilla-Ocho/llamafile
-[Ollama]: https://github.com/ollama/ollama
 
 Afterwards, you can use `cai` to run prompts directly from the terminal:
 
@@ -110,6 +122,7 @@ Commands:
   kt         Use Kotlin development as the prompt context
   ly         Use LilyPond development as the prompt context
   lua        Use Lua development as the prompt context
+  nix        Use Nix development as the prompt context
   oc         Use OCaml development as the prompt context
   php        Use PHP development as the prompt context
   pg         Use Postgres development as the prompt context
@@ -124,6 +137,7 @@ Commands:
   wl         Use Wolfram Language and Mathematica development as the prompt context
   zig        Use Zig development as the prompt context
   docker     Use Docker development as the prompt context
+  git        Use Git development as the prompt context
   help       Print this message or the help of the given subcommand(s)
 
 Arguments:

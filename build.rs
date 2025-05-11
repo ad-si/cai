@@ -2,17 +2,22 @@ use std::env;
 use std::fs;
 use std::path::Path;
 
-const GOOGLE_MODEL_MAPPING_SRC: [(&str, &str); 11] = [
+const GOOGLE_MODEL_MAPPING_SRC: [(&str, &str); 14] = [
   // Default models
-  ("gemini", "gemini-2.0-flash"),
-  ("g", "gemini-2.0-flash"),
-  ("flash", "gemini-2.0-flash"),
-  ("f", "gemini-2.0-flash"),
-  ("gemini-pro", "gemini-2.0-pro-exp-02-05"),
-  ("pro", "gemini-2.0-pro-exp-02-05"),
+  ("gemini", "gemini-2.5-flash-preview-04-17"),
+  ("g", "gemini-2.5-flash-preview-04-17"),
+  ("flash", "gemini-2.5-flash-preview-04-17"),
+  ("f", "gemini-2.5-flash-preview-04-17"),
+  ("gemini-pro", "gemini-2.5-pro-preview-05-06"),
+  ("pro", "gemini-2.5-pro-preview-05-06"),
   ("gemini-flash-lite", "gemini-2.0-flash-lite"),
   ("flast-lite", "gemini-2.0-flash-lite"),
   ("lite", "gemini-2.0-flash-lite"),
+  // Version 2.5 models
+  ("gemini-2.5-flash", "gemini-2.5-flash-preview-04-17"),
+  ("gemini-2.5-pro", "gemini-2.5-pro-preview-05-06"),
+  // Version 2 models
+  ("gemini-2-flash", "gemini-2.0-flash"),
   // Version 1.5 models
   ("gemini-1.5-flash", "gemini-1.5-flash"),
   ("gemini-1.5-pro", "gemini-1.5-pro"),

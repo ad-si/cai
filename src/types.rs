@@ -292,6 +292,12 @@ for all supported model ids):"
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
+  /// Use Nix development as the prompt context
+  #[clap()]
+  Nix {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
   /// Use OCaml development as the prompt context
   #[clap()]
   Oc {
@@ -376,6 +382,12 @@ for all supported model ids):"
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
+  /// Use Git development as the prompt context
+  #[clap()]
+  Git {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
 }
 
 impl std::fmt::Display for Commands {
@@ -428,6 +440,7 @@ impl Commands {
       Commands::Kt { .. } => Some("Kotlin"),
       Commands::Lua { .. } => Some("Lua"),
       Commands::Ly { .. } => Some("LilyPond"),
+      Commands::Nix { .. } => Some("Nix"),
       Commands::Oc { .. } => Some("OCaml"),
       Commands::Php { .. } => Some("PHP"),
       Commands::Pg { .. } => Some("Postgres"),
@@ -442,6 +455,7 @@ impl Commands {
       Commands::Wl { .. } => Some("Wolfram Language"),
       Commands::Zig { .. } => Some("Zig"),
       Commands::Docker { .. } => Some("Docker"),
+      Commands::Git { .. } => Some("Git"),
     }
     .map(|s| s.to_string())
   }
