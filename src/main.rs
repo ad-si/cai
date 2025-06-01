@@ -446,13 +446,13 @@ async fn exec_with_args(args: Args, stdin: &str) {
         join_all(handles).await;
       }
       Commands::Changelog { commit_hash } => {
-        if let Err(err) = generate_changelog(&opts, &commit_hash).await {
+        if let Err(err) = generate_changelog(&opts, commit_hash).await {
           eprintln!("Error generating changelog: {}", err);
           std::process::exit(1);
         }
       }
       Commands::Rename { file } => {
-        match analyze_file_content(&opts, &file).await {
+        match analyze_file_content(&opts, file).await {
           Ok(analysis) => {
             let timestamp_str = analysis.timestamp.unwrap_or_default();
             let timestamp_norm = timestamp_str.trim().to_lowercase();
@@ -482,7 +482,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
           Err(error) => match error.downcast_ref::<std::io::Error>() {
             Some(err) if err.kind() == std::io::ErrorKind::InvalidData => {
               // If it's not a text file, use the creation time
-              let timestamp = std::fs::metadata(&file)
+              let timestamp = std::fs::metadata(file)
                 .map(|meta| {
                   meta
                     .created()
@@ -514,9 +514,9 @@ async fn exec_with_args(args: Args, stdin: &str) {
                 });
             }
             err => {
-              err.map(|e| {
-                eprintln!("{}", e);
-              });
+              if let Some(e) = err {
+                eprintln!("{}", e)
+              }
               std::process::exit(1);
             }
           },
@@ -526,7 +526,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       //========== LANGUAGE CONTEXTS ==========
       /////////////////////////////////////////
       Commands::Ocr { file } => {
-        if let Err(err) = extract_text_from_file(&opts, &file).await {
+        if let Err(err) = extract_text_from_file(&opts, file).await {
           eprintln!("Error extracting text: {}", err);
           std::process::exit(1);
         }
@@ -699,7 +699,7 @@ mod tests {
 
   #[test]
   fn test_parse_args() {
-    let parse_res = Args::try_parse_from(&["gpt"]);
+    let parse_res = Args::try_parse_from(["gpt"]);
     assert!(parse_res.is_err());
     assert!(&parse_res.unwrap_err().to_string().contains("Usage: gpt"));
   }

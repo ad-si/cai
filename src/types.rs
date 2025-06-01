@@ -490,11 +490,9 @@ impl Commands {
       Commands::Llamafile { .. } => None,
       Commands::Ollama { .. } => None,
       Commands::All { .. } => None,
-
       Commands::Changelog { .. } => Some("Changelog"),
       Commands::Rename { .. } => Some("Rename"),
       Commands::Ocr { .. } => Some("OCR"),
-
       Commands::Bash { .. } => Some("Bash"),
       Commands::C { .. } => Some("C"),
       Commands::Cpp { .. } => Some("C++"),

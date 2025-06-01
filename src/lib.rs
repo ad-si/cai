@@ -157,7 +157,8 @@ fn default_req_for_model(model: &Model) -> AiRequest {
     },
     Provider::Google => AiRequest {
       provider: *provider,
-      url: "https://generativelanguage.googleapis.com/v1beta/models".to_string(),
+      url: "https://generativelanguage.googleapis.com/v1beta/models"
+        .to_string(),
       model: types::get_google_model(model_id).to_string(),
       ..Default::default()
     },
@@ -296,7 +297,7 @@ pub fn get_full_config(
       "groq_api_key", //
       env::var("GROQ_API_KEY").unwrap_or_default(),
     )?
-    .add_source(config::File::with_name(&secrets_path_str))
+    .add_source(config::File::with_name(secrets_path_str))
     .add_source(config::Environment::with_prefix("CAI"))
     .build()
     .unwrap();
@@ -315,34 +316,34 @@ fn get_http_req(
 ) -> Result<(String, AiRequest), std::string::String> {
   match optional_model {
     Some(model) => {
-      let used_model = get_used_model(&model);
-      get_api_request(&full_config, &secrets_path_str, model)
+      let used_model = get_used_model(model);
+      get_api_request(full_config, secrets_path_str, model)
         .map(|req| (used_model, req))
     }
     // Use the first provider that has an API key
     None => {
       let req =
-        get_api_request(&full_config, &secrets_path_str, &Default::default())
+        get_api_request(full_config, secrets_path_str, &Default::default())
           .or(get_api_request(
-            &full_config,
-            &secrets_path_str,
+            full_config,
+            secrets_path_str,
             &Model::Model(Provider::Groq, "llama-3.1-8b-instant".to_owned()),
           ))
           .or(get_api_request(
-            &full_config,
-            &secrets_path_str,
+            full_config,
+            secrets_path_str,
             &Model::Model(Provider::OpenAI, "gpt-4o-mini".to_string()),
           ))
           .or(get_api_request(
-            &full_config,
-            &secrets_path_str,
+            full_config,
+            secrets_path_str,
             &Model::Model(
               Provider::Anthropic,
               "claude-3-7-sonnet-latest".to_string(),
             ),
           ))?;
       let used_model = get_used_model(
-        &Model::Model(req.provider.clone(), req.model.clone()), //
+        &Model::Model(req.provider, req.model.clone()), //
       );
       Ok((used_model, req))
     }
@@ -355,31 +356,37 @@ fn get_req_body_obj(
   user_input: &str,
 ) -> Value {
   // Handle case where input is already a complete JSON string
-  match serde_json::from_str(user_input) {
-    Ok(json) => return json,
-    Err(_) => (),
+  if let Ok(json) = serde_json::from_str(user_input) {
+    return json;
   }
 
   // Special handling for Google's Gemini API
   if http_req.provider == Provider::Google {
     let mut contents = Map::new();
     contents.insert("role".to_string(), "user".into());
-    contents.insert("parts".to_string(),
-      Value::Array(vec![
-        Value::Object(Map::from_iter([
-          ("text".to_string(), Value::String(user_input.to_string())),
-        ]))
-      ])
+    contents.insert(
+      "parts".to_string(),
+      Value::Array(vec![Value::Object(Map::from_iter([(
+        "text".to_string(),
+        Value::String(user_input.to_string()),
+      )]))]),
     );
 
     let mut generation_config = Map::new();
-    generation_config.insert("maxOutputTokens".to_string(),
-                           Value::Number(http_req.max_tokens.into()));
+    generation_config.insert(
+      "maxOutputTokens".to_string(),
+      Value::Number(http_req.max_tokens.into()),
+    );
 
     let mut map = Map::new();
-    map.insert("contents".to_string(),
-              Value::Array(vec![Value::Object(contents)]));
-    map.insert("generationConfig".to_string(), Value::Object(generation_config));
+    map.insert(
+      "contents".to_string(),
+      Value::Array(vec![Value::Object(contents)]),
+    );
+    map.insert(
+      "generationConfig".to_string(),
+      Value::Object(generation_config),
+    );
 
     return Value::Object(map);
   }
@@ -474,9 +481,12 @@ async fn exec_request(
       // For Google's Gemini API we need to append the model name and ":generateContent"
       // to the URL along with the API key as a query parameter
       let model = &http_req.model;
-      let url = format!("{}/{model}:generateContent?key={}", http_req.url, http_req.api_key);
+      let url = format!(
+        "{}/{model}:generateContent?key={}",
+        http_req.url, http_req.api_key
+      );
       client.post(url).json(&req_body_obj)
-    },
+    }
     _ => req_base.bearer_auth(&http_req.api_key),
   };
   req.send().await
@@ -498,8 +508,7 @@ pub async fn exec_tool(
     Err("No prompt was provided")?;
   }
 
-  let req_body_obj =
-    get_req_body_obj(&opts, &http_req, &user_input.to_string());
+  let req_body_obj = get_req_body_obj(opts, &http_req, user_input);
 
   let resp = exec_request(&http_req, &req_body_obj).await?;
   let elapsed_time: String = start.elapsed().as_millis().to_string();
@@ -562,7 +571,7 @@ pub async fn submit_prompt(
 ) {
   // Necessary to wrap the execution function,
   // because a `main` function that returns a `Result` quotes any errors.
-  match exec_tool(optional_model, &opts, user_input).await {
+  match exec_tool(optional_model, opts, user_input).await {
     Ok(_) => (),
     Err(err) => {
       let model_str = optional_model
@@ -583,7 +592,7 @@ pub async fn generate_changelog(
   commit_hash: &str,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
   let output = std::process::Command::new("git")
-    .args(&[
+    .args([
       "log",
       "--date=short",
       "--pretty=format:%cd - %s%d", // date - subject (refs)
@@ -606,7 +615,7 @@ pub async fn generate_changelog(
 
   let model = Model::Model(Provider::OpenAI, "gpt-4o".to_string());
 
-  exec_tool(&Some(&model), &opts, &prompt).await
+  exec_tool(&Some(&model), opts, &prompt).await
 }
 
 #[derive(Deserialize)]
@@ -717,13 +726,13 @@ pub async fn extract_text_from_file(
   })
   .to_string();
 
-  exec_tool(&Some(model), &opts, &prompt).await
+  exec_tool(&Some(model), opts, &prompt).await
 }
 
 pub async fn prompt_with_lang_cntxt(
   opts: &ExecOptions,
   cmd: &Commands,
-  prompt: &Vec<String>,
+  prompt: &[String],
 ) {
   let prog_lang = cmd.to_string_pretty().unwrap_or_default();
   let system_prompt = format!(
@@ -739,7 +748,7 @@ pub async fn prompt_with_lang_cntxt(
 
   if let Err(err) = exec_tool(
     &Some(&model),
-    &opts,
+    opts,
     &(system_prompt.to_owned() + &prompt.join(" ")), //
   )
   .await
@@ -764,7 +773,7 @@ mod tests {
         json_schema: None,
         subcommand: None,
       },
-      &prompt,
+      prompt,
     )
     .await;
     assert!(result.is_err());

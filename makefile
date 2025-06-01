@@ -21,6 +21,13 @@ update-readme: usage.txt
 		readme.md
 
 
+.PHONY: format
+format:
+	cargo clippy --fix --allow-dirty
+	cargo fmt
+	# nix fmt  # TODO: Reactivate when it's faster
+
+
 .PHONY: test-units
 test-units:
 	cargo test --lib --bins -- --show-output
@@ -33,7 +40,7 @@ test-cli:
 
 
 .PHONY: test
-test: test-units update-readme
+test: format test-units update-readme
 
 
 .PHONY: release

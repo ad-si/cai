@@ -1,15 +1,15 @@
 use bat::PrettyPrinter;
 use textwrap::termwidth;
 
-pub fn wrap_text(text: &String) -> String {
+pub fn wrap_text(text: &str) -> String {
   if termwidth() > 100 {
-    textwrap::wrap(&text, 80).join("\n")
+    textwrap::wrap(text, 80).join("\n")
   } else {
-    text.clone()
+    text.to_string()
   }
 }
 
-pub fn text_via_bat(text: &String) {
+pub fn text_via_bat(text: &str) {
   let text_wrapped = wrap_text(text);
   PrettyPrinter::new()
     .input_from_bytes(text_wrapped.as_bytes())

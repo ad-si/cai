@@ -8,7 +8,7 @@ mod tests {
     let mut cmd = Command::cargo_bin("cai").unwrap();
 
     cmd
-      .args(&["Which year did the Titanic sink?", "(Just the number)"])
+      .args(["Which year did the Titanic sink?", "(Just the number)"])
       .assert()
       .success()
       .stderr("")
@@ -20,7 +20,7 @@ mod tests {
     let mut cmd = Command::cargo_bin("cai").unwrap();
 
     cmd
-      .args(&[
+      .args([
         "ollama", "llama3", "Which", "year", "did", "the", "Titanic", "sink?",
         "(Just", "the", "number)",
       ])
@@ -34,7 +34,7 @@ mod tests {
   fn test_ollama_shortcut_cai_execution() {
     let mut cmd = Command::cargo_bin("cai").unwrap();
     cmd
-      .args(&[
+      .args([
         "ol", "ll", "Which", "year", "did", "the", "Titanic", "sink?", "(Just",
         "the", "number)",
       ])
@@ -48,7 +48,7 @@ mod tests {
   fn test_ollama_fails_cai_execution() {
     let mut cmd = Command::cargo_bin("cai").unwrap();
     cmd
-      .args(&["ollama", "xxx", "prompt"])
+      .args(["ollama", "xxx", "prompt"])
       .assert()
       .failure()
       .stderr(predicate::str::contains("Ollama"))
