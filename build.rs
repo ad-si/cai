@@ -70,9 +70,9 @@ const GROQ_MODEL_MAPPING_SRC: [(&str, &str); 20] = [
   ("mi", "mixtral-8x7b-32768"),
   ("m", "mixtral-8x7b-32768"),
   // Gemma
-  ("gemma", "gemma-7b-it"),
-  ("ge", "gemma-7b-it"),
-  ("g", "gemma-7b-it"),
+  ("gemma", "gemma2-9b-it"),
+  ("ge", "gemma2-9b-it"),
+  ("g", "gemma2-9b-it"),
   ///// Specific versions /////
   // Llama 3.1
   ("llama31", "llama-3.1-8b-instant"),
