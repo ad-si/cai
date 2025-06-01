@@ -77,6 +77,8 @@ The fastest CLI tool for prompting LLMs
 Usage: cai [OPTIONS] [PROMPT]... [COMMAND]
 
 Commands:
+  local      Shortcut for 'ollama llama3.2'
+  fast       Shortcut for `groq gemma2-9b-it`
   google     Google [aliases: go]
   ge         - Gemini Pro shortcut
   gf         - Gemini Flash shortcut
@@ -88,6 +90,7 @@ Commands:
   openai     OpenAI [aliases: op]
   gp         - GPT-4o shortcut
   gm         - GPT-4o mini shortcut
+  value      Return only the value/answer without explanation for the provided question
   anthropic  Anthropic [aliases: an]
   cl         - Claude Opus
   so         - Claude Sonnet
@@ -166,6 +169,9 @@ Examples:
   # Send a prompt to locally running Ollama server
   cai ollama llama3 Which year did the Titanic sink
   cai ol ll Which year did the Titanic sink
+
+  # Use the `local` shortcut for using Ollama's default model
+  cai local Which year did the Titanic sink
 
   # Add data via stdin
   cat main.rs | cai Explain this code

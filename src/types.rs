@@ -7,6 +7,19 @@ use serde_derive::Serialize;
 #[derive(Subcommand, Debug, PartialEq, Clone, Serialize)]
 #[clap(args_conflicts_with_subcommands = false, arg_required_else_help(true))]
 pub enum Commands {
+  /// Shortcut for 'ollama llama3.2'
+  #[clap(name = "local")]
+  Local {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Shortcut for `groq gemma2-9b-it`
+  #[clap(name = "fast")]
+  Fast {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+
   #[allow(dead_code)]
   /// Google
   #[clap(visible_alias = "go")]
@@ -89,6 +102,12 @@ pub enum Commands {
   /// - GPT-4o mini shortcut
   #[clap(name = "gm")]
   GptMini {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Return only the value/answer without explanation for the provided question
+  #[clap(name = "value")]
+  Value {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
@@ -399,6 +418,7 @@ impl std::fmt::Display for Commands {
 impl Commands {
   pub fn to_string_pretty(&self) -> Option<String> {
     match &self {
+      Commands::Local { .. } => None,
       Commands::Google { .. } => None,
       Commands::Gemini { .. } => None,
       Commands::GeminiFlash { .. } => None,
@@ -410,12 +430,14 @@ impl Commands {
       Commands::Openai { .. } => None,
       Commands::Gpt { .. } => None,
       Commands::GptMini { .. } => None,
+      Commands::Value { .. } => Some("Value"),
       Commands::Anthropic { .. } => None,
       Commands::ClaudeOpus { .. } => None,
       Commands::ClaudeSonnet { .. } => None,
       Commands::ClaudeHaiku { .. } => None,
       Commands::Xai { .. } => None,
       Commands::Grok { .. } => None,
+      Commands::Fast { .. } => None,
       Commands::Llamafile { .. } => None,
       Commands::Ollama { .. } => None,
       Commands::All { .. } => None,

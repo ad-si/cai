@@ -41,6 +41,9 @@ const CRATE_VERSION: &str = crate_version!();
   <b>cai ollama llama3</b> Which year did the Titanic sink
   <b>cai ol ll</b> Which year did the Titanic sink
 
+  <dim># Use the `local` shortcut for using Ollama's default model</dim>
+  <b>cai local</b> Which year did the Titanic sink
+
   <dim># Add data via stdin</dim>
   cat main.rs | <b>cai</b> Explain this code
 
@@ -123,6 +126,14 @@ async fn exec_with_args(args: Args, stdin: &str) {
       .await
     }
     Some(cmd) => match &cmd {
+      Commands::Local { prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(Provider::Ollama, "llama3.2".to_string())),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
       Commands::Google { model, prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::Google, model.to_string())),
@@ -223,6 +234,20 @@ async fn exec_with_args(args: Args, stdin: &str) {
         )
         .await
       }
+      Commands::Value { prompt } => {
+        let value_prompt = format!(
+          "I want you to return only a plain value without explanation or additional text. \
+          Respond with the answer and nothing else. Do not include any explanation, \
+          reasoning, or additional information. Just give me the answer value.\n\n{}",
+          prompt.join(" ")
+        );
+        submit_prompt(
+          &Some(&Model::Model(Provider::OpenAI, "gpt-4.1".to_string())),
+          &opts,
+          &format!("{stdin}{}", value_prompt),
+        )
+        .await
+      }
       Commands::Anthropic { model, prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::Anthropic, model.to_string())),
@@ -291,6 +316,14 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Grok { prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::XAI, "grok-2-latest".to_string())),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
+      Commands::Fast { prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(Provider::Groq, "gemma2-9b-it".to_string())),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )

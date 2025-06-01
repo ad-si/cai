@@ -12,7 +12,7 @@ mod tests {
       .assert()
       .success()
       .stderr("")
-      .stdout(predicate::str::contains("Groq llama3"))
+      .stdout(predicate::str::contains("Groq llama-3"))
       .stdout(predicate::str::contains("1912"));
   }
   #[test]
