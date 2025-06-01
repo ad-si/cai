@@ -248,6 +248,28 @@ async fn exec_with_args(args: Args, stdin: &str) {
         )
         .await
       }
+      Commands::Reply { prompt } => {
+        if stdin.is_empty() {
+          eprintln!("Please pipe the conversation into cai via stdin.");
+          std::process::exit(1);
+        }
+        let username = whoami::username();
+        let reply_prompt = format!(
+          "Given the following conversation, write the best possible reply. \
+            Do not print a timestamp or a name at the beginning of your reply. \
+            You are {username} and you reply to the other person/persons.\n\
+            Conversation:\n{stdin}\n\n\
+            Reply guidance: {}\n",
+          prompt.join(" ")
+        );
+
+        submit_prompt(
+          &Some(&Model::Model(Provider::OpenAI, "gpt-4.1".to_string())),
+          &opts,
+          &reply_prompt,
+        )
+        .await
+      }
       Commands::O3 { prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::OpenAI, "o3".to_string())),

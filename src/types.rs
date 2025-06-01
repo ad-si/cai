@@ -111,6 +111,12 @@ pub enum Commands {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
+  /// Reply to a conversation passed via stdin
+  #[clap()]
+  Reply {
+    /// How the AI should reply to the conversation
+    prompt: Vec<String>,
+  },
   /// - o3 shortcut
   #[clap(name = "o3")]
   O3 {
@@ -467,6 +473,7 @@ impl Commands {
       Commands::Gpt { .. } => None,
       Commands::GptMini { .. } => None,
       Commands::Value { .. } => Some("Value"),
+      Commands::Reply { .. } => Some("Reply"),
       Commands::O3 { .. } => None,
       Commands::O4Mini { .. } => None,
       Commands::Gpt41 { .. } => None,

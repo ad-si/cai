@@ -91,6 +91,7 @@ Commands:
   gp         - GPT-4o shortcut
   gm         - GPT-4o mini shortcut
   value      Return only the value/answer without explanation for the provided question
+  reply      Reply to a conversation passed via stdin
   o3         - o3 shortcut
   o4m        - o4-mini shortcut
   gpt41      - gpt-4.1 shortcut
