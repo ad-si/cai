@@ -126,6 +126,14 @@ async fn exec_with_args(args: Args, stdin: &str) {
       .await
     }
     Some(cmd) => match &cmd {
+      Commands::Fast { prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(Provider::Groq, "gemma2-9b-it".to_string())),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
       Commands::Local { prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::Ollama, "llama3.2".to_string())),
@@ -134,6 +142,129 @@ async fn exec_with_args(args: Args, stdin: &str) {
         )
         .await
       }
+      Commands::Value { prompt } => {
+        let value_prompt = format!(
+          "I want you to return only a plain value without explanation or additional text. \
+          Respond with the answer and nothing else. Do not include any explanation, \
+          reasoning, or additional information. Just give me the answer value.\n\n{}",
+          prompt.join(" ")
+        );
+        submit_prompt(
+          &Some(&Model::Model(Provider::OpenAI, "gpt-4.1".to_string())),
+          &opts,
+          &format!("{stdin}{}", value_prompt),
+        )
+        .await
+      }
+      Commands::Ocr { file } => {
+        if let Err(err) = extract_text_from_file(&opts, file).await {
+          eprintln!("Error extracting text: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Rename { file } => {
+        match analyze_file_content(&opts, file).await {
+          Ok(analysis) => {
+            let timestamp_str = analysis.timestamp.unwrap_or_default();
+            let timestamp_norm = timestamp_str.trim().to_lowercase();
+            let valid_timestamp = chrono::NaiveDateTime::parse_from_str(
+              &timestamp_norm,
+              "%Y-%m-%dt%H:%Mz",
+            )
+            .or_else(|_| {
+              chrono::NaiveDateTime::parse_from_str(&timestamp_norm, "%Y-%m-%d")
+            })
+            .is_ok();
+            let timestamp = if valid_timestamp {
+              timestamp_norm
+                .replace(":", "")
+                .replace("z", "")
+                .replace("t0000", "")
+            } else {
+              chrono::Local::now().format("%Y-%m-%dt%H%M").to_string()
+            };
+            let description = analysis //
+              .description
+              .trim()
+              .to_lowercase()
+              .replace(' ', "_");
+            rename_file(file.to_string(), timestamp, description);
+          }
+          Err(error) => match error.downcast_ref::<std::io::Error>() {
+            Some(err) if err.kind() == std::io::ErrorKind::InvalidData => {
+              // If it's not a text file, use the creation time
+              let timestamp = std::fs::metadata(file)
+                .map(|meta| {
+                  meta
+                    .created()
+                    .map(|created| {
+                      chrono::DateTime::<chrono::Local>::from(created)
+                        .format("%Y-%m-%dt%H%M")
+                        .to_string()
+                    })
+                    .unwrap_or_else(|_| {
+                      chrono::Local::now().format("%Y-%m-%dt%H%M").to_string()
+                    })
+                    .to_string()
+                })
+                .unwrap_or_else(|_| {
+                  chrono::Local::now().format("%Y-%m-%dt%H%M").to_string()
+                });
+
+              std::path::Path::new(&file)
+                .file_stem()
+                .map(|file_name_no_ext| {
+                  file_name_no_ext.to_str().unwrap_or_default().to_string()
+                })
+                .map(|file_name| {
+                  rename_file(file.to_string(), timestamp, file_name)
+                })
+                .unwrap_or_else(|| {
+                  dbg!(err);
+                  std::process::exit(1);
+                });
+            }
+            err => {
+              if let Some(e) = err {
+                eprintln!("{}", e)
+              }
+              std::process::exit(1);
+            }
+          },
+        }
+      }
+      Commands::Changelog { commit_hash } => {
+        if let Err(err) = generate_changelog(&opts, commit_hash).await {
+          eprintln!("Error generating changelog: {}", err);
+          std::process::exit(1);
+        }
+      }
+      Commands::Reply { prompt } => {
+        if stdin.is_empty() {
+          eprintln!("Please pipe the conversation into cai via stdin.");
+          std::process::exit(1);
+        }
+        let username = whoami::username();
+        let reply_prompt = format!(
+          "Given the following conversation, write the best possible reply. \
+            Do not print a timestamp or a name at the beginning of your reply. \
+            You are {username} and you reply to the other person/persons.\n\
+            Conversation:\n{stdin}\n\n\
+            Reply guidance: {}\n",
+          prompt.join(" ")
+        );
+
+        submit_prompt(
+          &Some(&Model::Model(Provider::OpenAI, "gpt-4.1".to_string())),
+          &opts,
+          &reply_prompt,
+        )
+        .await
+      }
+
+      /////////////////////////////////////////
+      //============ AI PROVIDERS =============
+      /////////////////////////////////////////
       Commands::Google { model, prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::Google, model.to_string())),
@@ -231,42 +362,6 @@ async fn exec_with_args(args: Args, stdin: &str) {
           &Some(&Model::Model(Provider::OpenAI, "gpt-4o-mini".to_string())),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
-        )
-        .await
-      }
-      Commands::Value { prompt } => {
-        let value_prompt = format!(
-          "I want you to return only a plain value without explanation or additional text. \
-          Respond with the answer and nothing else. Do not include any explanation, \
-          reasoning, or additional information. Just give me the answer value.\n\n{}",
-          prompt.join(" ")
-        );
-        submit_prompt(
-          &Some(&Model::Model(Provider::OpenAI, "gpt-4.1".to_string())),
-          &opts,
-          &format!("{stdin}{}", value_prompt),
-        )
-        .await
-      }
-      Commands::Reply { prompt } => {
-        if stdin.is_empty() {
-          eprintln!("Please pipe the conversation into cai via stdin.");
-          std::process::exit(1);
-        }
-        let username = whoami::username();
-        let reply_prompt = format!(
-          "Given the following conversation, write the best possible reply. \
-            Do not print a timestamp or a name at the beginning of your reply. \
-            You are {username} and you reply to the other person/persons.\n\
-            Conversation:\n{stdin}\n\n\
-            Reply guidance: {}\n",
-          prompt.join(" ")
-        );
-
-        submit_prompt(
-          &Some(&Model::Model(Provider::OpenAI, "gpt-4.1".to_string())),
-          &opts,
-          &reply_prompt,
         )
         .await
       }
@@ -391,14 +486,6 @@ async fn exec_with_args(args: Args, stdin: &str) {
         )
         .await
       }
-      Commands::Fast { prompt } => {
-        submit_prompt(
-          &Some(&Model::Model(Provider::Groq, "gemma2-9b-it".to_string())),
-          &opts,
-          &format!("{stdin}{}", prompt.join(" ")),
-        )
-        .await
-      }
       Commands::All { prompt } => {
         let models = vec![
           Model::Model(
@@ -445,92 +532,9 @@ async fn exec_with_args(args: Args, stdin: &str) {
 
         join_all(handles).await;
       }
-      Commands::Changelog { commit_hash } => {
-        if let Err(err) = generate_changelog(&opts, commit_hash).await {
-          eprintln!("Error generating changelog: {}", err);
-          std::process::exit(1);
-        }
-      }
-      Commands::Rename { file } => {
-        match analyze_file_content(&opts, file).await {
-          Ok(analysis) => {
-            let timestamp_str = analysis.timestamp.unwrap_or_default();
-            let timestamp_norm = timestamp_str.trim().to_lowercase();
-            let valid_timestamp = chrono::NaiveDateTime::parse_from_str(
-              &timestamp_norm,
-              "%Y-%m-%dt%H:%Mz",
-            )
-            .or_else(|_| {
-              chrono::NaiveDateTime::parse_from_str(&timestamp_norm, "%Y-%m-%d")
-            })
-            .is_ok();
-            let timestamp = if valid_timestamp {
-              timestamp_norm
-                .replace(":", "")
-                .replace("z", "")
-                .replace("t0000", "")
-            } else {
-              chrono::Local::now().format("%Y-%m-%dt%H%M").to_string()
-            };
-            let description = analysis //
-              .description
-              .trim()
-              .to_lowercase()
-              .replace(' ', "_");
-            rename_file(file.to_string(), timestamp, description);
-          }
-          Err(error) => match error.downcast_ref::<std::io::Error>() {
-            Some(err) if err.kind() == std::io::ErrorKind::InvalidData => {
-              // If it's not a text file, use the creation time
-              let timestamp = std::fs::metadata(file)
-                .map(|meta| {
-                  meta
-                    .created()
-                    .map(|created| {
-                      chrono::DateTime::<chrono::Local>::from(created)
-                        .format("%Y-%m-%dt%H%M")
-                        .to_string()
-                    })
-                    .unwrap_or_else(|_| {
-                      chrono::Local::now().format("%Y-%m-%dt%H%M").to_string()
-                    })
-                    .to_string()
-                })
-                .unwrap_or_else(|_| {
-                  chrono::Local::now().format("%Y-%m-%dt%H%M").to_string()
-                });
-
-              std::path::Path::new(&file)
-                .file_stem()
-                .map(|file_name_no_ext| {
-                  file_name_no_ext.to_str().unwrap_or_default().to_string()
-                })
-                .map(|file_name| {
-                  rename_file(file.to_string(), timestamp, file_name)
-                })
-                .unwrap_or_else(|| {
-                  dbg!(err);
-                  std::process::exit(1);
-                });
-            }
-            err => {
-              if let Some(e) = err {
-                eprintln!("{}", e)
-              }
-              std::process::exit(1);
-            }
-          },
-        }
-      }
       /////////////////////////////////////////
       //========== LANGUAGE CONTEXTS ==========
       /////////////////////////////////////////
-      Commands::Ocr { file } => {
-        if let Err(err) = extract_text_from_file(&opts, file).await {
-          eprintln!("Error extracting text: {}", err);
-          std::process::exit(1);
-        }
-      }
       Commands::Bash { prompt } => {
         prompt_with_lang_cntxt(&opts, &cmd, prompt).await
       }

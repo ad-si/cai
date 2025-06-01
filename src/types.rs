@@ -7,16 +7,53 @@ use serde_derive::Serialize;
 #[derive(Subcommand, Debug, PartialEq, Clone, Serialize)]
 #[clap(args_conflicts_with_subcommands = false, arg_required_else_help(true))]
 pub enum Commands {
+  /// Shortcut for `groq gemma2-9b-it`
+  #[clap(name = "fast")]
+  Fast {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+
   /// Shortcut for 'ollama llama3.2'
   #[clap(name = "local")]
   Local {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
-  /// Shortcut for `groq gemma2-9b-it`
-  #[clap(name = "fast")]
-  Fast {
+
+  /// Return only the value/answer without explanation for the provided question
+  #[clap(name = "value")]
+  Value {
     /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+
+  /// Extract text from an image
+  #[clap()]
+  Ocr {
+    /// The file to extract text from
+    file: String,
+  },
+
+  /// Analyze and rename a file with timestamp and description
+  #[clap()]
+  Rename {
+    /// The file to analyze and rename
+    file: String,
+  },
+
+  /// Generate a changelog starting from a given commit
+  /// using OpenAI's GPT-4o
+  #[clap()]
+  Changelog {
+    /// The commit hash to start the changelog from
+    commit_hash: String,
+  },
+
+  /// Reply to a conversation passed via stdin
+  #[clap()]
+  Reply {
+    /// How the AI should reply to the conversation
     prompt: Vec<String>,
   },
 
@@ -103,18 +140,6 @@ pub enum Commands {
   #[clap(name = "gm")]
   GptMini {
     /// The prompt to send to the AI model
-    prompt: Vec<String>,
-  },
-  /// Return only the value/answer without explanation for the provided question
-  #[clap(name = "value")]
-  Value {
-    /// The prompt to send to the AI model
-    prompt: Vec<String>,
-  },
-  /// Reply to a conversation passed via stdin
-  #[clap()]
-  Reply {
-    /// How the AI should reply to the conversation
     prompt: Vec<String>,
   },
   /// - o3 shortcut
@@ -232,27 +257,6 @@ for all supported model ids):"
     /// The prompt to send to the AI models simultaneously
     prompt: Vec<String>,
   },
-  /// Generate a changelog starting from a given commit
-  /// using OpenAI's GPT-4o
-  #[clap()]
-  Changelog {
-    /// The commit hash to start the changelog from
-    commit_hash: String,
-  },
-
-  /// Analyze and rename a file with timestamp and description
-  #[clap()]
-  Rename {
-    /// The file to analyze and rename
-    file: String,
-  },
-
-  /// Extract text from an image
-  #[clap()]
-  Ocr {
-    /// The file to extract text from
-    file: String,
-  },
 
   /////////////////////////////////////////
   //========== LANGUAGE CONTEXTS ==========
@@ -281,6 +285,12 @@ for all supported model ids):"
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
+  /// Use Docker development as the prompt context
+  #[clap()]
+  Docker {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
   /// Use Elm development as the prompt context
   #[clap()]
   Elm {
@@ -302,6 +312,12 @@ for all supported model ids):"
   /// Use Godot and GDScript development as the prompt context
   #[clap()]
   Gd {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Use Git development as the prompt context
+  #[clap()]
+  Git {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
@@ -437,18 +453,6 @@ for all supported model ids):"
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
-  /// Use Docker development as the prompt context
-  #[clap()]
-  Docker {
-    /// The prompt to send to the AI model
-    prompt: Vec<String>,
-  },
-  /// Use Git development as the prompt context
-  #[clap()]
-  Git {
-    /// The prompt to send to the AI model
-    prompt: Vec<String>,
-  },
 }
 
 impl std::fmt::Display for Commands {
@@ -460,7 +464,15 @@ impl std::fmt::Display for Commands {
 impl Commands {
   pub fn to_string_pretty(&self) -> Option<String> {
     match &self {
+      Commands::Fast { .. } => None,
       Commands::Local { .. } => None,
+      Commands::Value { .. } => Some("Value"),
+      Commands::Ocr { .. } => Some("OCR"),
+      Commands::Rename { .. } => Some("Rename"),
+      Commands::Changelog { .. } => Some("Changelog"),
+      Commands::Reply { .. } => Some("Reply"),
+
+      // AI Providers
       Commands::Google { .. } => None,
       Commands::Gemini { .. } => None,
       Commands::GeminiFlash { .. } => None,
@@ -472,8 +484,6 @@ impl Commands {
       Commands::Openai { .. } => None,
       Commands::Gpt { .. } => None,
       Commands::GptMini { .. } => None,
-      Commands::Value { .. } => Some("Value"),
-      Commands::Reply { .. } => Some("Reply"),
       Commands::O3 { .. } => None,
       Commands::O4Mini { .. } => None,
       Commands::Gpt41 { .. } => None,
@@ -486,21 +496,21 @@ impl Commands {
       Commands::ClaudeHaiku { .. } => None,
       Commands::Xai { .. } => None,
       Commands::Grok { .. } => None,
-      Commands::Fast { .. } => None,
       Commands::Llamafile { .. } => None,
       Commands::Ollama { .. } => None,
       Commands::All { .. } => None,
-      Commands::Changelog { .. } => Some("Changelog"),
-      Commands::Rename { .. } => Some("Rename"),
-      Commands::Ocr { .. } => Some("OCR"),
+
+      // Programming Languages
       Commands::Bash { .. } => Some("Bash"),
       Commands::C { .. } => Some("C"),
       Commands::Cpp { .. } => Some("C++"),
       Commands::Cs { .. } => Some("C#"),
+      Commands::Docker { .. } => Some("Docker"),
       Commands::Elm { .. } => Some("Elm"),
       Commands::Fish { .. } => Some("Fish"),
       Commands::Fs { .. } => Some("F#"),
       Commands::Gd { .. } => Some("GDScript"),
+      Commands::Git { .. } => Some("Git"),
       Commands::Gl { .. } => Some("Gleam"),
       Commands::Golang { .. } => Some("Go"),
       Commands::Hs { .. } => Some("Haskell"),
@@ -511,8 +521,8 @@ impl Commands {
       Commands::Ly { .. } => Some("LilyPond"),
       Commands::Nix { .. } => Some("Nix"),
       Commands::Oc { .. } => Some("OCaml"),
-      Commands::Php { .. } => Some("PHP"),
       Commands::Pg { .. } => Some("Postgres"),
+      Commands::Php { .. } => Some("PHP"),
       Commands::Ps { .. } => Some("PureScript"),
       Commands::Py { .. } => Some("Python"),
       Commands::Rb { .. } => Some("Ruby"),
@@ -523,8 +533,6 @@ impl Commands {
       Commands::Ty { .. } => Some("Typst"),
       Commands::Wl { .. } => Some("Wolfram Language"),
       Commands::Zig { .. } => Some("Zig"),
-      Commands::Docker { .. } => Some("Docker"),
-      Commands::Git { .. } => Some("Git"),
     }
     .map(|s| s.to_string())
   }

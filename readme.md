@@ -77,8 +77,13 @@ The fastest CLI tool for prompting LLMs
 Usage: cai [OPTIONS] [PROMPT]... [COMMAND]
 
 Commands:
-  local      Shortcut for 'ollama llama3.2'
   fast       Shortcut for `groq gemma2-9b-it`
+  local      Shortcut for 'ollama llama3.2'
+  value      Return only the value/answer without explanation for the provided question
+  ocr        Extract text from an image
+  rename     Analyze and rename a file with timestamp and description
+  changelog  Generate a changelog starting from a given commit using OpenAI's GPT-4o
+  reply      Reply to a conversation passed via stdin
   google     Google [aliases: go]
   ge         - Gemini Pro shortcut
   gf         - Gemini Flash shortcut
@@ -90,8 +95,6 @@ Commands:
   openai     OpenAI [aliases: op]
   gp         - GPT-4o shortcut
   gm         - GPT-4o mini shortcut
-  value      Return only the value/answer without explanation for the provided question
-  reply      Reply to a conversation passed via stdin
   o3         - o3 shortcut
   o4m        - o4-mini shortcut
   gpt41      - gpt-4.1 shortcut
@@ -113,17 +116,16 @@ Commands:
              - OpenAI GPT-4o mini
              - Ollama Llama 3
              - Llamafile
-  changelog  Generate a changelog starting from a given commit using OpenAI's GPT-4o
-  rename     Analyze and rename a file with timestamp and description
-  ocr        Extract text from an image
   bash       Use Bash development as the prompt context
   c          Use C development as the prompt context
   cpp        Use C++ development as the prompt context
   cs         Use C# development as the prompt context
+  docker     Use Docker development as the prompt context
   elm        Use Elm development as the prompt context
   fish       Use Fish development as the prompt context
   fs         Use F# development as the prompt context
   gd         Use Godot and GDScript development as the prompt context
+  git        Use Git development as the prompt context
   gl         Use Gleam development as the prompt context
   golang     Use Go development as the prompt context
   hs         Use Haskell development as the prompt context
@@ -146,8 +148,6 @@ Commands:
   ty         Use Typst development as the prompt context
   wl         Use Wolfram Language and Mathematica development as the prompt context
   zig        Use Zig development as the prompt context
-  docker     Use Docker development as the prompt context
-  git        Use Git development as the prompt context
   help       Print this message or the help of the given subcommand(s)
 
 Arguments:

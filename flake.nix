@@ -23,6 +23,7 @@
             clippy
             coreutils # cat
             gnumake
+            rust-analyzer
             rustc
             rustfmt
           ];
