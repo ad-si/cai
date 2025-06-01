@@ -141,7 +141,7 @@ const OLLAMA_MODEL_MAPPING_SRC: [(&str, &str); 21] = [
   ("llama2", "llama2"),
 ];
 
-const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 13] = [
+const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 22] = [
   // Default models
   ("gpt", "gpt-4o"),
   ("omni", "gpt-4o"),
@@ -157,6 +157,19 @@ const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 13] = [
   ("t4", "gpt-4-turbo"),
   ("turbo35", "gpt-3.5-turbo"),
   ("t35", "gpt-3.5-turbo"),
+  // o3 model
+  ("o3", "o3"),
+  // o4 models
+  ("o4-mini", "o4-mini"),
+  // gpt-4.1 models
+  ("gpt-4.1", "gpt-4.1"),
+  ("gpt-4.1-mini", "gpt-4.1-mini"),
+  ("gpt-4.1-nano", "gpt-4.1-nano"),
+  ("4.1", "gpt-4.1"),
+  ("4.1-mini", "gpt-4.1-mini"),
+  ("4.1-nano", "gpt-4.1-nano"),
+  // o1 models
+  ("o1-pro", "o1-pro"),
 ];
 
 const XAI_MODEL_MAPPING_SRC: [(&str, &str); 8] = [

@@ -387,10 +387,22 @@ fn get_req_body_obj(
   // For all other providers
   let mut map = Map::new();
   map.insert("model".to_string(), Value::String(http_req.model.clone()));
-  map.insert(
-    "max_tokens".to_string(),
-    Value::Number(http_req.max_tokens.into()),
-  );
+  // OpenAI o1, o3, o4 models require max_completion_tokens instead of max_tokens
+  if http_req.provider == Provider::OpenAI
+    && (http_req.model.starts_with("o1")
+      || http_req.model.starts_with("o3")
+      || http_req.model.starts_with("o4"))
+  {
+    map.insert(
+      "max_completion_tokens".to_string(),
+      Value::Number(http_req.max_tokens.into()),
+    );
+  } else {
+    map.insert(
+      "max_tokens".to_string(),
+      Value::Number(http_req.max_tokens.into()),
+    );
+  }
 
   if opts.is_json {
     match http_req.provider {
@@ -756,5 +768,50 @@ mod tests {
     )
     .await;
     assert!(result.is_err());
+  }
+
+  #[test]
+  fn test_o_models_use_max_completion_tokens() {
+    let test_cases = vec![
+      ("o1-pro", true),
+      ("o3", true),
+      ("o4-mini", true),
+      ("gpt-4o", false),
+      ("gpt-4.1", false),
+    ];
+
+    for (model, should_use_max_completion) in test_cases {
+      let http_req = AiRequest {
+        provider: Provider::OpenAI,
+        model: model.to_string(),
+        max_tokens: 100,
+        ..Default::default()
+      };
+
+      let opts = ExecOptions {
+        is_raw: false,
+        is_json: false,
+        json_schema: None,
+        subcommand: None,
+      };
+
+      let body = get_req_body_obj(&opts, &http_req, "test");
+      let has_max_completion = body
+        .as_object()
+        .unwrap()
+        .contains_key("max_completion_tokens");
+      let has_max_tokens = body.as_object().unwrap().contains_key("max_tokens");
+
+      assert_eq!(
+        has_max_completion, should_use_max_completion,
+        "Failed for model {}",
+        model
+      );
+      assert_eq!(
+        has_max_tokens, !should_use_max_completion,
+        "Failed for model {}",
+        model
+      );
+    }
   }
 }

@@ -111,6 +111,42 @@ pub enum Commands {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
+  /// - o3 shortcut
+  #[clap(name = "o3")]
+  O3 {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// - o4-mini shortcut
+  #[clap(name = "o4m")]
+  O4Mini {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// - gpt-4.1 shortcut
+  #[clap(name = "gpt41")]
+  Gpt41 {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// - gpt-4.1-mini shortcut
+  #[clap(name = "gpt41m")]
+  Gpt41Mini {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// - gpt-4.1-nano shortcut
+  #[clap(name = "gpt41n")]
+  Gpt41Nano {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// - o1-pro shortcut
+  #[clap(name = "o1p")]
+  O1Pro {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
   /// Anthropic
   #[clap(visible_alias = "an")]
   Anthropic {
@@ -431,6 +467,12 @@ impl Commands {
       Commands::Gpt { .. } => None,
       Commands::GptMini { .. } => None,
       Commands::Value { .. } => Some("Value"),
+      Commands::O3 { .. } => None,
+      Commands::O4Mini { .. } => None,
+      Commands::Gpt41 { .. } => None,
+      Commands::Gpt41Mini { .. } => None,
+      Commands::Gpt41Nano { .. } => None,
+      Commands::O1Pro { .. } => None,
       Commands::Anthropic { .. } => None,
       Commands::ClaudeOpus { .. } => None,
       Commands::ClaudeSonnet { .. } => None,

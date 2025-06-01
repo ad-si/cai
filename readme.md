@@ -91,6 +91,12 @@ Commands:
   gp         - GPT-4o shortcut
   gm         - GPT-4o mini shortcut
   value      Return only the value/answer without explanation for the provided question
+  o3         - o3 shortcut
+  o4m        - o4-mini shortcut
+  gpt41      - gpt-4.1 shortcut
+  gpt41m     - gpt-4.1-mini shortcut
+  gpt41n     - gpt-4.1-nano shortcut
+  o1p        - o1-pro shortcut
   anthropic  Anthropic [aliases: an]
   cl         - Claude Opus
   so         - Claude Sonnet
