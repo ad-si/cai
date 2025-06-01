@@ -193,6 +193,7 @@ Examples:
 
 - [AI CLI] - Get answers for CLI commands from ChatGPT. (TypeScript)
 - [AIChat] - All-in-one chat and copilot CLI for 10+ AI platforms. (Rust)
+- [clai] - Command line artificial intelligence as a local LLM multi-tool (Go)
 - [Ell] - CLI tool for LLMs written in Bash.
 - [Goose] - Local AI agent.
 - [ja] - CLI / TUI app to work with AI tools. (Rust)
@@ -202,6 +203,7 @@ Examples:
 
 [AI CLI]: https://github.com/abhagsain/ai-cli
 [AIChat]: https://github.com/sigoden/aichat
+[clai]: https://github.com/baalimago/clai
 [Ell]: https://github.com/simonmysun/ell
 [Goose]: https://block.github.io/goose/
 [ja]: https://github.com/joshka/ja
