@@ -1,6 +1,6 @@
 # Changelog
 
-## 2025-06-02 - v0.10.0
+## 2025-06-02 - v0.11.0
 
 - Add new subcommands
     - `fast` - Shortcut for `groq gemma2-9b-it`
@@ -16,7 +16,7 @@
     and use Gemma 2 as the default `gemma` model
 
 
-## 2025-02-18 - v0.9.0
+## 2025-02-18 - v0.10.0
 
 - Add support for [DeepSeek](https://deepseek.com)
 - Add support for [Cerebras](https://cerebras.ai)
