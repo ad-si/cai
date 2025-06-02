@@ -34,6 +34,11 @@ test-units:
 	@echo "✅ All unit tests passed!\n\n"
 
 
+.PHONY: build
+build:
+	cargo build
+
+
 .PHONY: test-cli
 test-cli:
 	cargo test --test integration_tests
