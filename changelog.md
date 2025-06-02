@@ -1,6 +1,22 @@
 # Changelog
 
-# 2025-02-18 - v0.9.0
+## 2025-06-02 - v0.10.0
+
+- Add new subcommands
+    - `fast` - Shortcut for `groq gemma2-9b-it`
+    - `local` - Shortcut for `ollama llama3.2`
+    - `value` - Return only the value/answer without explanations
+    - `reply` - Generate a reply to a conversation passed via stdin
+    - `docker` - Use Docker development as the prompt context
+    - `git` - Use Git development as the prompt context
+    - `nix` - Use Nix development as the prompt context
+- Add support for new OpenAI models
+- Use v4 as the default models for Claude
+- Add support for Google's Gemini models
+    and use Gemma 2 as the default `gemma` model
+
+
+## 2025-02-18 - v0.9.0
 
 - Add support for [DeepSeek](https://deepseek.com)
 - Add support for [Cerebras](https://cerebras.ai)
@@ -14,7 +30,7 @@
 - `rename`: Always use a lowercase `t` for timestamp and improve prompt
 
 
-# 2024-12-08 - v0.8.0
+## 2024-12-08 - v0.8.0
 
 - New sub-command `ocr` to extract text from images
 - New sub-command `rename` to rename files based on their content
