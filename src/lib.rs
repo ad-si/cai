@@ -652,7 +652,9 @@ pub async fn analyze_file_content(
           "type": "string",
           "description":
             "A short (1-4 words) description that captures its main purpose. \
-            Avoid using only generic terms like \
+            If it's a receipt or an invoice, \
+            start with the name of the company or person that created it. \
+            Do not use overly generic terms like \
             analysis, summary, transaction, document, etc.",
         },
         "timestamp": {

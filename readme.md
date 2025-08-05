@@ -84,7 +84,7 @@ Commands:
   ocr        Extract text from an image
   rename     Analyze and rename a file with timestamp and description
   changelog  Generate a changelog starting from a given commit using OpenAI's GPT-4o
-  reply      Reply to a conversation passed via stdin
+  reply      Reply to a conversation passed via stdin. Add additional reply instructions as the prompt
   google     Google [aliases: go]
   ge         - Gemini Pro shortcut
   gf         - Gemini Flash shortcut

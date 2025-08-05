@@ -57,7 +57,8 @@ pub enum Commands {
     commit_hash: String,
   },
 
-  /// Reply to a conversation passed via stdin
+  /// Reply to a conversation passed via stdin.
+  /// Add additional reply instructions as the prompt.
   #[clap()]
   Reply {
     /// How the AI should reply to the conversation
