@@ -149,6 +149,7 @@ Commands:
   ty         Use Typst development as the prompt context
   wl         Use Wolfram Language and Mathematica development as the prompt context
   zig        Use Zig development as the prompt context
+  jq         Use jq development as the prompt context
   help       Print this message or the help of the given subcommand(s)
 
 Arguments:

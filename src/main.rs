@@ -649,6 +649,9 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Git { prompt } => {
         prompt_with_lang_cntxt(&opts, &cmd, prompt).await
       }
+      Commands::Jq { prompt } => {
+        prompt_with_lang_cntxt(&opts, &cmd, prompt).await
+      }
     },
   };
 }

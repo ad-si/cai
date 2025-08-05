@@ -460,6 +460,13 @@ for all supported model ids):"
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
+
+  /// Use jq development as the prompt context
+  #[clap(name = "jq")]
+  Jq {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
 }
 
 impl std::fmt::Display for Commands {
@@ -541,6 +548,7 @@ impl Commands {
       Commands::Ty { .. } => Some("Typst"),
       Commands::Wl { .. } => Some("Wolfram Language"),
       Commands::Zig { .. } => Some("Zig"),
+      Commands::Jq { .. } => Some("JQ"),
     }
     .map(|s| s.to_string())
   }
