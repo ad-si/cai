@@ -28,6 +28,13 @@ pub enum Commands {
     prompt: Vec<String>,
   },
 
+  /// Generate an SVG graphic from a textual description
+  #[clap()]
+  Svg {
+    /// The prompt that describes the SVG to create
+    prompt: Vec<String>,
+  },
+
   /// Extract text from an image
   #[clap()]
   Ocr {
@@ -467,6 +474,7 @@ impl Commands {
       Commands::Fast { .. } => None,
       Commands::Local { .. } => None,
       Commands::Value { .. } => Some("Value"),
+      Commands::Svg { .. } => Some("SVG"),
       Commands::Ocr { .. } => Some("OCR"),
       Commands::Rename { .. } => Some("Rename"),
       Commands::Changelog { .. } => Some("Changelog"),

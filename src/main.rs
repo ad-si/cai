@@ -156,6 +156,24 @@ async fn exec_with_args(args: Args, stdin: &str) {
         )
         .await
       }
+      Commands::Svg { prompt } => {
+        // Force raw so only the SVG markup is printed
+        let mut opts_svg = opts.clone();
+        opts_svg.is_raw = true;
+
+        let svg_prompt = format!(
+          "Generate an SVG image according to the following description. \
+           Respond ONLY with valid SVG markup – no explanations, no code fences.\n\n{}",
+          prompt.join(" ")
+        );
+
+        submit_prompt(
+          &Some(&Model::Model(Provider::OpenAI, "gpt-4o-mini".to_string())),
+          &opts_svg,
+          &format!("{stdin}{svg_prompt}"),
+        )
+        .await
+      }
       Commands::Ocr { file } => {
         if let Err(err) = extract_text_from_file(&opts, file).await {
           eprintln!("Error extracting text: {}", err);

@@ -80,6 +80,7 @@ Commands:
   fast       Shortcut for `groq gemma2-9b-it`
   local      Shortcut for 'ollama llama3.2'
   value      Return only the value/answer without explanation for the provided question
+  svg        Generate an SVG graphic from a textual description
   ocr        Extract text from an image
   rename     Analyze and rename a file with timestamp and description
   changelog  Generate a changelog starting from a given commit using OpenAI's GPT-4o
