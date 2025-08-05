@@ -1,16 +1,4 @@
-model: o3
-architect: true
-
-# model: gemini/gemini-2.5-pro-preview-03-25
-# model: claude-opus-4-20250514
-
-auto-test: true
-test-cmd: make test
-
-auto-lint: false
-
-auto-commits: false
-attribute-committer: false
+# model: gemini/gemini-2.5-pro
 
 file:
   - build.rs
