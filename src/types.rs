@@ -65,6 +65,13 @@ pub enum Commands {
     prompt: Vec<String>,
   },
 
+  /// Fix spelling, grammar, and wording issues in text passed via stdin
+  #[clap()]
+  Rewrite {
+    /// Additional instructions for how to improve the text
+    prompt: Vec<String>,
+  },
+
   #[allow(dead_code)]
   /// Google
   #[clap(visible_alias = "go")]
@@ -487,6 +494,7 @@ impl Commands {
       Commands::Rename { .. } => Some("Rename"),
       Commands::Changelog { .. } => Some("Changelog"),
       Commands::Reply { .. } => Some("Reply"),
+      Commands::Rewrite { .. } => Some("Rewrite"),
 
       // AI Providers
       Commands::Google { .. } => None,
