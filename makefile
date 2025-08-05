@@ -54,7 +54,7 @@ release:
 	@echo '2. `git add ./changelog.md && git commit -m "Update changelog"`'
 	@echo '3. `cargo release major / minor / patch`'
 	@echo '4. Create a new GitHub release at https://github.com/ad-si/cai/releases/new'
-	@echo \
+	@echo -e \
 		"5. Announce release on \n" \
 		"   - https://x.com \n" \
 		"   - https://bsky.app \n" \

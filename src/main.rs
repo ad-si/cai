@@ -89,7 +89,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
   let stdin = if stdin.is_empty() {
     "".into()
   } else {
-    format!("{}\n", stdin)
+    format!("{stdin}\n")
   };
   let opts = ExecOptions {
     is_raw: args.raw,
@@ -152,7 +152,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
         submit_prompt(
           &Some(&Model::Model(Provider::OpenAI, "gpt-4.1".to_string())),
           &opts,
-          &format!("{stdin}{}", value_prompt),
+          &format!("{stdin}{value_prompt}"),
         )
         .await
       }
@@ -176,7 +176,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       }
       Commands::Ocr { file } => {
         if let Err(err) = extract_text_from_file(&opts, file).await {
-          eprintln!("Error extracting text: {}", err);
+          eprintln!("Error extracting text: {err}");
           std::process::exit(1);
         }
       }
@@ -244,7 +244,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
             }
             err => {
               if let Some(e) = err {
-                eprintln!("{}", e)
+                eprintln!("{e}")
               }
               std::process::exit(1);
             }
@@ -253,7 +253,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       }
       Commands::Changelog { commit_hash } => {
         if let Err(err) = generate_changelog(&opts, commit_hash).await {
-          eprintln!("Error generating changelog: {}", err);
+          eprintln!("Error generating changelog: {err}");
           std::process::exit(1);
         }
       }
@@ -662,7 +662,7 @@ fn rename_file(file: String, timestamp: String, description: String) {
   let mut new_name = path
     .parent()
     .unwrap_or_else(|| std::path::Path::new(""))
-    .join(format!("{}_{}.{}", timestamp, description, ext))
+    .join(format!("{timestamp}_{description}.{ext}"))
     .to_str()
     .unwrap()
     .to_string();
@@ -671,17 +671,17 @@ fn rename_file(file: String, timestamp: String, description: String) {
   loop {
     if std::path::Path::new(&new_name).exists() {
       counter += 1;
-      new_name = format!("{}_{}_{}.{}", timestamp, description, counter, ext)
+      new_name = format!("{timestamp}_{description}_{counter}.{ext}")
     } else {
       break;
     }
   }
 
   if let Err(err) = std::fs::rename(&file, &new_name) {
-    eprintln!("Error renaming file: {}", err);
+    eprintln!("Error renaming file: {err}");
     std::process::exit(1);
   }
-  println!("Renamed {} to {}", file, new_name);
+  println!("Renamed {file} to {new_name}");
 }
 
 #[tokio::main]

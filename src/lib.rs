@@ -70,9 +70,9 @@ impl std::fmt::Display for Model {
     match self {
       Model::Model(provider, model_id) => {
         if model_id.is_empty() {
-          write!(f, "{}", provider)
+          write!(f, "{provider}")
         } else {
-          write!(f, "{} {}", provider, model_id)
+          write!(f, "{provider} {model_id}")
         }
       }
     }
@@ -516,7 +516,7 @@ pub async fn exec_tool(
     .subcommand
     .as_ref()
     .and_then(|x| x.to_string_pretty())
-    .map(|subcom| format!("| ➡️ {}", subcom))
+    .map(|subcom| format!("| ➡️ {subcom}"))
     .unwrap_or_default();
 
   if !&resp.status().is_success() {
@@ -551,7 +551,7 @@ pub async fn exec_tool(
     };
 
     if opts.is_raw {
-      println!("{}", msg);
+      println!("{msg}");
     } else {
       cprintln!(
         "<bold>⏱️{: >5} ms</bold> | {used_model} {subcommand}\n",
@@ -596,7 +596,7 @@ pub async fn generate_changelog(
       "log",
       "--date=short",
       "--pretty=format:%cd - %s%d", // date - subject (refs)
-      &format!("{}..HEAD", commit_hash),
+      &format!("{commit_hash}..HEAD"),
     ])
     .output()
     .expect("Failed to execute git command");
@@ -630,7 +630,7 @@ pub async fn analyze_file_content(
 ) -> Result<FileAnalysis, Box<dyn Error + Send + Sync>> {
   let content = if file_path.to_lowercase().ends_with(".pdf") {
     pdf_extract::extract_text(file_path)
-      .map_err(|e| format!("Failed to extract PDF text: {}", e))?
+      .map_err(|e| format!("Failed to extract PDF text: {e}"))?
   } else {
     std::fs::read_to_string(file_path)?
   };
@@ -755,7 +755,7 @@ pub async fn prompt_with_lang_cntxt(
   )
   .await
   {
-    eprintln!("Error prompting with OCaml context: {}", err);
+    eprintln!("Error prompting with OCaml context: {err}");
     std::process::exit(1);
   }
 }
@@ -815,13 +815,11 @@ mod tests {
 
       assert_eq!(
         has_max_completion, should_use_max_completion,
-        "Failed for model {}",
-        model
+        "Failed for model {model}"
       );
       assert_eq!(
         has_max_tokens, !should_use_max_completion,
-        "Failed for model {}",
-        model
+        "Failed for model {model}"
       );
     }
   }

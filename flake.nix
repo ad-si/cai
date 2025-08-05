@@ -21,7 +21,7 @@
             bash
             cargo
             clippy
-            coreutils # cat
+            coreutils
             gnumake
             rust-analyzer
             rustc
