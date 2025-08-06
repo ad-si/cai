@@ -42,11 +42,12 @@ pub enum Commands {
     file: String,
   },
 
-  /// Analyze and rename a file with timestamp and description
+  /// Analyze and rename files to timestamp plus description
   #[clap()]
   Rename {
-    /// The file to analyze and rename
-    file: String,
+    /// One or more files to analyze and rename
+    #[clap(required = true)]
+    files: Vec<String>,
   },
 
   /// Generate a changelog starting from a given commit

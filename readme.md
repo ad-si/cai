@@ -82,7 +82,7 @@ Commands:
   value      Return only the value/answer without explanation for the provided question
   svg        Generate an SVG graphic from a textual description
   ocr        Extract text from an image
-  rename     Analyze and rename a file with timestamp and description
+  rename     Analyze and rename files to timestamp plus description
   changelog  Generate a changelog starting from a given commit using OpenAI's GPT-4o
   reply      Reply to a conversation passed via stdin. Add additional reply instructions as the prompt
   rewrite    Fix spelling, grammar, and wording issues in text passed via stdin

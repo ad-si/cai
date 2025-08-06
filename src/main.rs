@@ -6,10 +6,97 @@ use cai::{
   prompt_with_lang_cntxt, submit_prompt, Commands, ExecOptions, Model,
   Provider,
 };
+use chrono::NaiveDateTime;
 use clap::{builder::styling, crate_version, Parser};
 use color_print::cformat;
 use futures::future::join_all;
 use serde_json::{json, Value};
+use std::error::Error;
+
+// Rename a single file
+async fn process_rename(
+  opts: &ExecOptions,
+  file: &str,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+  match analyze_file_content(opts, file).await {
+    Ok(analysis) => {
+      let timestamp_str = analysis.timestamp.unwrap_or_default();
+      let timestamp_norm = timestamp_str.trim().to_lowercase();
+      let valid_timestamp =
+        NaiveDateTime::parse_from_str(&timestamp_norm, "%Y-%m-%dt%H:%Mz")
+          .or_else(|_| {
+            NaiveDateTime::parse_from_str(
+              &(timestamp_norm.clone() + "t00:00z"),
+              "%Y-%m-%dt%H:%Mz",
+            )
+          })
+          .is_ok();
+      let timestamp = if valid_timestamp {
+        timestamp_norm
+          .replace(":", "")
+          .replace("z", "")
+          .replace("t0000", "")
+      } else {
+        chrono::Local::now().format("%Y-%m-%dt%H%M").to_string()
+      };
+      let description = analysis //
+        .description
+        .trim()
+        .to_lowercase()
+        .replace(' ', "_")
+        // Remove any non-alphanumeric characters
+        .replace(
+          |c: char| {
+            !c.is_ascii_alphanumeric()
+              && c != '_'
+              && c != '-'
+              && c != 'ä'
+              && c != 'ö'
+              && c != 'ü'
+              && c != 'ß'
+          },
+          "",
+        );
+      rename_file(file.to_string(), timestamp, description);
+      Ok(())
+    }
+    Err(error) => match error.downcast_ref::<std::io::Error>() {
+      Some(err) if err.kind() == std::io::ErrorKind::InvalidData => {
+        // If it's not a text file, use the creation time
+        let timestamp = std::fs::metadata(file)
+          .map(|meta| {
+            meta
+              .created()
+              .map(|created| {
+                chrono::DateTime::<chrono::Local>::from(created)
+                  .format("%Y-%m-%dt%H%M")
+                  .to_string()
+              })
+              .unwrap_or_else(|_| {
+                chrono::Local::now().format("%Y-%m-%dt%H%M").to_string()
+              })
+              .to_string()
+          })
+          .unwrap_or_else(|_| {
+            chrono::Local::now().format("%Y-%m-%dt%H%M").to_string()
+          });
+
+        std::path::Path::new(file)
+          .file_stem()
+          .map(|file_name_no_ext| {
+            file_name_no_ext.to_str().unwrap_or_default().to_string()
+          })
+          .map(|file_name| rename_file(file.to_string(), timestamp, file_name))
+          .ok_or_else(|| {
+            // Could not rename -> propagate error
+            Box::<dyn Error + Send + Sync>::from("Failed to rename file")
+          })?;
+        Ok(())
+      }
+      _ => Err(error),
+    },
+  }
+}
 
 const CRATE_VERSION: &str = crate_version!();
 
@@ -180,75 +267,12 @@ async fn exec_with_args(args: Args, stdin: &str) {
           std::process::exit(1);
         }
       }
-      Commands::Rename { file } => {
-        match analyze_file_content(&opts, file).await {
-          Ok(analysis) => {
-            let timestamp_str = analysis.timestamp.unwrap_or_default();
-            let timestamp_norm = timestamp_str.trim().to_lowercase();
-            let valid_timestamp = chrono::NaiveDateTime::parse_from_str(
-              &timestamp_norm,
-              "%Y-%m-%dt%H:%Mz",
-            )
-            .or_else(|_| {
-              chrono::NaiveDateTime::parse_from_str(&timestamp_norm, "%Y-%m-%d")
-            })
-            .is_ok();
-            let timestamp = if valid_timestamp {
-              timestamp_norm
-                .replace(":", "")
-                .replace("z", "")
-                .replace("t0000", "")
-            } else {
-              chrono::Local::now().format("%Y-%m-%dt%H%M").to_string()
-            };
-            let description = analysis //
-              .description
-              .trim()
-              .to_lowercase()
-              .replace(' ', "_");
-            rename_file(file.to_string(), timestamp, description);
+      Commands::Rename { files } => {
+        for file in files {
+          if let Err(e) = process_rename(&opts, file).await {
+            eprintln!("{e}");
+            std::process::exit(1);
           }
-          Err(error) => match error.downcast_ref::<std::io::Error>() {
-            Some(err) if err.kind() == std::io::ErrorKind::InvalidData => {
-              // If it's not a text file, use the creation time
-              let timestamp = std::fs::metadata(file)
-                .map(|meta| {
-                  meta
-                    .created()
-                    .map(|created| {
-                      chrono::DateTime::<chrono::Local>::from(created)
-                        .format("%Y-%m-%dt%H%M")
-                        .to_string()
-                    })
-                    .unwrap_or_else(|_| {
-                      chrono::Local::now().format("%Y-%m-%dt%H%M").to_string()
-                    })
-                    .to_string()
-                })
-                .unwrap_or_else(|_| {
-                  chrono::Local::now().format("%Y-%m-%dt%H%M").to_string()
-                });
-
-              std::path::Path::new(&file)
-                .file_stem()
-                .map(|file_name_no_ext| {
-                  file_name_no_ext.to_str().unwrap_or_default().to_string()
-                })
-                .map(|file_name| {
-                  rename_file(file.to_string(), timestamp, file_name)
-                })
-                .unwrap_or_else(|| {
-                  dbg!(err);
-                  std::process::exit(1);
-                });
-            }
-            err => {
-              if let Some(e) = err {
-                eprintln!("{e}")
-              }
-              std::process::exit(1);
-            }
-          },
         }
       }
       Commands::Changelog { commit_hash } => {
