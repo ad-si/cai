@@ -179,12 +179,20 @@ fn default_req_for_model(model: &Model) -> AiRequest {
       model: types::get_ollama_model(model_id).to_string(),
       ..Default::default()
     },
-    Provider::OpenAI => AiRequest {
-      provider: *provider,
-      url: "https://api.openai.com/v1/chat/completions".to_string(),
-      model: types::get_openai_model(model_id).to_string(),
-      ..Default::default()
-    },
+    Provider::OpenAI => {
+      let resolved_model = types::get_openai_model(model_id);
+      let url = if resolved_model.contains("-tts") {
+        "https://api.openai.com/v1/audio/speech".to_string()
+      } else {
+        "https://api.openai.com/v1/chat/completions".to_string()
+      };
+      AiRequest {
+        provider: *provider,
+        url,
+        model: resolved_model.to_string(),
+        ..Default::default()
+      }
+    }
     Provider::XAI => AiRequest {
       provider: *provider,
       url: "https://api.x.ai/v1/chat/completions".to_string(),
@@ -391,6 +399,15 @@ fn get_req_body_obj(
     return Value::Object(map);
   }
 
+  // Special handling for OpenAI TTS models
+  if http_req.provider == Provider::OpenAI && http_req.model.contains("-tts") {
+    let mut map = Map::new();
+    map.insert("model".to_string(), Value::String(http_req.model.clone()));
+    map.insert("input".to_string(), Value::String(user_input.to_string()));
+    map.insert("voice".to_string(), Value::String("alloy".to_string()));
+    return Value::Object(map);
+  }
+
   // For all other providers
   let mut map = Map::new();
   map.insert("model".to_string(), Value::String(http_req.model.clone()));
@@ -529,6 +546,29 @@ pub async fn exec_tool(
       elapsed_time,
     ))?;
   } else {
+    // Special handling for OpenAI TTS models - they return audio data
+    if http_req.provider == Provider::OpenAI && http_req.model.contains("-tts")
+    {
+      let audio_data = resp.bytes().await?;
+
+      // Find a unique filename
+      let mut filename = "output.mp3".to_string();
+      let mut counter = 1;
+      while std::path::Path::new(&filename).exists() {
+        filename = format!("output_{counter}.mp3");
+        counter += 1;
+      }
+
+      std::fs::write(&filename, &audio_data)?;
+
+      cprintln!(
+        "<bold>⏱️{: >5} ms</bold> | {used_model} {subcommand}\n",
+        elapsed_time,
+      );
+      println!("Audio generated and saved to: {filename}");
+      return Ok(());
+    }
+
     let msg = match http_req.provider {
       Provider::Anthropic => {
         let anth_response = resp.json::<AnthropicAiResponse>().await?;
