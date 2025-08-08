@@ -188,6 +188,24 @@ pub enum Commands {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
+  /// - gpt-5 shortcut
+  #[clap(name = "gpt5")]
+  Gpt5 {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// - gpt-5-mini shortcut
+  #[clap(name = "gpt5m")]
+  Gpt5Mini {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// - gpt-5-nano shortcut
+  #[clap(name = "gpt5n")]
+  Gpt5Nano {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
   /// - o1-pro shortcut
   #[clap(name = "o1p")]
   O1Pro {
@@ -514,6 +532,9 @@ impl Commands {
       Commands::Gpt41 { .. } => None,
       Commands::Gpt41Mini { .. } => None,
       Commands::Gpt41Nano { .. } => None,
+      Commands::Gpt5 { .. } => None,
+      Commands::Gpt5Mini { .. } => None,
+      Commands::Gpt5Nano { .. } => None,
       Commands::O1Pro { .. } => None,
       Commands::Anthropic { .. } => None,
       Commands::ClaudeOpus { .. } => None,

@@ -151,35 +151,48 @@ const OLLAMA_MODEL_MAPPING_SRC: [(&str, &str); 21] = [
   ("llama2", "llama2"),
 ];
 
-const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 22] = [
+const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 34] = [
   // Default models
-  ("gpt", "gpt-4o"),
-  ("omni", "gpt-4o"),
-  ("mini", "gpt-4o-mini"),
-  ("m", "gpt-4o-mini"),
-  ("turbo", "gpt-4-turbo"),
-  ("t", "gpt-4-turbo"),
-  // Specific versions
+  ("gpt", "gpt-5"),
+  ("mini", "gpt-5-mini"),
+  ("m", "gpt-5-mini"),
+  ("nano", "gpt-5-nano"),
+  ("n", "gpt-5-nano"),
+  ("image", "gpt-image-1"),
+  ("tts", "gpt-4o-mini-tts"),
+  ("transcribe", "gpt-4o-transcribe"),
+  // GPT-5
+  ("gpt5", "gpt-5"),
+  ("gpt5mini", "gpt-5-mini"),
+  ("gpt5nano", "gpt-5-nano"),
+  ("5", "gpt-5"),
+  ("5mini", "gpt-5-mini"),
+  ("5m", "gpt-5-mini"),
+  ("5nano", "gpt-5-nano"),
+  ("5n", "gpt-5-nano"),
+  // GPT Image
+  ("gptimage", "gpt-image-1"),
+  ("gpt-image", "gpt-image-1"),
+  ("gpt-image-1", "gpt-image-1"),
+  // GPT-4
+  ("gpt4", "gpt-4.1"),
+  ("gpt4mini", "gpt-4.1-mini"),
+  ("4mini", "gpt-4.1-mini"),
+  ("4m", "gpt-4.1-mini"),
+  ("gpt4nano", "gpt-4.1-nano"),
+  ("4nano", "gpt-4.1-nano"),
+  ("4n", "gpt-4.1-nano"),
+  // GPT-4o
+  ("gpt4o", "gpt-4o"),
   ("4o", "gpt-4o"),
-  ("gpt4", "gpt-4"),
-  ("4", "gpt-4"),
-  ("turbo4", "gpt-4-turbo"),
-  ("t4", "gpt-4-turbo"),
-  ("turbo35", "gpt-3.5-turbo"),
-  ("t35", "gpt-3.5-turbo"),
-  // o3 model
-  ("o3", "o3"),
-  // o4 models
-  ("o4-mini", "o4-mini"),
-  // gpt-4.1 models
-  ("gpt-4.1", "gpt-4.1"),
-  ("gpt-4.1-mini", "gpt-4.1-mini"),
-  ("gpt-4.1-nano", "gpt-4.1-nano"),
-  ("4.1", "gpt-4.1"),
-  ("4.1-mini", "gpt-4.1-mini"),
-  ("4.1-nano", "gpt-4.1-nano"),
-  // o1 models
-  ("o1-pro", "o1-pro"),
+  ("gpt4ominitts", "gpt-4o-mini-tts"),
+  ("gpt4otranscribe", "gpt-4o-transcribe"),
+  // o4
+  ("o4m", "o4-mini"),
+  ("o4mdr", "o4-mini-deep-research"),
+  // o3
+  ("o3pro", "o3-pro"),
+  ("o3dr", "o3-deep-research"),
 ];
 
 const XAI_MODEL_MAPPING_SRC: [(&str, &str); 8] = [

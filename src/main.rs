@@ -485,6 +485,30 @@ async fn exec_with_args(args: Args, stdin: &str) {
         )
         .await
       }
+      Commands::Gpt5 { prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(Provider::OpenAI, "gpt-5".to_string())),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
+      Commands::Gpt5Mini { prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(Provider::OpenAI, "gpt-5-mini".to_string())),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
+      Commands::Gpt5Nano { prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(Provider::OpenAI, "gpt-5-nano".to_string())),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
       Commands::O1Pro { prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::OpenAI, "o1-pro".to_string())),

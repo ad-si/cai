@@ -102,6 +102,9 @@ Commands:
   gpt41      - gpt-4.1 shortcut
   gpt41m     - gpt-4.1-mini shortcut
   gpt41n     - gpt-4.1-nano shortcut
+  gpt5       - gpt-5 shortcut
+  gpt5m      - gpt-5-mini shortcut
+  gpt5n      - gpt-5-nano shortcut
   o1p        - o1-pro shortcut
   anthropic  Anthropic [aliases: an]
   cl         - Claude Opus
