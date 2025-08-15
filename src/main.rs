@@ -3,8 +3,8 @@ use std::io::{read_to_string, IsTerminal};
 
 use cai::{
   analyze_file_content, exec_tool, extract_text_from_file, generate_changelog,
-  prompt_with_lang_cntxt, submit_prompt, Commands, ExecOptions, Model,
-  Provider,
+  prompt_with_lang_cntxt, submit_prompt, transcribe_audio_file, Commands,
+  ExecOptions, Model, Provider,
 };
 use chrono::NaiveDateTime;
 use clap::{builder::styling, crate_version, Parser};
@@ -32,10 +32,7 @@ async fn process_rename(
           })
           .is_ok();
       let timestamp = if valid_timestamp {
-        timestamp_norm
-          .replace(":", "")
-          .replace("z", "")
-          .replace("t0000", "")
+        timestamp_norm.replace([':', 'z'], "").replace("t0000", "")
       } else {
         chrono::Local::now().format("%Y-%m-%dt%H%M").to_string()
       };
@@ -75,7 +72,6 @@ async fn process_rename(
               .unwrap_or_else(|_| {
                 chrono::Local::now().format("%Y-%m-%dt%H%M").to_string()
               })
-              .to_string()
           })
           .unwrap_or_else(|_| {
             chrono::Local::now().format("%Y-%m-%dt%H%M").to_string()
@@ -83,8 +79,8 @@ async fn process_rename(
 
         std::path::Path::new(file)
           .file_stem()
-          .map(|file_name_no_ext| {
-            file_name_no_ext.to_str().unwrap_or_default().to_string()
+          .and_then(|file_name_no_ext| {
+            file_name_no_ext.to_str().map(|s| s.to_string())
           })
           .map(|file_name| rename_file(file.to_string(), timestamp, file_name))
           .ok_or_else(|| {
@@ -183,7 +179,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
     is_json: args.json,
     json_schema: args
       .json_schema
-      .map(|schema_str| {
+      .and_then(|schema_str| {
         serde_json::from_str(&schema_str).expect("Invalid JSON schema")
       })
       .map(|schema: Value| {
@@ -192,12 +188,11 @@ async fn exec_with_args(args: Args, stdin: &str) {
         if !schema_obj.contains_key("type") {
           schema_obj.insert("type".to_string(), "object".into());
         }
-        let api_object = json!({
+        json!({
           "name": "requested_json_schema",
           "strict": true,
           "schema": schema_obj,
-        });
-        api_object
+        })
       }),
     subcommand: args.command.clone(),
   };
@@ -340,6 +335,12 @@ async fn exec_with_args(args: Args, stdin: &str) {
           &rewrite_prompt,
         )
         .await
+      }
+      Commands::Transcribe { file } => {
+        if let Err(_err) = transcribe_audio_file(&opts, file).await {
+          eprintln!("Error transcribing file: {{_err}}");
+          std::process::exit(1);
+        }
       }
       Commands::Image { prompt } => {
         let image_prompt = prompt.join(" ").to_string();

@@ -73,6 +73,12 @@ pub enum Commands {
     prompt: Vec<String>,
   },
 
+  /// Transcribe an audio file
+  #[clap()]
+  Transcribe {
+    /// The audio file to transcribe
+    file: String,
+  },
 
   /// Generate an image using GPT-5 image generation
   #[clap()]
@@ -522,6 +528,7 @@ impl Commands {
       Commands::Changelog { .. } => Some("Changelog"),
       Commands::Reply { .. } => Some("Reply"),
       Commands::Rewrite { .. } => Some("Rewrite"),
+      Commands::Transcribe { .. } => Some("Transcribe"),
       Commands::Image { .. } => Some("Image"),
 
       // AI Providers

@@ -891,6 +891,50 @@ pub async fn extract_text_from_file(
   exec_tool(&Some(model), opts, &prompt).await
 }
 
+pub async fn transcribe_audio_file(
+  opts: &ExecOptions,
+  file_path: &str,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+  let secrets_path_str = get_secrets_path_str();
+  let full_config = get_full_config(&secrets_path_str)?;
+  let model = &Model::Model(Provider::OpenAI, "gpt-4o-transcribe".to_string());
+  let (_used_model, http_req) =
+    get_http_req(&Some(model), &secrets_path_str, &full_config)?;
+
+  let file = std::fs::read(file_path)?;
+  let part = reqwest::multipart::Part::bytes(file)
+    .file_name(file_path.to_string())
+    .mime_str("audio/mpeg")?;
+
+  let form = reqwest::multipart::Form::new()
+    .text("model", http_req.model.clone())
+    .part("file", part);
+
+  let client = reqwest::Client::new();
+  let resp = client
+    .post("https://api.openai.com/v1/audio/transcriptions")
+    .bearer_auth(&http_req.api_key)
+    .multipart(form)
+    .send()
+    .await?;
+
+  if resp.status().is_success() {
+    let resp_json = resp.json::<Value>().await?;
+    let text = format!("{}\n", resp_json["text"].as_str().unwrap_or_default());
+    if opts.is_raw {
+      println!("{text}");
+    } else {
+      highlight::text_via_bat(&text);
+    }
+  } else {
+    let resp_json = resp.json::<Value>().await?;
+    let resp_formatted = serde_json::to_string_pretty(&resp_json).unwrap();
+    Err(resp_formatted)?;
+  }
+
+  Ok(())
+}
+
 pub async fn prompt_with_lang_cntxt(
   opts: &ExecOptions,
   cmd: &Commands,
