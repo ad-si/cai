@@ -1,9 +1,17 @@
-# `cai` - The fastest CLI tool for prompting LLMs
+# `cai` - User friendly CLI tool for AI tasks
+
+![Demo usage of cai in a terminal](demos/2025-08-15t2052.png)
+
 
 ## Features
 
+- High level commands for great usability
+  - `cai value capital of Australia`
+  - `cai image photo of a banana`
+  - `cai ocr page.png`
+  - `pbpaste | cai rewrite 'more professional'`
+  - Check [usage section](./#usage) for all commands
 - Build with Rust 🦀 for supreme performance and speed! 🏎️
-- High level commands like `cai ocr` for better usability. 💡
 - Support for models by
   - [Anthropic]
   - [OpenAI]
@@ -26,11 +34,6 @@
 [Ollama]: https://ollama.com
 [OpenAI]: https://platform.openai.com/docs/models
 [xAI]: https://x.ai/api#pricing
-
-
-## Demo
-
-![`cai` demo](./demos/main.gif)
 
 
 ## Installation
