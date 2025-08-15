@@ -4,18 +4,18 @@ use std::path::Path;
 
 const GOOGLE_MODEL_MAPPING_SRC: [(&str, &str); 14] = [
   // Default models
-  ("gemini", "gemini-2.5-flash-preview-04-17"),
-  ("g", "gemini-2.5-flash-preview-04-17"),
-  ("flash", "gemini-2.5-flash-preview-04-17"),
-  ("f", "gemini-2.5-flash-preview-04-17"),
-  ("gemini-pro", "gemini-2.5-pro-preview-05-06"),
-  ("pro", "gemini-2.5-pro-preview-05-06"),
+  ("gemini", "gemini-2.5-flash"),
+  ("g", "gemini-2.5-flash"),
+  ("flash", "gemini-2.5-flash"),
+  ("f", "gemini-2.5-flash"),
+  ("gemini-pro", "gemini-2.5-pro"),
+  ("pro", "gemini-2.5-pro"),
   ("gemini-flash-lite", "gemini-2.0-flash-lite"),
   ("flast-lite", "gemini-2.0-flash-lite"),
   ("lite", "gemini-2.0-flash-lite"),
   // Version 2.5 models
-  ("gemini-2.5-flash", "gemini-2.5-flash-preview-04-17"),
-  ("gemini-2.5-pro", "gemini-2.5-pro-preview-05-06"),
+  ("gemini-2.5-flash", "gemini-2.5-flash"),
+  ("gemini-2.5-pro", "gemini-2.5-pro"),
   // Version 2 models
   ("gemini-2-flash", "gemini-2.0-flash"),
   // Version 1.5 models
@@ -66,8 +66,10 @@ const ANTHROPIC_MODEL_MAPPING_SRC: [(&str, &str); 32] = [
   ("sonnet-3-7", "claude-3-7-sonnet-20250219"),
 ];
 
-const GROQ_MODEL_MAPPING_SRC: [(&str, &str); 20] = [
+const GROQ_MODEL_MAPPING_SRC: [(&str, &str); 23] = [
   ///// Default models /////
+  // GPT
+  ("gpt", "openai/gpt-oss-20b"),
   // Llama
   ("llama", "llama-3.1-8b-instant"),
   ("ll", "llama-3.1-8b-instant"),
@@ -84,6 +86,9 @@ const GROQ_MODEL_MAPPING_SRC: [(&str, &str); 20] = [
   ("ge", "gemma2-9b-it"),
   ("g", "gemma2-9b-it"),
   ///// Specific versions /////
+  // GPT
+  ("gpt-20b", "openai/gpt-oss-20b"),
+  ("gpt-120b", "openai/gpt-oss-120b"),
   // Llama 3.1
   ("llama31", "llama-3.1-8b-instant"),
   ("llama31-8b", "llama-3.1-8b-instant"),
@@ -97,8 +102,10 @@ const GROQ_MODEL_MAPPING_SRC: [(&str, &str); 20] = [
   ("mixtral-8x7b", "mixtral-8x7b-32768"),
 ];
 
-const CEREBRAS_MODEL_MAPPING_SRC: [(&str, &str); 13] = [
+const CEREBRAS_MODEL_MAPPING_SRC: [(&str, &str); 14] = [
   ///// Default models /////
+  // GPT
+  ("gpt", "gpt-oss-120b"),
   // Llama
   ("llama", "llama3.1-8b"),
   ("ll", "llama3.1-8b"),
@@ -199,17 +206,16 @@ const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 37] = [
   ("o3dr", "o3-deep-research"),
 ];
 
-const XAI_MODEL_MAPPING_SRC: [(&str, &str); 8] = [
+const XAI_MODEL_MAPPING_SRC: [(&str, &str); 6] = [
   // Default models
-  ("grok", "grok-2-latest"),
+  ("grok", "grok-4-latest"),
   ("grok-mini", "grok-3-mini-latest"),
-  ("grok-vision", "grok-2-vision-latest"),
-  // Specific versions
-  ("grok-2", "grok-2-1212"),
-  ("grok-2-vision", "grok-2-vision-1212"),
-  ("grok-3", "grok-3-latest"),
-  ("grok-3-mini", "grok-3-mini-latest"),
-  ("grok-3-vision", "grok-3-vision-latest"),
+  ("grok-image", "grok-2-image-latest"),
+  // Grok 4
+  ("grok4", "grok-4-latest"),
+  // Grok 3
+  ("grok3", "grok-3-latest"),
+  ("grok3mini", "grok-3-mini-latest"),
 ];
 
 fn pretty_print_mapping(mapping: &[(&str, &str)]) -> String {

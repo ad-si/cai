@@ -210,7 +210,10 @@ async fn exec_with_args(args: Args, stdin: &str) {
     Some(cmd) => match &cmd {
       Commands::Fast { prompt } => {
         submit_prompt(
-          &Some(&Model::Model(Provider::Groq, "gemma2-9b-it".to_string())),
+          &Some(&Model::Model(
+            Provider::Groq,
+            "openai/gpt-oss-20b".to_string(),
+          )),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
@@ -367,7 +370,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
         submit_prompt(
           &Some(&Model::Model(
             Provider::Google,
-            "gemini-2.5-flash-preview-04-17".to_string(),
+            "gemini-2.5-flash".to_string(),
           )),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
@@ -378,7 +381,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
         submit_prompt(
           &Some(&Model::Model(
             Provider::Google,
-            "gemini-2.5-flash-preview-04-17".to_string(),
+            "gemini-2.5-flash".to_string(),
           )),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
@@ -594,7 +597,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       }
       Commands::Grok { prompt } => {
         submit_prompt(
-          &Some(&Model::Model(Provider::XAI, "grok-2-latest".to_string())),
+          &Some(&Model::Model(Provider::XAI, "grok-4-latest".to_string())),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
@@ -606,16 +609,13 @@ async fn exec_with_args(args: Args, stdin: &str) {
             Provider::Anthropic,
             "claude-3-7-sonnet-latest".to_string(),
           ),
-          Model::Model(Provider::Cerebras, "llama-3.1-8b".to_string()),
-          Model::Model(
-            Provider::Google,
-            "gemini-2.5-flash-preview-04-17".to_string(),
-          ),
-          Model::Model(Provider::Groq, "llama-3.1-8b-instant".to_string()),
+          Model::Model(Provider::Cerebras, "gpt-oss-120b".to_string()),
+          Model::Model(Provider::Google, "gemini-2.5-flash".to_string()),
+          Model::Model(Provider::Groq, "openai/gpt-oss-20b".to_string()),
           Model::Model(Provider::Llamafile, "".to_string()),
           Model::Model(Provider::Ollama, "llama3".to_string()),
-          Model::Model(Provider::OpenAI, "gpt-4o-mini".to_string()),
-          Model::Model(Provider::XAI, "grok-2-latest".to_string()),
+          Model::Model(Provider::OpenAI, "gpt-5-mini".to_string()),
+          Model::Model(Provider::XAI, "grok-3-mini-latest".to_string()),
         ];
 
         let mut handles = vec![];

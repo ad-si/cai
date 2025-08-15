@@ -61,7 +61,7 @@ pub enum Model {
 
 impl Default for Model {
   fn default() -> Model {
-    Model::Model(Provider::Groq, "llama-3.1-8b-instant".to_owned())
+    Model::Model(Provider::Groq, "openai/gpt-oss-20b".to_owned())
   }
 }
 
@@ -339,12 +339,12 @@ fn get_http_req(
           .or(get_api_request(
             full_config,
             secrets_path_str,
-            &Model::Model(Provider::Groq, "llama-3.1-8b-instant".to_owned()),
+            &Model::Model(Provider::Groq, "openai/gpt-oss-20b".to_owned()),
           ))
           .or(get_api_request(
             full_config,
             secrets_path_str,
-            &Model::Model(Provider::OpenAI, "gpt-4o-mini".to_string()),
+            &Model::Model(Provider::OpenAI, "gpt-5-mini".to_string()),
           ))
           .or(get_api_request(
             full_config,

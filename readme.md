@@ -77,7 +77,7 @@ The fastest CLI tool for prompting LLMs
 Usage: cai [OPTIONS] [PROMPT]... [COMMAND]
 
 Commands:
-  fast        Shortcut for `groq gemma2-9b-it`
+  fast        Shortcut for `groq openai/gpt-oss-20b`
   local       Shortcut for 'ollama llama3.2'
   value       Return only the value/answer without explanation for the provided question
   svg         Generate an SVG graphic from a textual description
