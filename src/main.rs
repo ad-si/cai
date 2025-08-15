@@ -341,6 +341,15 @@ async fn exec_with_args(args: Args, stdin: &str) {
         )
         .await
       }
+      Commands::Image { prompt } => {
+        let image_prompt = prompt.join(" ").to_string();
+        submit_prompt(
+          &Some(&Model::Model(Provider::OpenAI, "gpt-5".to_string())),
+          &opts,
+          &format!("{stdin}{image_prompt}"),
+        )
+        .await
+      }
 
       /////////////////////////////////////////
       //============ AI PROVIDERS =============

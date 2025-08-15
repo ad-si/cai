@@ -413,12 +413,8 @@ fn get_req_body_obj(
   }
 
   // Special handling for OpenAI image generation (detect when "image" alias was used)
-  let is_image_generation =
-    if let Some(Commands::Openai { model, .. }) = &opts.subcommand {
-      model == "image"
-    } else {
-      false
-    };
+  let is_image_generation = matches!(&opts.subcommand, Some(Commands::Openai { model, .. }) if model == "image")
+    || matches!(&opts.subcommand, Some(Commands::Image { .. }));
 
   if http_req.provider == Provider::OpenAI
     && (is_image_generation || http_req.model == "gpt-image-1")
@@ -567,12 +563,8 @@ pub async fn exec_tool(
     get_http_req(optional_model, &secrets_path_str, &full_config)?;
 
   // Check if this is an image generation request and update URL accordingly
-  let is_image_generation =
-    if let Some(Commands::Openai { model, .. }) = &opts.subcommand {
-      model == "image"
-    } else {
-      false
-    };
+  let is_image_generation = matches!(&opts.subcommand, Some(Commands::Openai { model, .. }) if model == "image")
+    || matches!(&opts.subcommand, Some(Commands::Image { .. }));
 
   if http_req.provider == Provider::OpenAI && is_image_generation {
     http_req.url = "https://api.openai.com/v1/responses".to_string();
@@ -627,12 +619,8 @@ pub async fn exec_tool(
     }
 
     // Check if this is an image generation request
-    let is_image_generation =
-      if let Some(Commands::Openai { model, .. }) = &opts.subcommand {
-        model == "image"
-      } else {
-        false
-      };
+    let is_image_generation = matches!(&opts.subcommand, Some(Commands::Openai { model, .. }) if model == "image")
+      || matches!(&opts.subcommand, Some(Commands::Image { .. }));
 
     // Special handling for OpenAI image generation models
     if http_req.provider == Provider::OpenAI

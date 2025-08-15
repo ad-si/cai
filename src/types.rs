@@ -73,6 +73,14 @@ pub enum Commands {
     prompt: Vec<String>,
   },
 
+
+  /// Generate an image using GPT-5 image generation
+  #[clap()]
+  Image {
+    /// The prompt describing the image to generate
+    prompt: Vec<String>,
+  },
+
   #[allow(dead_code)]
   /// Google
   #[clap(visible_alias = "go")]
@@ -514,6 +522,7 @@ impl Commands {
       Commands::Changelog { .. } => Some("Changelog"),
       Commands::Reply { .. } => Some("Reply"),
       Commands::Rewrite { .. } => Some("Rewrite"),
+      Commands::Image { .. } => Some("Image"),
 
       // AI Providers
       Commands::Google { .. } => None,
