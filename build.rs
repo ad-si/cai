@@ -151,14 +151,14 @@ const OLLAMA_MODEL_MAPPING_SRC: [(&str, &str); 21] = [
   ("llama2", "llama2"),
 ];
 
-const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 34] = [
+const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 37] = [
   // Default models
   ("gpt", "gpt-5"),
   ("mini", "gpt-5-mini"),
   ("m", "gpt-5-mini"),
   ("nano", "gpt-5-nano"),
   ("n", "gpt-5-nano"),
-  ("image", "gpt-image-1"),
+  ("image", "gpt-5"),
   ("tts", "gpt-4o-mini-tts"),
   ("transcribe", "gpt-4o-transcribe"),
   // GPT-5
@@ -174,6 +174,10 @@ const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 34] = [
   ("gptimage", "gpt-image-1"),
   ("gpt-image", "gpt-image-1"),
   ("gpt-image-1", "gpt-image-1"),
+  // DALL-E
+  ("dalle", "dall-e-3"),
+  ("dalle3", "dall-e-3"),
+  ("dalle2", "dall-e-2"),
   // GPT-4
   ("gpt4", "gpt-4.1"),
   ("gpt4mini", "gpt-4.1-mini"),
