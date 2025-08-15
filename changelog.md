@@ -1,5 +1,20 @@
 # Changelog
 
+## 2025-08-15 - v0.12.0
+
+- Add new subcommands
+    - `image` - Generate an image using GPT-5
+    - `transcribe` - Transcribe text from an audio file using GPT-4o Transcribe
+    - `rewrite` - Rewrite text with improved clarity and style
+    - `jq` - Get help on using [jq](https://jqlang.org)
+    - `svg` - Generate an SVG image from a text prompt
+- Add support for new GPT-5 models
+- Add support for latest xAI models
+- Update default models
+- `reply` command: Improve prompt
+- `rename` command: Support renaming several files and fix timestamp handling
+
+
 ## 2025-06-02 - v0.11.0
 
 - Add new subcommands
