@@ -8,6 +8,7 @@ use std::error::Error;
 use std::str;
 use std::time::Instant;
 
+use chrono::Utc;
 use color_print::{cformat, cprintln};
 use config::Config;
 use reqwest::Response;
@@ -597,11 +598,15 @@ pub async fn exec_tool(
     {
       let audio_data = resp.bytes().await?;
 
-      // Find a unique filename
-      let mut filename = "output.mp3".to_string();
+      // Generate timestamp prefix in format: 2025-08-17t1943
+      let now = Utc::now();
+      let timestamp_prefix = now.format("%Y-%m-%dt%H%M").to_string();
+
+      // Find a unique filename with timestamp prefix
+      let mut filename = format!("{timestamp_prefix}_output.mp3");
       let mut counter = 1;
       while std::path::Path::new(&filename).exists() {
-        filename = format!("output_{counter}.mp3");
+        filename = format!("{timestamp_prefix}_output_{counter}.mp3");
         counter += 1;
       }
 

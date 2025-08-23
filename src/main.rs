@@ -350,6 +350,17 @@ async fn exec_with_args(args: Args, stdin: &str) {
           std::process::exit(1);
         }
       }
+      Commands::Say { prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(
+            Provider::OpenAI,
+            "gpt-4o-mini-tts".to_string(),
+          )),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
       Commands::Image { prompt } => {
         let image_prompt = prompt.join(" ").to_string();
         submit_prompt(

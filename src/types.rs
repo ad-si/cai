@@ -46,6 +46,13 @@ pub enum Commands {
     prompt: Vec<String>,
   },
 
+  /// Convert text to speech using OpenAI's TTS model
+  #[clap(visible_alias = "tts")]
+  Say {
+    /// The text to convert to speech
+    prompt: Vec<String>,
+  },
+
   /// Transcribe an audio file
   Transcribe {
     /// The audio file to transcribe
@@ -482,6 +489,7 @@ impl Commands {
       Commands::Reply { .. } => Some("Reply"),
       Commands::Rewrite { .. } => Some("Rewrite"),
       Commands::Transcribe { .. } => Some("Transcribe"),
+      Commands::Say { .. } => Some("Say"),
       Commands::Image { .. } => Some("Image"),
 
       // Models
