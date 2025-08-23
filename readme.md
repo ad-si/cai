@@ -66,66 +66,60 @@ cai List 10 fast CLI tools
 Or a specific model, like Anthropic's Claude Opus:
 
 ```sh
-cai op List 10 fast CLI tools
+cai opus list 10 fast CLI tools
 ```
 
 Full help output:
 
 ```txt
 $ cai help
-Cai 0.11.0
+Cai 0.12.0
 
-The fastest CLI tool for prompting LLMs
+User friendly CLI tool for AI tasks
 
 Usage: cai [OPTIONS] [PROMPT]... [COMMAND]
 
 Commands:
   fast        Shortcut for `groq openai/gpt-oss-20b`
-  local       Shortcut for 'ollama llama3.2'
-  value       Return only the value/answer without explanation for the provided question
-  svg         Generate an SVG graphic from a textual description
-  ocr         Extract text from an image
-  rename      Analyze and rename files to timestamp plus description
-  changelog   Generate a changelog starting from a given commit using OpenAI's GPT-4o
-  reply       Reply to a conversation passed via stdin. Add additional reply instructions as the prompt
-  rewrite     Fix spelling, grammar, and wording issues in text passed via stdin
+  local       Shortcut for `ollama llama3.2`
+  value       Return only the value/answer without explanations
+  rewrite     Fix spelling, grammar, and wording issues in text passed via standard input
+  reply       Reply to a conversation passed via standard input. Add additional reply instructions as the prompt
+  image       Generate an image using GPT-5 image generation [aliases: img]
+  say         Convert text to speech using OpenAI's TTS model [aliases: tts]
   transcribe  Transcribe an audio file
-  image       Generate an image using GPT-5 image generation
+  ocr         Extract text from an image
+  rename      Analyze and rename files to timestamp + title (e.g. 2025-08-19t2041_invoice_car.pdf)
+  changelog   Generate a changelog starting from a given commit
+  svg         Generate an SVG graphic from a textual description
+              
+              📚 MODELS                                                    
+  all         Simultaneously send prompt to each provider's default model
   google      Google [aliases: go]
-  ge          - Gemini Pro shortcut
-  gf          - Gemini Flash shortcut
+  gemini      - Gemini Pro shortcut [aliases: ge]
+  flash       - Gemini Flash shortcut [aliases: gf]
   groq        Groq [aliases: gr]
-  ll          - Llama 3 shortcut (🏆 Default)
-  mi          - Mixtral shortcut
+  llama       - Llama 3 shortcut [aliases: ll]
   cerebras    Cerebras [aliases: ce]
-  deepseek    DeepSeek [aliases: de]
+  deepseek    DeepSeek [aliases: ds]
   openai      OpenAI [aliases: op]
-  gp          - GPT-4o shortcut
-  gm          - GPT-4o mini shortcut
-  o3          - o3 shortcut
-  o4m         - o4-mini shortcut
+  gpt5        - GPT-5 shortcut [aliases: gpt, gp]
+  gpt5m       - GPT-5 mini shortcut [aliases: gm]
+  gpt5n       - GPT-5 nano shortcut [aliases: gn]
   gpt41       - gpt-4.1 shortcut
   gpt41m      - gpt-4.1-mini shortcut
   gpt41n      - gpt-4.1-nano shortcut
-  gpt5        - gpt-5 shortcut
-  gpt5m       - gpt-5-mini shortcut
-  gpt5n       - gpt-5-nano shortcut
   o1p         - o1-pro shortcut
   anthropic   Anthropic [aliases: an]
-  cl          - Claude Opus
-  so          - Claude Sonnet
-  ha          - Claude Haiku
+  opus        - Claude Opus [aliases: claude, cl]
+  sonnet      - Claude Sonnet [aliases: so]
+  haiku       - Claude Haiku [aliases: ha]
   xai         xAI
   grok        - Grok
   llamafile   Llamafile server hosted at http://localhost:8080 [aliases: lf]
   ollama      Ollama server hosted at http://localhost:11434 [aliases: ol]
-  all         Simultaneously send prompt to each provider's default model:
-              - Groq Llama 3.1
-              - Antropic Claude Sonnet 3.7
-              - Google Gemini 2.0 Flash
-              - OpenAI GPT-4o mini
-              - Ollama Llama 3
-              - Llamafile
+              
+              💻 CODING                                                    
   bash        Use Bash development as the prompt context
   c           Use C development as the prompt context
   cpp         Use C++ development as the prompt context
@@ -182,7 +176,7 @@ Examples:
   cai anthropic claude-opus Which year did the Titanic sink
   cai an claude-opus Which year did the Titanic sink
   cai cl Which year did the Titanic sink
-  cai anthropic claude-3-opus-latest Which year did the Titanic sink
+  cai anthropic claude-opus-4-1 Which year did the Titanic sink
 
   # Send a prompt to locally running Ollama server
   cai ollama llama3 Which year did the Titanic sink
@@ -193,6 +187,9 @@ Examples:
 
   # Add data via stdin
   cat main.rs | cai Explain this code
+
+  # Get raw output without any metadata
+  cai --raw capital of Germany
 
   # Use a JSON schema to specify the output format
   cai --json-schema='{"properties":{"age":{"type":"number"}},"required":["age"]}' gp Barack Obama

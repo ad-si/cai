@@ -23,7 +23,7 @@ const GOOGLE_MODEL_MAPPING_SRC: [(&str, &str); 14] = [
   ("gemini-1.5-pro", "gemini-1.5-pro"),
 ];
 
-const ANTHROPIC_MODEL_MAPPING_SRC: [(&str, &str); 32] = [
+const ANTHROPIC_MODEL_MAPPING_SRC: [(&str, &str); 34] = [
   // Default models
   // Opus
   ("claude-opus", "claude-opus-4-0"),
@@ -40,6 +40,9 @@ const ANTHROPIC_MODEL_MAPPING_SRC: [(&str, &str); 32] = [
   ("haiku", "claude-3-5-haiku-latest"),
   ("ha", "claude-3-5-haiku-latest"),
   ("h", "claude-3-5-haiku-latest"),
+  // Version 4.1 models
+  ("claude-opus-4-1", "claude-opus-4-1"),
+  ("opus-4-1", "claude-opus-4-1"),
   // Version 4.0 models
   ("claude-opus-4-0", "claude-opus-4-0"),
   ("opus-4-0", "claude-opus-4-0"),
@@ -62,31 +65,23 @@ const ANTHROPIC_MODEL_MAPPING_SRC: [(&str, &str); 32] = [
   ("sonnet-3", "claude-3-sonnet-20240229"),
   ("claude-haiku-3", "claude-3-haiku-20240307"),
   ("haiku-3", "claude-3-haiku-20240307"),
-  ("claude-sonnet-3-7", "claude-3-7-sonnet-20250219"),
-  ("sonnet-3-7", "claude-3-7-sonnet-20250219"),
+  ("claude-sonnet-3-7", "claude-3-7-sonnet-latest"),
+  ("sonnet-3-7", "claude-3-7-sonnet-latest"),
 ];
 
-const GROQ_MODEL_MAPPING_SRC: [(&str, &str); 23] = [
+const GROQ_MODEL_MAPPING_SRC: [(&str, &str); 18] = [
   ///// Default models /////
-  // GPT
+  // GPT OSS
   ("gpt", "openai/gpt-oss-20b"),
+  ("gp", "openai/gpt-oss-20b"),
   // Llama
   ("llama", "llama-3.1-8b-instant"),
   ("ll", "llama-3.1-8b-instant"),
-  ("l", "llama-3.1-8b-instant"),
-  ("llama-8b", "llama-3.1-8b-instant"),
-  ("llama-70b", "llama-3.1-70b-versatile"),
-  ("llama-405b", "llama-3.1-405b-reasoning"),
-  // Mixtral
-  ("mixtral", "mixtral-8x7b-32768"),
-  ("mi", "mixtral-8x7b-32768"),
-  ("m", "mixtral-8x7b-32768"),
-  // Gemma
-  ("gemma", "gemma2-9b-it"),
-  ("ge", "gemma2-9b-it"),
-  ("g", "gemma2-9b-it"),
+  ("llama-instant", "llama-3.1-8b-instant"),
+  ("llama-versatile", "llama-3.1-70b-versatile"),
+  ("llama-reasoning", "llama-3.1-405b-reasoning"),
   ///// Specific versions /////
-  // GPT
+  // GPT OSS
   ("gpt-20b", "openai/gpt-oss-20b"),
   ("gpt-120b", "openai/gpt-oss-120b"),
   // Llama 3.1
@@ -98,8 +93,9 @@ const GROQ_MODEL_MAPPING_SRC: [(&str, &str); 23] = [
   ("llama3", "llama3-8b-8192"),
   ("llama3-8b", "llama3-8b-8192"),
   ("llama3-70b", "llama3-70b-8192"),
-  // Mixtral
-  ("mixtral-8x7b", "mixtral-8x7b-32768"),
+  // Whisper
+  ("whisper", "whisper-large-v3"),
+  ("whisper-turbo", "whisper-large-v3-turbo"),
 ];
 
 const CEREBRAS_MODEL_MAPPING_SRC: [(&str, &str); 14] = [

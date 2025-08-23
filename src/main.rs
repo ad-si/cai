@@ -7,6 +7,7 @@ use cai::{
   ExecOptions, Model, Provider,
 };
 use chrono::NaiveDateTime;
+use clap::crate_description;
 use clap::{builder::styling, crate_version, Parser};
 use color_print::cformat;
 use futures::future::join_all;
@@ -102,8 +103,9 @@ const CRATE_VERSION: &str = crate_version!();
   trailing_var_arg = true,
   about = color_print::cformat!(
     "<bold,underline>Cai {}</bold,underline>\n\n\
-      <black,bold>The fastest CLI tool for prompting LLMs</black,bold>",
+      <black,bold>{}</black,bold>",
     CRATE_VERSION,
+    crate_description!(),
   ), /**/
   after_help = color_print::cformat!(
 "
@@ -118,7 +120,7 @@ const CRATE_VERSION: &str = crate_version!();
   <b>cai anthropic claude-opus</b> Which year did the Titanic sink
   <b>cai an claude-opus</b> Which year did the Titanic sink
   <b>cai cl</b> Which year did the Titanic sink
-  <b>cai anthropic claude-3-opus-latest</b> Which year did the Titanic sink
+  <b>cai anthropic claude-opus-4-1</b> Which year did the Titanic sink
 
   <dim># Send a prompt to locally running Ollama server</dim>
   <b>cai ollama llama3</b> Which year did the Titanic sink
@@ -129,6 +131,9 @@ const CRATE_VERSION: &str = crate_version!();
 
   <dim># Add data via stdin</dim>
   cat main.rs | <b>cai</b> Explain this code
+
+  <dim># Get raw output without any metadata</dim>
+  <b>cai --raw capital of Germany</b>
 
   <dim># Use a JSON schema to specify the output format</dim>
   <b>cai \
@@ -355,9 +360,10 @@ async fn exec_with_args(args: Args, stdin: &str) {
         .await
       }
 
-      /////////////////////////////////////////
-      //============ AI PROVIDERS =============
-      /////////////////////////////////////////
+      //////////////////////////////////////////////////////////////////////////
+      //=============================== MODELS =================================
+      //////////////////////////////////////////////////////////////////////////
+      Commands::SectionModels {} => {}
       Commands::Google { model, prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::Google, model.to_string())),
@@ -391,17 +397,6 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Groq { model, prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::Groq, model.to_string())),
-          &opts,
-          &format!("{stdin}{}", prompt.join(" ")),
-        )
-        .await
-      }
-      Commands::Mixtral { prompt } => {
-        submit_prompt(
-          &Some(&Model::Model(
-            Provider::Groq,
-            "mixtral-8x7b-32768".to_string(),
-          )),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
@@ -442,33 +437,25 @@ async fn exec_with_args(args: Args, stdin: &str) {
         )
         .await
       }
-      Commands::Gpt { prompt } => {
+      Commands::Gpt5 { prompt } => {
         submit_prompt(
-          &Some(&Model::Model(Provider::OpenAI, "gpt-4o".to_string())),
+          &Some(&Model::Model(Provider::OpenAI, "gpt-5".to_string())),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
-      Commands::GptMini { prompt } => {
+      Commands::Gpt5Mini { prompt } => {
         submit_prompt(
-          &Some(&Model::Model(Provider::OpenAI, "gpt-4o-mini".to_string())),
+          &Some(&Model::Model(Provider::OpenAI, "gpt-5-mini".to_string())),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
-      Commands::O3 { prompt } => {
+      Commands::Gpt5Nano { prompt } => {
         submit_prompt(
-          &Some(&Model::Model(Provider::OpenAI, "o3".to_string())),
-          &opts,
-          &format!("{stdin}{}", prompt.join(" ")),
-        )
-        .await
-      }
-      Commands::O4Mini { prompt } => {
-        submit_prompt(
-          &Some(&Model::Model(Provider::OpenAI, "o4-mini".to_string())),
+          &Some(&Model::Model(Provider::OpenAI, "gpt-5-nano".to_string())),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
@@ -498,30 +485,6 @@ async fn exec_with_args(args: Args, stdin: &str) {
         )
         .await
       }
-      Commands::Gpt5 { prompt } => {
-        submit_prompt(
-          &Some(&Model::Model(Provider::OpenAI, "gpt-5".to_string())),
-          &opts,
-          &format!("{stdin}{}", prompt.join(" ")),
-        )
-        .await
-      }
-      Commands::Gpt5Mini { prompt } => {
-        submit_prompt(
-          &Some(&Model::Model(Provider::OpenAI, "gpt-5-mini".to_string())),
-          &opts,
-          &format!("{stdin}{}", prompt.join(" ")),
-        )
-        .await
-      }
-      Commands::Gpt5Nano { prompt } => {
-        submit_prompt(
-          &Some(&Model::Model(Provider::OpenAI, "gpt-5-nano".to_string())),
-          &opts,
-          &format!("{stdin}{}", prompt.join(" ")),
-        )
-        .await
-      }
       Commands::O1Pro { prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::OpenAI, "o1-pro".to_string())),
@@ -542,7 +505,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
         submit_prompt(
           &Some(&Model::Model(
             Provider::Anthropic,
-            "claude-3-opus-latest".to_string(),
+            "claude-opus-4-1".to_string(),
           )),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
@@ -553,7 +516,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
         submit_prompt(
           &Some(&Model::Model(
             Provider::Anthropic,
-            "claude-3-7-sonnet-latest".to_string(),
+            "claude-sonnet-4-0".to_string(),
           )),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
@@ -605,10 +568,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       }
       Commands::All { prompt } => {
         let models = vec![
-          Model::Model(
-            Provider::Anthropic,
-            "claude-3-7-sonnet-latest".to_string(),
-          ),
+          Model::Model(Provider::Anthropic, "claude-sonnet-4-0".to_string()),
           Model::Model(Provider::Cerebras, "gpt-oss-120b".to_string()),
           Model::Model(Provider::Google, "gemini-2.5-flash".to_string()),
           Model::Model(Provider::Groq, "openai/gpt-oss-20b".to_string()),
@@ -646,9 +606,11 @@ async fn exec_with_args(args: Args, stdin: &str) {
 
         join_all(handles).await;
       }
-      /////////////////////////////////////////
-      //========== LANGUAGE CONTEXTS ==========
-      /////////////////////////////////////////
+
+      //////////////////////////////////////////////////////////////////////////
+      //================================ CODING ================================
+      //////////////////////////////////////////////////////////////////////////
+      Commands::SectionCoding {} => {}
       Commands::Bash { prompt } => {
         prompt_with_lang_cntxt(&opts, &cmd, prompt).await
       }

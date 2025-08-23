@@ -8,42 +8,58 @@ use serde_derive::Serialize;
 #[clap(args_conflicts_with_subcommands = false, arg_required_else_help(true))]
 pub enum Commands {
   /// Shortcut for `groq openai/gpt-oss-20b`
-  #[clap(name = "fast")]
   Fast {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
 
-  /// Shortcut for 'ollama llama3.2'
-  #[clap(name = "local")]
+  /// Shortcut for `ollama llama3.2`
   Local {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
 
-  /// Return only the value/answer without explanation for the provided question
-  #[clap(name = "value")]
+  /// Return only the value/answer without explanations
   Value {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
 
-  /// Generate an SVG graphic from a textual description
-  #[clap()]
-  Svg {
-    /// The prompt that describes the SVG to create
+  /// Fix spelling, grammar, and wording issues
+  /// in text passed via standard input
+  Rewrite {
+    /// Additional instructions for how to improve the text
     prompt: Vec<String>,
   },
 
+  /// Reply to a conversation passed via standard input.
+  /// Add additional reply instructions as the prompt.
+  Reply {
+    /// How the AI should reply to the conversation
+    prompt: Vec<String>,
+  },
+
+  /// Generate an image using GPT-5 image generation
+  #[clap(visible_alias = "img")]
+  Image {
+    /// The prompt describing the image to generate
+    prompt: Vec<String>,
+  },
+
+  /// Transcribe an audio file
+  Transcribe {
+    /// The audio file to transcribe
+    file: String,
+  },
+
   /// Extract text from an image
-  #[clap()]
   Ocr {
     /// The file to extract text from
     file: String,
   },
 
-  /// Analyze and rename files to timestamp plus description
-  #[clap()]
+  /// Analyze and rename files to timestamp + title
+  /// (e.g. 2025-08-19t2041_invoice_car.pdf)
   Rename {
     /// One or more files to analyze and rename
     #[clap(required = true)]
@@ -51,39 +67,43 @@ pub enum Commands {
   },
 
   /// Generate a changelog starting from a given commit
-  /// using OpenAI's GPT-4o
-  #[clap()]
   Changelog {
     /// The commit hash to start the changelog from
     commit_hash: String,
   },
 
-  /// Reply to a conversation passed via stdin.
-  /// Add additional reply instructions as the prompt.
-  #[clap()]
-  Reply {
-    /// How the AI should reply to the conversation
+  /// Generate an SVG graphic from a textual description
+  Svg {
+    /// The prompt that describes the SVG to create
     prompt: Vec<String>,
   },
 
-  /// Fix spelling, grammar, and wording issues in text passed via stdin
-  #[clap()]
-  Rewrite {
-    /// Additional instructions for how to improve the text
-    prompt: Vec<String>,
-  },
+  #[clap(
+    about = color_print::cformat!(
+      "\n<u><em><b!>{:<60}</b!></em></u>", "📚 MODELS"
+    ),
+    verbatim_doc_comment,
+    name = "\u{00A0}" // Non-breaking space placeholder
+  )]
+  SectionModels {},
 
-  /// Transcribe an audio file
-  #[clap()]
-  Transcribe {
-    /// The audio file to transcribe
-    file: String,
-  },
+  /// Simultaneously send prompt to each provider's default model
+  #[clap(
+    verbatim_doc_comment,
+    after_help = color_print::cformat!("
+<bold>Used models:</bold>
 
-  /// Generate an image using GPT-5 image generation
-  #[clap()]
-  Image {
-    /// The prompt describing the image to generate
+- Groq GPT OSS 20B
+- Cerebras GPT OSS 120B
+- Anthropic Claude Sonnet 4.0
+- Google Gemini 2.5 Flash
+- OpenAI GPT-5 mini
+- Ollama Llama 3
+- Llamafile
+"))]
+  // Include linebreaks
+  All {
+    /// The prompt to send to the AI models simultaneously
     prompt: Vec<String>,
   },
 
@@ -98,13 +118,13 @@ pub enum Commands {
     prompt: Vec<String>,
   },
   /// - Gemini Pro shortcut
-  #[clap(name = "ge")]
+  #[clap(name = "gemini", visible_alias = "ge")]
   Gemini {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// - Gemini Flash shortcut
-  #[clap(name = "gf")]
+  #[clap(name = "flash", visible_alias = "gf")]
   GeminiFlash {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
@@ -118,15 +138,9 @@ pub enum Commands {
     #[clap(required(true))]
     prompt: Vec<String>,
   },
-  /// - Llama 3 shortcut (🏆 Default)
-  #[clap(name = "ll")]
+  /// - Llama 3 shortcut
+  #[clap(name = "llama", visible_alias = "ll")]
   Llama3 {
-    /// The prompt to send to the AI model
-    prompt: Vec<String>,
-  },
-  /// - Mixtral shortcut
-  #[clap(name = "mi")]
-  Mixtral {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
@@ -140,7 +154,7 @@ pub enum Commands {
     prompt: Vec<String>,
   },
   /// DeepSeek
-  #[clap(visible_alias = "de")]
+  #[clap(visible_alias = "ds")]
   Deepseek {
     #[clap(help = deepseek_models_pretty!("Following aliases are available:"))]
     model: String,
@@ -160,27 +174,21 @@ pub enum Commands {
     #[clap(required(true))]
     prompt: Vec<String>,
   },
-  /// - GPT-4o shortcut
-  #[clap(name = "gp")]
-  Gpt {
+  /// - GPT-5 shortcut
+  #[clap(name = "gpt5", visible_alias = "gpt", visible_alias = "gp")]
+  Gpt5 {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
-  /// - GPT-4o mini shortcut
-  #[clap(name = "gm")]
-  GptMini {
+  /// - GPT-5 mini shortcut
+  #[clap(name = "gpt5m", visible_alias = "gm")]
+  Gpt5Mini {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
-  /// - o3 shortcut
-  #[clap(name = "o3")]
-  O3 {
-    /// The prompt to send to the AI model
-    prompt: Vec<String>,
-  },
-  /// - o4-mini shortcut
-  #[clap(name = "o4m")]
-  O4Mini {
+  /// - GPT-5 nano shortcut
+  #[clap(name = "gpt5n", visible_alias = "gn")]
+  Gpt5Nano {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
@@ -199,24 +207,6 @@ pub enum Commands {
   /// - gpt-4.1-nano shortcut
   #[clap(name = "gpt41n")]
   Gpt41Nano {
-    /// The prompt to send to the AI model
-    prompt: Vec<String>,
-  },
-  /// - gpt-5 shortcut
-  #[clap(name = "gpt5")]
-  Gpt5 {
-    /// The prompt to send to the AI model
-    prompt: Vec<String>,
-  },
-  /// - gpt-5-mini shortcut
-  #[clap(name = "gpt5m")]
-  Gpt5Mini {
-    /// The prompt to send to the AI model
-    prompt: Vec<String>,
-  },
-  /// - gpt-5-nano shortcut
-  #[clap(name = "gpt5n")]
-  Gpt5Nano {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
@@ -241,19 +231,19 @@ for all supported model ids):"
     prompt: Vec<String>,
   },
   /// - Claude Opus
-  #[clap(name = "cl")]
+  #[clap(name = "opus", visible_alias = "claude", visible_alias = "cl")]
   ClaudeOpus {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// - Claude Sonnet
-  #[clap(name = "so")]
+  #[clap(name = "sonnet", visible_alias = "so")]
   ClaudeSonnet {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// - Claude Haiku
-  #[clap(name = "ha")]
+  #[clap(name = "haiku", visible_alias = "ha")]
   ClaudeHaiku {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
@@ -293,210 +283,173 @@ for all supported model ids):"
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
-  /// Simultaneously send prompt to each provider's default model:
-  /// - Groq Llama 3.1
-  /// - Antropic Claude Sonnet 3.7
-  /// - Google Gemini 2.0 Flash
-  /// - OpenAI GPT-4o mini
-  /// - Ollama Llama 3
-  /// - Llamafile
-  #[clap(verbatim_doc_comment)] // Include linebreaks
-  All {
-    /// The prompt to send to the AI models simultaneously
-    prompt: Vec<String>,
-  },
 
-  /////////////////////////////////////////
-  //========== LANGUAGE CONTEXTS ==========
-  /////////////////////////////////////////
+  #[clap(
+    about = color_print::cformat!(
+      "\n<u><em><b!>{:<60}</b!></em></u>", "💻 CODING"
+    ),
+    verbatim_doc_comment,
+    name = "\u{00A0}\u{00A0}" // Non-breaking space placeholder
+  )]
+  // Non-breaking space
+  SectionCoding {},
+
   /// Use Bash development as the prompt context
-  #[clap()]
   Bash {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use C development as the prompt context
-  #[clap()]
   C {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use C++ development as the prompt context
-  #[clap()]
   Cpp {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use C# development as the prompt context
-  #[clap()]
   Cs {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use Docker development as the prompt context
-  #[clap()]
   Docker {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use Elm development as the prompt context
-  #[clap()]
   Elm {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use Fish development as the prompt context
-  #[clap()]
   Fish {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use F# development as the prompt context
-  #[clap()]
   Fs {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use Godot and GDScript development as the prompt context
-  #[clap()]
   Gd {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use Git development as the prompt context
-  #[clap()]
   Git {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use Gleam development as the prompt context
-  #[clap()]
   Gl {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use Go development as the prompt context
-  #[clap()]
   Golang {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use Haskell development as the prompt context
-  #[clap()]
   Hs {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use Java development as the prompt context
-  #[clap()]
   Java {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use JavaScript development as the prompt context
-  #[clap()]
   Js {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use Kotlin development as the prompt context
-  #[clap()]
   Kt {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use LilyPond development as the prompt context
-  #[clap()]
   Ly {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use Lua development as the prompt context
-  #[clap()]
   Lua {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use Nix development as the prompt context
-  #[clap()]
   Nix {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use OCaml development as the prompt context
-  #[clap()]
   Oc {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use PHP development as the prompt context
-  #[clap()]
   Php {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use Postgres development as the prompt context
-  #[clap()]
   Pg {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use PureScript development as the prompt context
-  #[clap()]
   Ps {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use Python development as the prompt context
-  #[clap()]
   Py {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use Ruby development as the prompt context
-  #[clap()]
   Rb {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use Rust development as the prompt context
-  #[clap()]
   Rs {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use SQLite development as the prompt context
-  #[clap()]
   Sql {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use Swift development as the prompt context
-  #[clap()]
   Sw {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use TypeScript development as the prompt context
-  #[clap()]
   Ts {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use Typst development as the prompt context
-  #[clap()]
   Ty {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use Wolfram Language and Mathematica development as the prompt context
-  #[clap()]
   Wl {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
   /// Use Zig development as the prompt context
-  #[clap()]
   Zig {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
@@ -531,7 +484,10 @@ impl Commands {
       Commands::Transcribe { .. } => Some("Transcribe"),
       Commands::Image { .. } => Some("Image"),
 
-      // AI Providers
+      // Models
+      Commands::SectionModels { .. } => None,
+      Commands::All { .. } => None,
+
       Commands::Google { .. } => None,
       Commands::Gemini { .. } => None,
       Commands::GeminiFlash { .. } => None,
@@ -539,18 +495,13 @@ impl Commands {
       Commands::Cerebras { .. } => None,
       Commands::Deepseek { .. } => None,
       Commands::Llama3 { .. } => None,
-      Commands::Mixtral { .. } => None,
       Commands::Openai { .. } => None,
-      Commands::Gpt { .. } => None,
-      Commands::GptMini { .. } => None,
-      Commands::O3 { .. } => None,
-      Commands::O4Mini { .. } => None,
-      Commands::Gpt41 { .. } => None,
-      Commands::Gpt41Mini { .. } => None,
-      Commands::Gpt41Nano { .. } => None,
       Commands::Gpt5 { .. } => None,
       Commands::Gpt5Mini { .. } => None,
       Commands::Gpt5Nano { .. } => None,
+      Commands::Gpt41 { .. } => None,
+      Commands::Gpt41Mini { .. } => None,
+      Commands::Gpt41Nano { .. } => None,
       Commands::O1Pro { .. } => None,
       Commands::Anthropic { .. } => None,
       Commands::ClaudeOpus { .. } => None,
@@ -560,9 +511,9 @@ impl Commands {
       Commands::Grok { .. } => None,
       Commands::Llamafile { .. } => None,
       Commands::Ollama { .. } => None,
-      Commands::All { .. } => None,
 
-      // Programming Languages
+      // Coding
+      Commands::SectionCoding { .. } => None,
       Commands::Bash { .. } => Some("Bash"),
       Commands::C { .. } => Some("C"),
       Commands::Cpp { .. } => Some("C++"),

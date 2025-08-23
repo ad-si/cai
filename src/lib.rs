@@ -349,10 +349,7 @@ fn get_http_req(
           .or(get_api_request(
             full_config,
             secrets_path_str,
-            &Model::Model(
-              Provider::Anthropic,
-              "claude-3-7-sonnet-latest".to_string(),
-            ),
+            &Model::Model(Provider::Anthropic, "claude-sonnet-4-0".to_string()),
           ))?;
       let used_model = get_used_model(
         &Model::Model(req.provider, req.model.clone()), //
@@ -947,10 +944,8 @@ pub async fn prompt_with_lang_cntxt(
     Keep your answer concise and to the point.\n"
   );
 
-  let model = Model::Model(
-    Provider::Anthropic,
-    "claude-3-7-sonnet-latest".to_string(), //
-  );
+  let model =
+    Model::Model(Provider::Anthropic, "claude-sonnet-4-0".to_string());
 
   if let Err(err) = exec_tool(
     &Some(&model),
