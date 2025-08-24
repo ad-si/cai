@@ -69,7 +69,7 @@ const ANTHROPIC_MODEL_MAPPING_SRC: [(&str, &str); 34] = [
   ("sonnet-3-7", "claude-3-7-sonnet-latest"),
 ];
 
-const GROQ_MODEL_MAPPING_SRC: [(&str, &str); 18] = [
+const GROQ_MODEL_MAPPING_SRC: [(&str, &str); 20] = [
   ///// Default models /////
   // GPT OSS
   ("gpt", "openai/gpt-oss-20b"),
@@ -96,6 +96,10 @@ const GROQ_MODEL_MAPPING_SRC: [(&str, &str); 18] = [
   // Whisper
   ("whisper", "whisper-large-v3"),
   ("whisper-turbo", "whisper-large-v3-turbo"),
+  // Qwen
+  ("qwen", "qwen3-32b"),
+  // DeepSeek
+  ("deepseek", "deepseek-r1-distill-llama-70b"),
 ];
 
 const CEREBRAS_MODEL_MAPPING_SRC: [(&str, &str); 14] = [
@@ -320,6 +324,13 @@ fn main() {
     .replace(
       "{google_models_pretty}",
       &pretty_print_mapping(&GOOGLE_MODEL_MAPPING_SRC),
+    )
+    .replace(
+      "// {google_model_hashmap}",
+      &GOOGLE_MODEL_MAPPING_SRC
+        .iter()
+        .map(|(model, constant)| format!("(\"{model}\", \"{constant}\"),\n"))
+        .collect::<String>(),
     );
 
   fs::write(&dest_path, code).unwrap();
