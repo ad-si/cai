@@ -116,6 +116,12 @@ Commands:
   haiku       - Claude Haiku [aliases: ha]
   xai         xAI
   grok        - Grok
+  perplexity  Perplexity [aliases: pe]
+  son         - Sonar
+  sonpro      - Sonar Pro [aliases: sp]
+  sonreas     - Sonar Reasoning [aliases: sr]
+  sonreaspro  - Sonar Reasoning Pro [aliases: srp]
+  sondeep     - Sonar Deep Research [aliases: sdr]
   llamafile   Llamafile server hosted at http://localhost:8080 [aliases: lf]
   ollama      Ollama server hosted at http://localhost:11434 [aliases: ol]
               

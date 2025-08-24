@@ -577,6 +577,63 @@ async fn exec_with_args(args: Args, stdin: &str) {
         )
         .await
       }
+      Commands::Perplexity { model, prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(Provider::Perplexity, model.to_string())),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
+      Commands::Sonar { prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(Provider::Perplexity, "sonar".to_string())),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
+      Commands::SonarPro { prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(Provider::Perplexity, "sonar-pro".to_string())),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
+      Commands::SonarReasoning { prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(
+            Provider::Perplexity,
+            "sonar-reasoning".to_string(),
+          )),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
+      Commands::SonarReasoningPro { prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(
+            Provider::Perplexity,
+            "sonar-reasoning-pro".to_string(),
+          )),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
+      Commands::SonarDeepResearch { prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(
+            Provider::Perplexity,
+            "sonar-deep-research".to_string(),
+          )),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
       Commands::All { prompt } => {
         let models = vec![
           Model::Model(Provider::Anthropic, "claude-sonnet-4-0".to_string()),
@@ -587,6 +644,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
           Model::Model(Provider::Ollama, "llama3".to_string()),
           Model::Model(Provider::OpenAI, "gpt-5-mini".to_string()),
           Model::Model(Provider::XAI, "grok-3-mini-latest".to_string()),
+          Model::Model(Provider::Perplexity, "sonar".to_string()),
         ];
 
         let mut handles = vec![];

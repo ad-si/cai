@@ -272,6 +272,47 @@ for all supported model ids):"
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
+  /// Perplexity
+  #[clap(visible_alias = "pe")]
+  Perplexity {
+    #[clap( help = perplexity_models_pretty!(
+      "Following aliases are available
+(Check out https://docs.perplexity.ai/getting-started/models for all supported model ids):"
+    ))]
+    model: String,
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// - Sonar
+  #[clap(name = "son")]
+  Sonar {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// - Sonar Pro
+  #[clap(name = "sonpro", visible_alias = "sp")]
+  SonarPro {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// - Sonar Reasoning
+  #[clap(name = "sonreas", visible_alias = "sr")]
+  SonarReasoning {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// - Sonar Reasoning Pro
+  #[clap(name = "sonreaspro", visible_alias = "srp")]
+  SonarReasoningPro {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// - Sonar Deep Research
+  #[clap(name = "sondeep", visible_alias = "sdr")]
+  SonarDeepResearch {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
   /// Llamafile server hosted at http://localhost:8080
   #[clap(visible_alias = "lf")]
   Llamafile {
@@ -500,6 +541,12 @@ impl Commands {
       Commands::Gemini { .. } => None,
       Commands::GeminiFlash { .. } => None,
       Commands::Groq { .. } => None,
+      Commands::Perplexity { .. } => None,
+      Commands::Sonar { .. } => None,
+      Commands::SonarPro { .. } => None,
+      Commands::SonarReasoning { .. } => None,
+      Commands::SonarReasoningPro { .. } => None,
+      Commands::SonarDeepResearch { .. } => None,
       Commands::Cerebras { .. } => None,
       Commands::Deepseek { .. } => None,
       Commands::Llama3 { .. } => None,

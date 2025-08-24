@@ -37,6 +37,7 @@ pub enum Provider {
   Llamafile,
   Ollama,
   XAI,
+  Perplexity,
 }
 
 impl std::fmt::Display for Provider {
@@ -51,6 +52,7 @@ impl std::fmt::Display for Provider {
       Provider::Ollama => write!(f, "Ollama"),
       Provider::OpenAI => write!(f, "OpenAI"),
       Provider::XAI => write!(f, "xAI"),
+      Provider::Perplexity => write!(f, "Perplexity"),
     }
   }
 }
@@ -118,8 +120,17 @@ struct AiChoice {
 }
 
 #[derive(Deserialize, Debug)]
+struct SearchResult {
+  title: String,
+  url: String,
+  date: Option<String>,
+  last_updated: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
 struct AiResponse {
   choices: Vec<AiChoice>,
+  search_results: Option<Vec<SearchResult>>,
 }
 
 /// For Anthropic's API
@@ -204,6 +215,12 @@ fn default_req_for_model(model: &Model) -> AiRequest {
       model: types::get_xai_model(model_id).to_string(),
       ..Default::default()
     },
+    Provider::Perplexity => AiRequest {
+      provider: *provider,
+      url: "https://api.perplexity.ai/chat/completions".to_string(),
+      model: types::get_perplexity_model(model_id).to_string(),
+      ..Default::default()
+    },
   }
 }
 
@@ -212,11 +229,11 @@ fn get_key_setup_msg(secrets_path_str: &str) -> String {
     "An API key must be provided. Use one of the following options:\n\
         \n\
         1. Set one or more API keys in {secrets_path_str}\n\
-           (`anthropic_api_key`, `google_api_key`, `groq_api_key`, `openai_api_key`)\n\
+           (`anthropic_api_key`, `google_api_key`, `groq_api_key`, `openai_api_key`, `perplexity_api_key`)\n\
         2. Set one or more cai specific env variables\n\
-            (CAI_ANTHROPIC_API_KEY, CAI_GOOGLE_API_KEY, CAI_GROQ_API_KEY, CAI_OPENAI_API_KEY)\n\
+            (CAI_ANTHROPIC_API_KEY, CAI_GOOGLE_API_KEY, CAI_GROQ_API_KEY, CAI_OPENAI_API_KEY, CAI_PERPLEXITY_API_KEY)\n\
         3. Set one or more generic env variables\n\
-            (ANTHROPIC_API_KEY, GOOGLE_API_KEY, GROQ_API_KEY, OPENAI_API_KEY)\n\
+            (ANTHROPIC_API_KEY, GOOGLE_API_KEY, GROQ_API_KEY, OPENAI_API_KEY, PERPLEXITY_API_KEY)\n\
         ",
   )
 }
@@ -240,6 +257,7 @@ fn get_api_request(
       Provider::Ollama => Some(&dummy_key),
       Provider::OpenAI => full_config.get("openai_api_key"),
       Provider::XAI => full_config.get("xai_api_key"),
+      Provider::Perplexity => full_config.get("perplexity_api_key"),
     }
   }
   .and_then(|api_key| {
@@ -273,6 +291,7 @@ fn get_used_model(model: &Model) -> String {
       Provider::Ollama => types::get_ollama_model(model_id),
       Provider::OpenAI => types::get_openai_model(model_id),
       Provider::XAI => types::get_xai_model(model_id),
+      Provider::Perplexity => types::get_perplexity_model(model_id),
     };
     cformat!("<bold>🧠 {} {}</bold>", provider, full_model_id)
   }
@@ -309,6 +328,10 @@ pub fn get_full_config(
     .set_default(
       "groq_api_key", //
       env::var("GROQ_API_KEY").unwrap_or_default(),
+    )?
+    .set_default(
+      "perplexity_api_key", //
+      env::var("PERPLEXITY_API_KEY").unwrap_or_default(),
     )?
     .add_source(config::File::with_name(secrets_path_str))
     .add_source(config::Environment::with_prefix("CAI"))
@@ -690,10 +713,10 @@ pub async fn exec_tool(
       return Ok(());
     }
 
-    let msg = match http_req.provider {
+    let (msg, search_results) = match http_req.provider {
       Provider::Anthropic => {
         let anth_response = resp.json::<AnthropicAiResponse>().await?;
-        anth_response.content[0].text.clone()
+        (anth_response.content[0].text.clone(), None)
       }
       Provider::Google => {
         // Handle Google's unique response format
@@ -701,14 +724,18 @@ pub async fn exec_tool(
         let response_json: Value = serde_json::from_str(&response_text)?;
 
         // Extract the text from the Gemini response format
-        response_json["candidates"][0]["content"]["parts"][0]["text"]
+        let text = response_json["candidates"][0]["content"]["parts"][0]
+          ["text"]
           .as_str()
           .unwrap_or_default()
-          .to_string()
+          .to_string();
+        (text, None)
       }
       _ => {
         let ai_response = resp.json::<AiResponse>().await?;
-        ai_response.choices[0].message.content.clone()
+        let msg = ai_response.choices[0].message.content.clone();
+        let search_results = ai_response.search_results;
+        (msg, search_results)
       }
     };
 
@@ -720,6 +747,28 @@ pub async fn exec_tool(
         elapsed_time,
       );
       highlight::text_via_bat(&msg);
+
+      // Display search results for Perplexity models
+      if let Some(results) = search_results {
+        if !results.is_empty() {
+          println!("\n\n## Search Results\n");
+          for (i, result) in results.iter().enumerate() {
+            let index = i + 1;
+            println!(
+              "[{index}] {title} ({url})",
+              title = result.title,
+              url = result.url
+            );
+            if let Some(date) = &result.date {
+              println!("    Date: {date}");
+            }
+            if let Some(last_updated) = &result.last_updated {
+              println!("    Updated: {last_updated}");
+            }
+          }
+        }
+      }
+
       println!("\n");
     }
   }

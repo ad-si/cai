@@ -187,3 +187,26 @@ macro_rules! xai_models_pretty {
     concat!($prefix, "\n", "{xai_models_pretty}")
   };
 }
+
+////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////// Perplexity /////////////////////////////////////
+
+// Pretty-printed string representation of the hashmap
+pub const PERPLEXITY_MODEL_MAPPING: &[(&str, &str)] = &[
+  // This will be replaced by build.rs:
+  // {perplexity_model_hashmap}
+];
+
+pub fn get_perplexity_model(model_id: &str) -> &str {
+  PERPLEXITY_MODEL_MAPPING
+    .iter()
+    .find(|(key, _)| key == &model_id)
+    .map_or(model_id, |(_, value)| *value)
+}
+
+macro_rules! perplexity_models_pretty {
+  ($prefix: expr) => {
+    // This will be replaced by build.rs
+    concat!($prefix, "\n", "{perplexity_models_pretty}")
+  };
+}
