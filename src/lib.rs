@@ -17,6 +17,16 @@ use serde_json::{json, Map, Value};
 pub use types::Commands;
 use xdg::BaseDirectories;
 
+/// Format elapsed time for display - show in seconds if > 10 seconds, otherwise in milliseconds
+fn format_elapsed_time(elapsed_millis: u128) -> (String, &'static str) {
+  if elapsed_millis > 10_000 {
+    let seconds = elapsed_millis as f64 / 1000.0;
+    (format!("{:.1}", seconds), "s")
+  } else {
+    (elapsed_millis.to_string(), "ms")
+  }
+}
+
 #[derive(Serialize, Debug, PartialEq, Default, Clone)]
 pub struct ExecOptions {
   pub is_raw: bool, // Raw output mode (no metadata and no syntax highlighting)
@@ -599,7 +609,8 @@ pub async fn exec_tool(
   let req_body_obj = get_req_body_obj(opts, &http_req, user_input);
 
   let resp = exec_request(&http_req, &req_body_obj).await?;
-  let elapsed_time: String = start.elapsed().as_millis().to_string();
+  let elapsed_millis = start.elapsed().as_millis();
+  let (elapsed_time, time_unit) = format_elapsed_time(elapsed_millis);
   let subcommand = opts
     .subcommand
     .as_ref()
@@ -611,9 +622,10 @@ pub async fn exec_tool(
     let resp_json = resp.json::<Value>().await?;
     let resp_formatted = serde_json::to_string_pretty(&resp_json).unwrap();
     Err(cformat!(
-      "<bold>⏱️ {: >5} ms</bold> | {used_model} {subcommand}\n\
+      "<bold>⏱️ {: >5} {}</bold> | {used_model} {subcommand}\n\
       \n{resp_formatted}",
       elapsed_time,
+      time_unit,
     ))?;
   } else {
     // Special handling for OpenAI TTS models - they return audio data
@@ -636,8 +648,9 @@ pub async fn exec_tool(
       std::fs::write(&filename, &audio_data)?;
 
       cprintln!(
-        "<bold>⏱️{: >5} ms</bold> | {used_model} {subcommand}\n",
+        "<bold>⏱️{: >5} {}</bold> | {used_model} {subcommand}\n",
         elapsed_time,
+        time_unit,
       );
       println!("Audio generated and saved to: {filename}");
       return Ok(());
@@ -656,8 +669,9 @@ pub async fn exec_tool(
       let response_json = resp.json::<Value>().await?;
 
       cprintln!(
-        "<bold>⏱️{: >5} ms</bold> | {used_model} {subcommand}\n",
+        "<bold>⏱️{: >5} {}</bold> | {used_model} {subcommand}\n",
         elapsed_time,
+        time_unit,
       );
 
       // Handle Responses API format (gpt-5, gpt-4.1, gpt-4o when used for image generation)
@@ -743,8 +757,9 @@ pub async fn exec_tool(
       println!("{msg}");
     } else {
       cprintln!(
-        "<bold>⏱️{: >5} ms</bold> | {used_model} {subcommand}\n",
+        "<bold>⏱️{: >5} {}</bold> | {used_model} {subcommand}\n",
         elapsed_time,
+        time_unit,
       );
       highlight::text_via_bat(&msg);
 
@@ -1078,5 +1093,20 @@ mod tests {
         "Failed for model {model}"
       );
     }
+  }
+
+  #[test]
+  fn test_format_elapsed_time() {
+    // Test milliseconds (≤ 10 seconds)
+    assert_eq!(format_elapsed_time(5000), ("5000".to_string(), "ms"));
+    assert_eq!(format_elapsed_time(10000), ("10000".to_string(), "ms"));
+    assert_eq!(format_elapsed_time(9999), ("9999".to_string(), "ms"));
+    
+    // Test seconds (> 10 seconds)
+    assert_eq!(format_elapsed_time(10001), ("10.0".to_string(), "s"));
+    assert_eq!(format_elapsed_time(15000), ("15.0".to_string(), "s"));
+    assert_eq!(format_elapsed_time(15500), ("15.5".to_string(), "s"));
+    assert_eq!(format_elapsed_time(60000), ("60.0".to_string(), "s"));
+    assert_eq!(format_elapsed_time(60123), ("60.1".to_string(), "s"));
   }
 }
