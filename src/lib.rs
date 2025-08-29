@@ -1098,15 +1098,21 @@ mod tests {
   #[test]
   fn test_format_elapsed_time() {
     // Test milliseconds (≤ 10 seconds)
+    assert_eq!(format_elapsed_time(0), ("0".to_string(), "ms"));
+    assert_eq!(format_elapsed_time(1), ("1".to_string(), "ms"));
+    assert_eq!(format_elapsed_time(999), ("999".to_string(), "ms"));
     assert_eq!(format_elapsed_time(5000), ("5000".to_string(), "ms"));
     assert_eq!(format_elapsed_time(10000), ("10000".to_string(), "ms"));
     assert_eq!(format_elapsed_time(9999), ("9999".to_string(), "ms"));
-    
+
     // Test seconds (> 10 seconds)
     assert_eq!(format_elapsed_time(10001), ("10.0".to_string(), "s"));
     assert_eq!(format_elapsed_time(15000), ("15.0".to_string(), "s"));
     assert_eq!(format_elapsed_time(15500), ("15.5".to_string(), "s"));
+    assert_eq!(format_elapsed_time(15999), ("16.0".to_string(), "s"));
     assert_eq!(format_elapsed_time(60000), ("60.0".to_string(), "s"));
     assert_eq!(format_elapsed_time(60123), ("60.1".to_string(), "s"));
+    assert_eq!(format_elapsed_time(65432), ("65.4".to_string(), "s"));
+    assert_eq!(format_elapsed_time(120000), ("120.0".to_string(), "s"));
   }
 }
