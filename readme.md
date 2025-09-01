@@ -39,7 +39,13 @@
 ## Installation
 
 ```sh
-cargo install cai
+$ cargo install cai
+```
+
+or install via [Homebrew](https://brew.sh/):
+
+```sh
+$ brew install cai
 ```
 
 
