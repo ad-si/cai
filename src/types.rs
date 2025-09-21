@@ -85,6 +85,9 @@ pub enum Commands {
     prompt: Vec<String>,
   },
 
+  /// Open your editor to write the prompt
+  Edit {},
+
   #[clap(
     about = color_print::cformat!(
       "\n<u><em><b!>{:<60}</b!></em></u>", "📚 MODELS"
@@ -520,6 +523,7 @@ impl std::fmt::Display for Commands {
 impl Commands {
   pub fn to_string_pretty(&self) -> Option<String> {
     match &self {
+      Commands::Edit { .. } => None,
       Commands::Fast { .. } => None,
       Commands::Local { .. } => None,
       Commands::Value { .. } => Some("Value"),

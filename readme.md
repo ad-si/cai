@@ -98,6 +98,7 @@ Commands:
   rename      Analyze and rename files to timestamp + title (e.g. 2025-08-19t2041_invoice_car.pdf)
   changelog   Generate a changelog starting from a given commit
   svg         Generate an SVG graphic from a textual description
+  edit        Open your editor to write the prompt
               
               📚 MODELS                                                    
   all         Simultaneously send prompt to each provider's default model

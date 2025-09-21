@@ -173,6 +173,16 @@ fn capitalize_str(str: &str) -> String {
   }
 }
 
+fn shell_single_quote(arg: &str) -> String {
+  // Wrap an argument for POSIX shells using single quotes,
+  // escaping any embedded single quotes.
+  if arg.is_empty() {
+    "''".to_string()
+  } else {
+    format!("'{}'", arg.replace('\'', "'\\''"))
+  }
+}
+
 async fn exec_with_args(args: Args, stdin: &str) {
   let stdin = if stdin.is_empty() {
     "".into()
@@ -263,6 +273,78 @@ async fn exec_with_args(args: Args, stdin: &str) {
           &format!("{stdin}{svg_prompt}"),
         )
         .await
+      }
+      Commands::Edit {} => {
+        // Create a temp file and open it in the user's editor
+        let mut tmp_path = std::env::temp_dir();
+        let ts = chrono::Local::now().format("%Y%m%d%H%M%S");
+        tmp_path.push(format!("cai_prompt_{}.txt", ts));
+
+        // Ensure the file exists
+        if let Err(err) = std::fs::File::create(&tmp_path) {
+          eprintln!("Failed to create temp file: {err}");
+          std::process::exit(1);
+        }
+
+        let tmp_str = tmp_path.to_string_lossy().to_string();
+
+        // Prefer VISUAL, then EDITOR, else sensible OS-specific fallbacks
+        let editor_var = std::env::var("VISUAL")
+          .ok()
+          .or_else(|| std::env::var("EDITOR").ok());
+
+        let status = if let Some(editor_cmd) = editor_var {
+          if editor_cmd.contains(' ') {
+            // Complex editor command with args, run via shell
+            let cmdline =
+              format!("{} {}", editor_cmd, shell_single_quote(&tmp_str));
+            std::process::Command::new("sh")
+              .arg("-c")
+              .arg(cmdline)
+              .status()
+          } else {
+            std::process::Command::new(editor_cmd)
+              .arg(&tmp_str)
+              .status()
+          }
+        } else if cfg!(target_os = "macos") {
+          std::process::Command::new("open")
+            .args(["-t", "-W", &tmp_str])
+            .status()
+        } else if cfg!(target_os = "windows") {
+          std::process::Command::new("cmd")
+            .args(["/C", "start", "/WAIT", "notepad", &tmp_str])
+            .status()
+        } else {
+          // Generic UNIX fallback
+          std::process::Command::new("nano").arg(&tmp_str).status()
+        };
+
+        match status {
+          Ok(st) if st.success() => {}
+          _ => {
+            eprintln!("Failed to launch editor or editor exited with error");
+            std::process::exit(1);
+          }
+        }
+
+        let content = std::fs::read_to_string(&tmp_path)
+          .unwrap_or_default()
+          .trim()
+          .to_string();
+
+        if content.is_empty() {
+          eprintln!("No prompt written (file empty). Aborting.");
+          std::process::exit(1);
+        }
+
+        // Echo the prompt back to the user unless raw mode is requested
+        if !opts.is_raw {
+          let echoed = content.replace('\n', "\n> ");
+          println!("> {echoed}\n");
+        }
+
+        submit_prompt(&None, &opts, &content).await
       }
       Commands::Ocr { file } => {
         if let Err(err) = extract_text_from_file(&opts, file).await {
