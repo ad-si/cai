@@ -609,7 +609,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
         submit_prompt(
           &Some(&Model::Model(
             Provider::Anthropic,
-            "claude-sonnet-4-0".to_string(),
+            "claude-sonnet-4-5".to_string(),
           )),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
@@ -718,7 +718,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       }
       Commands::All { prompt } => {
         let models = vec![
-          Model::Model(Provider::Anthropic, "claude-sonnet-4-0".to_string()),
+          Model::Model(Provider::Anthropic, "claude-sonnet-4-5".to_string()),
           Model::Model(Provider::Cerebras, "gpt-oss-120b".to_string()),
           Model::Model(Provider::Google, "gemini-2.5-flash".to_string()),
           Model::Model(Provider::Groq, "openai/gpt-oss-20b".to_string()),

@@ -23,28 +23,29 @@ const GOOGLE_MODEL_MAPPING_SRC: [(&str, &str); 14] = [
   ("gemini-1.5-pro", "gemini-1.5-pro"),
 ];
 
-const ANTHROPIC_MODEL_MAPPING_SRC: [(&str, &str); 34] = [
+const ANTHROPIC_MODEL_MAPPING_SRC: [(&str, &str); 32] = [
   // Default models
   // Opus
-  ("claude-opus", "claude-opus-4-0"),
-  ("opus", "claude-opus-4-0"),
-  ("op", "claude-opus-4-0"),
-  ("o", "claude-opus-4-0"),
+  ("claude-opus", "claude-opus-4-1"),
+  ("opus", "claude-opus-4-1"),
+  ("op", "claude-opus-4-1"),
+  ("o", "claude-opus-4-1"),
   // Sonnet
-  ("claude-sonnet", "claude-sonnet-4-0"),
-  ("sonnet", "claude-sonnet-4-0"),
-  ("so", "claude-sonnet-4-0"),
-  ("s", "claude-sonnet-4-0"),
+  ("claude-sonnet", "claude-sonnet-4-5"),
+  ("sonnet", "claude-sonnet-4-5"),
+  ("so", "claude-sonnet-4-5"),
+  ("s", "claude-sonnet-4-5"),
   // Haiku
-  ("claude-haiku", "claude-3-5-haiku-latest"),
-  ("haiku", "claude-3-5-haiku-latest"),
-  ("ha", "claude-3-5-haiku-latest"),
-  ("h", "claude-3-5-haiku-latest"),
+  ("claude-haiku", "claude-haiku-4-5"),
+  ("haiku", "claude-haiku-4-5"),
+  ("ha", "claude-haiku-4-5"),
+  ("h", "claude-haiku-4-5"),
+  // Version 4.5 models
+  ("sonnet-4-5", "claude-sonnet-4-5"),
+  ("haiku-4-5", "claude-haiku-4-5"),
   // Version 4.1 models
-  ("claude-opus-4-1", "claude-opus-4-1"),
   ("opus-4-1", "claude-opus-4-1"),
   // Version 4.0 models
-  ("claude-opus-4-0", "claude-opus-4-0"),
   ("opus-4-0", "claude-opus-4-0"),
   ("claude-sonnet-4-0", "claude-sonnet-4-0"),
   ("sonnet-4-0", "claude-sonnet-4-0"),
@@ -65,8 +66,6 @@ const ANTHROPIC_MODEL_MAPPING_SRC: [(&str, &str); 34] = [
   ("sonnet-3", "claude-3-sonnet-20240229"),
   ("claude-haiku-3", "claude-3-haiku-20240307"),
   ("haiku-3", "claude-3-haiku-20240307"),
-  ("claude-sonnet-3-7", "claude-3-7-sonnet-latest"),
-  ("sonnet-3-7", "claude-3-7-sonnet-latest"),
 ];
 
 const GROQ_MODEL_MAPPING_SRC: [(&str, &str); 20] = [
