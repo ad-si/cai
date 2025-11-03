@@ -88,6 +88,9 @@ pub enum Commands {
   /// Open your editor to write the prompt
   Edit {},
 
+  /// Print the configuration settings loaded from the config file
+  Config {},
+
   #[clap(
     about = color_print::cformat!(
       "\n<u><em><b!>{:<60}</b!></em></u>", "📚 MODELS"
@@ -533,6 +536,7 @@ impl Commands {
       Commands::Changelog { .. } => Some("Changelog"),
       Commands::Reply { .. } => Some("Reply"),
       Commands::Rewrite { .. } => Some("Rewrite"),
+      Commands::Config { .. } => None,
       Commands::Transcribe { .. } => Some("Transcribe"),
       Commands::Say { .. } => Some("Say"),
       Commands::Image { .. } => Some("Image"),

@@ -278,7 +278,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
         // Create a temp file and open it in the user's editor
         let mut tmp_path = std::env::temp_dir();
         let ts = chrono::Local::now().format("%Y%m%d%H%M%S");
-        tmp_path.push(format!("cai_prompt_{}.txt", ts));
+        tmp_path.push(format!("cai_prompt_{ts}.txt"));
 
         // Ensure the file exists
         if let Err(err) = std::fs::File::create(&tmp_path) {
@@ -345,6 +345,43 @@ async fn exec_with_args(args: Args, stdin: &str) {
         }
 
         submit_prompt(&None, &opts, &content).await
+      }
+      Commands::Config {} => {
+        use cai::get_full_config;
+        let xdg_dirs = xdg::BaseDirectories::with_prefix("cai").unwrap();
+        let secrets_path = xdg_dirs
+          .place_config_file("secrets.yaml")
+          .expect("Couldn't create configuration directory");
+        let secrets_path_str = secrets_path.to_str().unwrap();
+
+        match get_full_config(secrets_path_str) {
+          Ok(config) => {
+            println!("Configuration loaded from: {secrets_path_str}\n");
+            println!("Settings:");
+
+            // Sort keys for consistent output
+            let mut keys: Vec<_> = config.keys().collect();
+            keys.sort();
+
+            for key in keys {
+              let value = config.get(key).unwrap();
+              // Mask sensitive API keys - show first 4 and last 4 characters
+              if key.contains("api_key") && value.len() > 12 {
+                let masked =
+                  format!("{}...{}", &value[..4], &value[value.len() - 4..]);
+                println!("  {}: {}", key, masked);
+              } else if key.contains("api_key") && !value.is_empty() {
+                println!("  {}: ****", key);
+              } else if !value.is_empty() {
+                println!("  {}: {}", key, value);
+              }
+            }
+          }
+          Err(err) => {
+            eprintln!("Failed to load configuration: {err}");
+            std::process::exit(1);
+          }
+        }
       }
       Commands::Ocr { file } => {
         if let Err(err) = extract_text_from_file(&opts, file).await {
