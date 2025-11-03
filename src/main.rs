@@ -256,6 +256,15 @@ async fn exec_with_args(args: Args, stdin: &str) {
         )
         .await
       }
+      Commands::Short { prompt } => {
+        let short_prompt = format!(
+          "Please provide a short, compact, and focused answer to the following question. \
+          Be concise and to the point while still being accurate and complete. \
+          Avoid unnecessary elaboration or tangential information.\n\n{}",
+          prompt.join(" ")
+        );
+        submit_prompt(&None, &opts, &format!("{stdin}{short_prompt}")).await
+      }
       Commands::Svg { prompt } => {
         // Force raw so only the SVG markup is printed
         let mut opts_svg = opts.clone();

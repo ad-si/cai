@@ -25,6 +25,12 @@ pub enum Commands {
     prompt: Vec<String>,
   },
 
+  /// Answer the prompt in a short, compact, and focused manner
+  Short {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+
   /// Fix spelling, grammar, and wording issues
   /// in text passed via standard input
   Rewrite {
@@ -530,6 +536,7 @@ impl Commands {
       Commands::Fast { .. } => None,
       Commands::Local { .. } => None,
       Commands::Value { .. } => Some("Value"),
+      Commands::Short { .. } => Some("Short"),
       Commands::Svg { .. } => Some("SVG"),
       Commands::Ocr { .. } => Some("OCR"),
       Commands::Rename { .. } => Some("Rename"),
