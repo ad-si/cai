@@ -205,16 +205,23 @@ const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 37] = [
   ("o3dr", "o3-deep-research"),
 ];
 
-const XAI_MODEL_MAPPING_SRC: [(&str, &str); 6] = [
+const XAI_MODEL_MAPPING_SRC: [(&str, &str); 13] = [
   // Default models
-  ("grok", "grok-4-latest"),
-  ("grok-mini", "grok-3-mini-latest"),
-  ("grok-image", "grok-2-image-latest"),
+  ("grok", "grok-4"),
+  ("grok-fast", "grok-4-fast"),
+  ("fast", "grok-4-fast"),
+  ("grok-fast-non-reasoning", "grok-4-fast-non-reasoning"),
+  ("fast-non-reasoning", "grok-4-fast-non-reasoning"),
+  ("grok-mini", "grok-3-mini"),
+  ("mini", "grok-3-mini"),
+  ("grok-image", "grok-2-image"),
+  ("image", "grok-2-image"),
   // Grok 4
-  ("grok4", "grok-4-latest"),
+  ("grok4", "grok-4"),
+  ("grok4fast", "grok-4-fast"),
   // Grok 3
-  ("grok3", "grok-3-latest"),
-  ("grok3mini", "grok-3-mini-latest"),
+  ("grok3", "grok-3"),
+  ("grok3mini", "grok-3-mini"),
 ];
 
 const PERPLEXITY_MODEL_MAPPING_SRC: [(&str, &str); 19] = [

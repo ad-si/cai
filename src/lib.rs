@@ -219,12 +219,20 @@ fn default_req_for_model(model: &Model) -> AiRequest {
         ..Default::default()
       }
     }
-    Provider::XAI => AiRequest {
-      provider: *provider,
-      url: "https://api.x.ai/v1/chat/completions".to_string(),
-      model: types::get_xai_model(model_id).to_string(),
-      ..Default::default()
-    },
+    Provider::XAI => {
+      let resolved_model = types::get_xai_model(model_id);
+      let url = if resolved_model == "grok-2-image" {
+        "https://api.x.ai/v1/images/generations".to_string()
+      } else {
+        "https://api.x.ai/v1/chat/completions".to_string()
+      };
+      AiRequest {
+        provider: *provider,
+        url,
+        model: resolved_model.to_string(),
+        ..Default::default()
+      }
+    }
     Provider::Perplexity => AiRequest {
       provider: *provider,
       url: "https://api.perplexity.ai/chat/completions".to_string(),
@@ -480,6 +488,16 @@ fn get_req_body_obj(
     return Value::Object(map);
   }
 
+  // Special handling for xAI grok-2-image model (use images API)
+  if http_req.provider == Provider::XAI && http_req.model == "grok-2-image" {
+    let mut map = Map::new();
+    map.insert("model".to_string(), Value::String(http_req.model.clone()));
+    map.insert("prompt".to_string(), Value::String(user_input.to_string()));
+    map.insert("n".to_string(), Value::Number(1.into()));
+
+    return Value::Object(map);
+  }
+
   // For all other providers
   let mut map = Map::new();
   map.insert("model".to_string(), Value::String(http_req.model.clone()));
@@ -720,6 +738,28 @@ pub async fn exec_tool(
             if let Some(url) = image["url"].as_str() {
               println!("Generated image {}: {}", i + 1, url);
             }
+          }
+        }
+      }
+
+      return Ok(());
+    }
+
+    // Special handling for xAI grok-2-image model
+    if http_req.provider == Provider::XAI && http_req.model == "grok-2-image" {
+      let response_json = resp.json::<Value>().await?;
+
+      cprintln!(
+        "<bold>⏱️{: >5} {}</bold> | {used_model} {subcommand}\n",
+        elapsed_time,
+        time_unit,
+      );
+
+      // xAI uses a similar format to DALL-E with data array containing URLs
+      if let Some(data) = response_json["data"].as_array() {
+        for (i, image) in data.iter().enumerate() {
+          if let Some(url) = image["url"].as_str() {
+            println!("Generated image {}: {}", i + 1, url);
           }
         }
       }
