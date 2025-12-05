@@ -99,6 +99,7 @@ Commands:
   ocr           Extract text from an image
   rename        Analyze and rename files to timestamp + title (e.g. 2025-08-19t2041_invoice_car.pdf)
   changelog     Generate a changelog starting from a given commit
+  commit        Commit modified files with AI-generated commit messages and group related changes into separate commits
   svg           Generate an SVG graphic from a textual description
   edit          Open your editor to write the prompt
   config        Print the configuration settings loaded from the config file

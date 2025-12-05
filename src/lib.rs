@@ -1140,6 +1140,222 @@ pub async fn prompt_with_lang_cntxt(
     std::process::exit(1);
   }
 }
+pub async fn create_commits(
+  opts: &ExecOptions,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+  // Get status of modified files (excluding untracked files)
+  let status_output = std::process::Command::new("git")
+    .args(["status", "--porcelain"])
+    .output()
+    .expect("Failed to execute git status");
+
+  let status = String::from_utf8_lossy(&status_output.stdout);
+
+  // Filter for modified files only (M, MM, or AM status)
+  let modified_files: Vec<String> = status
+    .lines()
+    .filter(|line| {
+      let trimmed = line.trim();
+      // Include files that are modified (M), added and modified (AM), or modified in both index and working tree (MM)
+      // Exclude untracked files (??)
+      trimmed.starts_with("M ")
+        || trimmed.starts_with("MM")
+        || trimmed.starts_with("AM")
+        || trimmed.starts_with(" M")
+    })
+    .map(|line| line[3..].to_string()) // Skip the status prefix
+    .collect();
+
+  if modified_files.is_empty() {
+    println!("No modified files to commit.");
+    return Ok(());
+  }
+
+  println!("Found {} modified file(s):\n", modified_files.len());
+  for file in &modified_files {
+    println!("  - {}", file);
+  }
+  println!();
+
+  // Get the diff for all modified files
+  let diff_output = std::process::Command::new("git")
+    .args(["diff", "HEAD"])
+    .output()
+    .expect("Failed to execute git diff");
+
+  let diff = String::from_utf8_lossy(&diff_output.stdout);
+
+  // Ask AI to analyze the diff and suggest commit groupings
+  let analysis_prompt = format!(
+    "Analyze the following git diff and determine if the changes should be split into multiple commits.\n\
+    If the changes are related and form a coherent unit, suggest ONE commit.\n\
+    If there are multiple unrelated changes, suggest how to group the files into separate commits.\n\
+    \n\
+    For each commit group, provide:\n\
+    1. A list of file paths to include\n\
+    2. A concise commit message (50 chars or less for the summary)\n\
+    3. Optional: A longer description if needed\n\
+    \n\
+    Respond in JSON format:\n\
+    {{\n\
+      \"commits\": [\n\
+        {{\n\
+          \"files\": [\"path/to/file1.rs\", \"path/to/file2.rs\"],\n\
+          \"message\": \"Brief summary of changes\",\n\
+          \"description\": \"Optional longer description\"\n\
+        }}\n\
+      ]\n\
+    }}\n\
+    \n\
+    Git diff:\n{diff}"
+  );
+
+  let model = Model::Model(Provider::OpenAI, "gpt-4o".to_string());
+
+  // Get AI analysis of commit groupings
+  let json_schema = json!({
+    "name": "commit_analysis",
+    "strict": true,
+    "schema": {
+      "type": "object",
+      "properties": {
+        "commits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "files": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "message": { "type": "string" },
+              "description": { "type": "string" }
+            },
+            "required": ["files", "message", "description"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["commits"],
+      "additionalProperties": false
+    }
+  });
+
+  let mut analysis_opts = opts.clone();
+  analysis_opts.is_json = true;
+  analysis_opts.json_schema = Some(json_schema);
+
+  // Capture the JSON response
+  let secrets_path_str = get_secrets_path_str();
+  let full_config = get_full_config(&secrets_path_str)?;
+  let (_used_model, http_req) =
+    get_http_req(&Some(&model), &secrets_path_str, &full_config)?;
+  let req_body_obj =
+    get_req_body_obj(&analysis_opts, &http_req, &analysis_prompt);
+  let response = exec_request(&http_req, &req_body_obj).await?;
+
+  // Parse the response using the standard AiResponse struct
+  let ai_response = response.json::<AiResponse>().await
+    .map_err(|e| format!("Failed to decode API response: {}", e))?;
+
+  if ai_response.choices.is_empty() {
+    return Err("API returned no choices".into());
+  }
+
+  let content = &ai_response.choices[0].message.content;
+
+  #[derive(Deserialize)]
+  struct CommitGroup {
+    files: Vec<String>,
+    message: String,
+    description: Option<String>,
+  }
+
+  #[derive(Deserialize)]
+  struct CommitAnalysis {
+    commits: Vec<CommitGroup>,
+  }
+
+  let analysis: CommitAnalysis = serde_json::from_str(content)
+    .map_err(|e| format!("Failed to parse commit analysis: {}. Response: {}", e, content))?;
+
+  if analysis.commits.is_empty() {
+    println!("No commits suggested by AI.");
+    return Ok(());
+  }
+
+  println!("AI suggests {} commit(s):\n", analysis.commits.len());
+
+  // Process each suggested commit
+  for (idx, commit_group) in analysis.commits.iter().enumerate() {
+    println!("─────────────────────────────────────────────");
+    println!("Commit {}/{}", idx + 1, analysis.commits.len());
+    println!("─────────────────────────────────────────────");
+    println!("Files:");
+    for file in &commit_group.files {
+      println!("  - {}", file);
+    }
+    println!("\nCommit message:");
+    println!("  {}", commit_group.message);
+    if let Some(desc) = &commit_group.description {
+      if !desc.is_empty() {
+        println!("\n  {}", desc);
+      }
+    }
+    println!();
+
+    // Prompt user for approval
+    print!("Proceed with this commit? [Y/n]: ");
+    std::io::Write::flush(&mut std::io::stdout())?;
+
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
+    let input = input.trim().to_lowercase();
+
+    if input == "n" || input == "no" {
+      println!("Skipped.\n");
+      continue;
+    }
+
+    // Stage the files
+    for file in &commit_group.files {
+      let add_output = std::process::Command::new("git")
+        .args(["add", file])
+        .output()?;
+
+      if !add_output.status.success() {
+        eprintln!("Warning: Failed to stage {}", file);
+      }
+    }
+
+    // Create the commit
+    let full_message = if let Some(desc) = &commit_group.description {
+      if !desc.is_empty() {
+        format!("{}\n\n{}", commit_group.message, desc)
+      } else {
+        commit_group.message.clone()
+      }
+    } else {
+      commit_group.message.clone()
+    };
+
+    let commit_output = std::process::Command::new("git")
+      .args(["commit", "-m", &full_message])
+      .output()?;
+
+    if commit_output.status.success() {
+      println!("✓ Commit created successfully.\n");
+    } else {
+      let error = String::from_utf8_lossy(&commit_output.stderr);
+      eprintln!("✗ Failed to create commit: {}\n", error);
+    }
+  }
+
+  println!("─────────────────────────────────────────────");
+  println!("All commits processed.");
+
+  Ok(())
+}
 
 #[cfg(test)]
 mod tests {

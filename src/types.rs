@@ -85,6 +85,10 @@ pub enum Commands {
     commit_hash: String,
   },
 
+  /// Commit modified files with AI-generated commit messages and
+  /// group related changes into separate commits
+  Commit {},
+
   /// Generate an SVG graphic from a textual description
   Svg {
     /// The prompt that describes the SVG to create
@@ -547,6 +551,7 @@ impl Commands {
       Commands::Ocr { .. } => Some("OCR"),
       Commands::Rename { .. } => Some("Rename"),
       Commands::Changelog { .. } => Some("Changelog"),
+      Commands::Commit { .. } => Some("Commit"),
       Commands::Reply { .. } => Some("Reply"),
       Commands::Rewrite { .. } => Some("Rewrite"),
       Commands::Config { .. } => None,

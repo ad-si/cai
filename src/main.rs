@@ -2,9 +2,9 @@ use std::io::stdin;
 use std::io::{read_to_string, IsTerminal};
 
 use cai::{
-  analyze_file_content, exec_tool, extract_text_from_file, generate_changelog,
-  prompt_with_lang_cntxt, submit_prompt, transcribe_audio_file, Commands,
-  ExecOptions, Model, Provider,
+  analyze_file_content, create_commits, exec_tool, extract_text_from_file,
+  generate_changelog, prompt_with_lang_cntxt, submit_prompt,
+  transcribe_audio_file, Commands, ExecOptions, Model, Provider,
 };
 use chrono::NaiveDateTime;
 use clap::crate_description;
@@ -409,6 +409,12 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Changelog { commit_hash } => {
         if let Err(err) = generate_changelog(&opts, commit_hash).await {
           eprintln!("Error generating changelog: {err}");
+          std::process::exit(1);
+        }
+      }
+      Commands::Commit {} => {
+        if let Err(err) = create_commits(&opts).await {
+          eprintln!("Error creating commits: {err}");
           std::process::exit(1);
         }
       }
