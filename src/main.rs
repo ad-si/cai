@@ -533,6 +533,17 @@ async fn exec_with_args(args: Args, stdin: &str) {
         )
         .await
       }
+      Commands::GoogleImage { prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(
+            Provider::Google,
+            "gemini-2.5-flash-image".to_string(),
+          )),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
       Commands::Groq { model, prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::Groq, model.to_string())),

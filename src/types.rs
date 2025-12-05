@@ -148,6 +148,12 @@ pub enum Commands {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
+  /// - Google Gemini Image shortcut
+  #[clap(name = "google-image", visible_alias = "gimg")]
+  GoogleImage {
+    /// The prompt describing the image to generate
+    prompt: Vec<String>,
+  },
   /// Groq
   #[clap(visible_alias = "gr")]
   Groq {
@@ -555,6 +561,7 @@ impl Commands {
       Commands::Google { .. } => None,
       Commands::Gemini { .. } => None,
       Commands::GeminiFlash { .. } => None,
+      Commands::GoogleImage { .. } => Some("Google Image"),
       Commands::Groq { .. } => None,
       Commands::Perplexity { .. } => None,
       Commands::Sonar { .. } => None,

@@ -177,13 +177,16 @@ fn default_req_for_model(model: &Model) -> AiRequest {
       model: types::get_cerebras_model(model_id).to_string(),
       ..Default::default()
     },
-    Provider::Google => AiRequest {
-      provider: *provider,
-      url: "https://generativelanguage.googleapis.com/v1beta/models"
-        .to_string(),
-      model: types::get_google_model(model_id).to_string(),
-      ..Default::default()
-    },
+    Provider::Google => {
+      let resolved_model = types::get_google_model(model_id);
+      AiRequest {
+        provider: *provider,
+        url: "https://generativelanguage.googleapis.com/v1beta/models"
+          .to_string(),
+        model: resolved_model.to_string(),
+        ..Default::default()
+      }
+    }
     Provider::Groq => AiRequest {
       provider: *provider,
       url: "https://api.groq.com/openai/v1/chat/completions".to_string(),
@@ -428,6 +431,14 @@ fn get_req_body_obj(
       "maxOutputTokens".to_string(),
       Value::Number(http_req.max_tokens.into()),
     );
+
+    // Add image generation specific config for image models
+    if http_req.model.contains("-image") {
+      generation_config.insert(
+        "responseModalities".to_string(),
+        Value::Array(vec![Value::String("IMAGE".to_string())]),
+      );
+    }
 
     let mut map = Map::new();
     map.insert(
@@ -767,6 +778,69 @@ pub async fn exec_tool(
       return Ok(());
     }
 
+    // Special handling for Google Gemini image generation
+    if http_req.provider == Provider::Google
+      && http_req.model.contains("-image")
+    {
+      let response_json = resp.json::<Value>().await?;
+
+      cprintln!(
+        "<bold>⏱️{: >5} {}</bold> | {used_model} {subcommand}\n",
+        elapsed_time,
+        time_unit,
+      );
+
+      // Google Gemini returns images in the response as inline data
+      if let Some(candidates) = response_json["candidates"].as_array() {
+        for candidate in candidates {
+          if let Some(parts) = candidate["content"]["parts"].as_array() {
+            let mut image_count = 0;
+            for part in parts {
+              if let Some(inline_data) = part["inlineData"].as_object() {
+                if let Some(data_base64) = inline_data["data"].as_str() {
+                  image_count += 1;
+                  use base64::{engine::general_purpose, Engine as _};
+                  match general_purpose::STANDARD.decode(data_base64) {
+                    Ok(image_bytes) => {
+                      // Generate timestamp prefix in format: 2025-08-17t1943
+                      let now = Utc::now();
+                      let timestamp_prefix =
+                        now.format("%Y-%m-%dt%H%M").to_string();
+
+                      // Find a unique filename with timestamp prefix
+                      let mut filename =
+                        format!("{timestamp_prefix}_google_image.png");
+                      let mut counter = 1;
+                      while std::path::Path::new(&filename).exists() {
+                        filename = format!(
+                          "{timestamp_prefix}_google_image_{counter}.png"
+                        );
+                        counter += 1;
+                      }
+
+                      match std::fs::write(&filename, image_bytes) {
+                        Ok(_) => {
+                          println!("Generated image saved to: {filename}")
+                        }
+                        Err(e) => {
+                          println!("Failed to save image {image_count}: {e}")
+                        }
+                      }
+                    }
+                    Err(e) => println!(
+                      "Failed to decode base64 for image {image_count}: {e}"
+                    ),
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      return Ok(());
+    }
+
     let (msg, search_results) = match http_req.provider {
       Provider::Anthropic => {
         let anth_response = resp.json::<AnthropicAiResponse>().await?;
@@ -1053,8 +1127,7 @@ pub async fn prompt_with_lang_cntxt(
     Keep your answer concise and to the point.\n"
   );
 
-  let model =
-    Model::Model(Provider::Anthropic, "claude-haiku-4-5".to_string());
+  let model = Model::Model(Provider::Anthropic, "claude-haiku-4-5".to_string());
 
   if let Err(err) = exec_tool(
     &Some(&model),
