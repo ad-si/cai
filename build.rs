@@ -2,7 +2,7 @@ use std::env;
 use std::fs;
 use std::path::Path;
 
-const GOOGLE_MODEL_MAPPING_SRC: [(&str, &str); 18] = [
+const GOOGLE_MODEL_MAPPING_SRC: [(&str, &str); 20] = [
   // Default models
   ("gemini-flash", "gemini-2.5-flash"),
   ("gemini", "gemini-2.5-flash"),
@@ -18,6 +18,9 @@ const GOOGLE_MODEL_MAPPING_SRC: [(&str, &str); 18] = [
   ("gemini-image", "gemini-2.5-flash-image"),
   ("image", "gemini-2.5-flash-image"),
   ("img", "gemini-2.5-flash-image"),
+  // Version 3 models
+  ("gemini-3-pro", "gemini-3-pro-preview"),
+  ("gemini-3-pro-image", "gemini-3-pro-image-preview"),
   // Version 2.5 models
   ("gemini-2.5-flash", "gemini-2.5-flash"),
   ("gemini-2.5-pro", "gemini-2.5-pro"),
@@ -28,13 +31,13 @@ const GOOGLE_MODEL_MAPPING_SRC: [(&str, &str); 18] = [
   ("gemini-1.5-pro", "gemini-1.5-pro"),
 ];
 
-const ANTHROPIC_MODEL_MAPPING_SRC: [(&str, &str); 32] = [
+const ANTHROPIC_MODEL_MAPPING_SRC: [(&str, &str); 33] = [
   // Default models
   // Opus
-  ("claude-opus", "claude-opus-4-1"),
-  ("opus", "claude-opus-4-1"),
-  ("op", "claude-opus-4-1"),
-  ("o", "claude-opus-4-1"),
+  ("claude-opus", "claude-opus-4-5"),
+  ("opus", "claude-opus-4-5"),
+  ("op", "claude-opus-4-5"),
+  ("o", "claude-opus-4-5"),
   // Sonnet
   ("claude-sonnet", "claude-sonnet-4-5"),
   ("sonnet", "claude-sonnet-4-5"),
@@ -46,6 +49,7 @@ const ANTHROPIC_MODEL_MAPPING_SRC: [(&str, &str); 32] = [
   ("ha", "claude-haiku-4-5"),
   ("h", "claude-haiku-4-5"),
   // Version 4.5 models
+  ("opus-4-5", "claude-opus-4-5"),
   ("sonnet-4-5", "claude-sonnet-4-5"),
   ("haiku-4-5", "claude-haiku-4-5"),
   // Version 4.1 models
@@ -162,7 +166,7 @@ const OLLAMA_MODEL_MAPPING_SRC: [(&str, &str); 21] = [
   ("llama2", "llama2"),
 ];
 
-const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 39] = [
+const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 48] = [
   // Default models
   ("gpt", "gpt-5"),
   ("mini", "gpt-5-mini"),
@@ -183,6 +187,16 @@ const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 39] = [
   ("5m", "gpt-5-mini"),
   ("5nano", "gpt-5-nano"),
   ("5n", "gpt-5-nano"),
+  // GPT-5.1
+  ("gpt5.1", "gpt-5.1"),
+  ("gpt5.1codex", "gpt-5.1-codex"),
+  ("gpt5.1codexmini", "gpt-5.1-codex-mini"),
+  ("gpt5.1codexmax", "gpt-5.1-codex-max"),
+  ("gpt5.1chat", "gpt-5.1-chat-latest"),
+  ("5.1", "gpt-5.1"),
+  ("5.1codex", "gpt-5.1-codex"),
+  ("5.1codexmini", "gpt-5.1-codex-mini"),
+  ("5.1chat", "gpt-5.1-chat-latest"),
   // GPT Image
   ("gptimage", "gpt-image-1"),
   ("gpt-image", "gpt-image-1"),
