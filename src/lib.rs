@@ -644,14 +644,14 @@ pub async fn exec_tool(
     .subcommand
     .as_ref()
     .and_then(|x| x.to_string_pretty())
-    .map(|subcom| format!("| ➡️ {subcom}"))
+    .map(|subcom| format!("➡️ {subcom} | "))
     .unwrap_or_default();
 
   if !&resp.status().is_success() {
     let resp_json = resp.json::<Value>().await?;
     let resp_formatted = serde_json::to_string_pretty(&resp_json).unwrap();
     Err(cformat!(
-      "<bold>⏱️ {: >5} {}</bold> | {used_model} {subcommand}\n\
+      "<bold>{subcommand}{used_model} | ⏱️ {} {}</bold>\n\
       \n{resp_formatted}",
       elapsed_time,
       time_unit,
@@ -677,7 +677,7 @@ pub async fn exec_tool(
       std::fs::write(&filename, &audio_data)?;
 
       cprintln!(
-        "<bold>⏱️{: >5} {}</bold> | {used_model} {subcommand}\n",
+        "<bold>{subcommand}{used_model} | ⏱️ {} {}</bold>\n",
         elapsed_time,
         time_unit,
       );
@@ -698,7 +698,7 @@ pub async fn exec_tool(
       let response_json = resp.json::<Value>().await?;
 
       cprintln!(
-        "<bold>⏱️{: >5} {}</bold> | {used_model} {subcommand}\n",
+        "<bold>{subcommand}{used_model} | ⏱️ {} {}</bold>\n",
         elapsed_time,
         time_unit,
       );
@@ -761,7 +761,7 @@ pub async fn exec_tool(
       let response_json = resp.json::<Value>().await?;
 
       cprintln!(
-        "<bold>⏱️{: >5} {}</bold> | {used_model} {subcommand}\n",
+        "<bold>{subcommand}{used_model} | ⏱️ {} {}</bold>\n",
         elapsed_time,
         time_unit,
       );
@@ -785,7 +785,7 @@ pub async fn exec_tool(
       let response_json = resp.json::<Value>().await?;
 
       cprintln!(
-        "<bold>⏱️{: >5} {}</bold> | {used_model} {subcommand}\n",
+        "<bold>{subcommand}{used_model} | ⏱️ {} {}</bold>\n",
         elapsed_time,
         time_unit,
       );
@@ -871,7 +871,7 @@ pub async fn exec_tool(
       println!("{msg}");
     } else {
       cprintln!(
-        "<bold>⏱️{: >5} {}</bold> | {used_model} {subcommand}\n",
+        "<bold>{subcommand}{used_model} | ⏱️ {} {}</bold>\n",
         elapsed_time,
         time_unit,
       );
