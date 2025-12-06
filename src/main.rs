@@ -3,7 +3,7 @@ use std::io::{read_to_string, IsTerminal};
 
 use cai::{
   analyze_file_content, create_commits, exec_tool, extract_text_from_file,
-  generate_changelog, prompt_with_lang_cntxt, submit_prompt,
+  generate_changelog, google_ocr_file, prompt_with_lang_cntxt, submit_prompt,
   transcribe_audio_file, Commands, ExecOptions, Model, Provider,
 };
 use chrono::NaiveDateTime;
@@ -395,6 +395,12 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Ocr { file } => {
         if let Err(err) = extract_text_from_file(&opts, file).await {
           eprintln!("Error extracting text: {err}");
+          std::process::exit(1);
+        }
+      }
+      Commands::GoogleOcr { file } => {
+        if let Err(err) = google_ocr_file(&opts, file).await {
+          eprintln!("Error extracting text with Google OCR: {err}");
           std::process::exit(1);
         }
       }

@@ -1071,6 +1071,56 @@ pub async fn extract_text_from_file(
   exec_tool(&Some(model), opts, &prompt).await
 }
 
+pub async fn google_ocr_file(
+  opts: &ExecOptions,
+  file_path: &str,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+  let file_content = std::fs::read(file_path)?;
+  let base64_content =
+    base64::engine::general_purpose::STANDARD.encode(&file_content);
+
+  // Detect MIME type based on file extension
+  let mime_type = if file_path.to_lowercase().ends_with(".png") {
+    "image/png"
+  } else if file_path.to_lowercase().ends_with(".jpg")
+    || file_path.to_lowercase().ends_with(".jpeg")
+  {
+    "image/jpeg"
+  } else if file_path.to_lowercase().ends_with(".gif") {
+    "image/gif"
+  } else if file_path.to_lowercase().ends_with(".webp") {
+    "image/webp"
+  } else {
+    "image/jpeg" // default
+  };
+
+  let model_id = "gemini-3-pro-preview";
+  let model = &Model::Model(Provider::Google, model_id.to_string());
+
+  // Build the request JSON according to the Google Gemini API format
+  // The mediaResolution should be specified at the generationConfig level
+  let prompt = json!({
+    "contents": [{
+      "parts": [
+        { "text": "Extract and return all text from this image.
+            Just the text and no explanation!" },
+        {
+          "inlineData": {
+            "mimeType": mime_type,
+            "data": base64_content
+          }
+        }
+      ]
+    }],
+    "generationConfig": {
+      "mediaResolution": "media_resolution_high"
+    }
+  })
+  .to_string();
+
+  exec_tool(&Some(model), opts, &prompt).await
+}
+
 pub async fn transcribe_audio_file(
   opts: &ExecOptions,
   file_path: &str,
@@ -1255,7 +1305,9 @@ pub async fn create_commits(
   let response = exec_request(&http_req, &req_body_obj).await?;
 
   // Parse the response using the standard AiResponse struct
-  let ai_response = response.json::<AiResponse>().await
+  let ai_response = response
+    .json::<AiResponse>()
+    .await
     .map_err(|e| format!("Failed to decode API response: {}", e))?;
 
   if ai_response.choices.is_empty() {
@@ -1276,8 +1328,13 @@ pub async fn create_commits(
     commits: Vec<CommitGroup>,
   }
 
-  let analysis: CommitAnalysis = serde_json::from_str(content)
-    .map_err(|e| format!("Failed to parse commit analysis: {}. Response: {}", e, content))?;
+  let analysis: CommitAnalysis =
+    serde_json::from_str(content).map_err(|e| {
+      format!(
+        "Failed to parse commit analysis: {}. Response: {}",
+        e, content
+      )
+    })?;
 
   if analysis.commits.is_empty() {
     println!("No commits suggested by AI.");

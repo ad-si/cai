@@ -71,6 +71,13 @@ pub enum Commands {
     file: String,
   },
 
+  /// Extract text from an image using Google Gemini with high resolution
+  #[clap(visible_alias = "gocr")]
+  GoogleOcr {
+    /// The file to extract text from
+    file: String,
+  },
+
   /// Analyze and rename files to timestamp + title
   /// (e.g. 2025-08-19t2041_invoice_car.pdf)
   Rename {
@@ -549,6 +556,7 @@ impl Commands {
       Commands::Short { .. } => Some("Short"),
       Commands::Svg { .. } => Some("SVG"),
       Commands::Ocr { .. } => Some("OCR"),
+      Commands::GoogleOcr { .. } => Some("Google OCR"),
       Commands::Rename { .. } => Some("Rename"),
       Commands::Changelog { .. } => Some("Changelog"),
       Commands::Commit { .. } => Some("Commit"),

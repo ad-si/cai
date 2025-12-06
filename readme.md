@@ -97,6 +97,7 @@ Commands:
   say           Convert text to speech using OpenAI's TTS model [aliases: tts]
   transcribe    Transcribe an audio file
   ocr           Extract text from an image
+  google-ocr    Extract text from an image using Google Gemini with high resolution [aliases: gocr]
   rename        Analyze and rename files to timestamp + title (e.g. 2025-08-19t2041_invoice_car.pdf)
   changelog     Generate a changelog starting from a given commit
   commit        Commit modified files with AI-generated commit messages and group related changes into separate commits
