@@ -93,7 +93,7 @@ Commands:
   short         Answer the prompt in a short, compact, and focused manner
   rewrite       Fix spelling, grammar, and wording issues in text passed via standard input
   reply         Reply to a conversation passed via standard input. Add additional reply instructions as the prompt
-  image         Generate an image using GPT-5 image generation [aliases: img]
+  image         Generate an image using GPT-image-1.5 [aliases: img]
   say           Convert text to speech using OpenAI's TTS model [aliases: tts]
   transcribe    Transcribe an audio file
   ocr           Extract text from an image

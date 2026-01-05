@@ -208,7 +208,7 @@ fn default_req_for_model(model: &Model) -> AiRequest {
       let resolved_model = types::get_openai_model(model_id);
       let url = if resolved_model.contains("-tts") {
         "https://api.openai.com/v1/audio/speech".to_string()
-      } else if resolved_model == "gpt-image-1" {
+      } else if resolved_model.starts_with("gpt-image") {
         "https://api.openai.com/v1/responses".to_string()
       } else if resolved_model.starts_with("dall") {
         "https://api.openai.com/v1/images/generations".to_string()
@@ -467,7 +467,7 @@ fn get_req_body_obj(
     || matches!(&opts.subcommand, Some(Commands::Image { .. }));
 
   if http_req.provider == Provider::OpenAI
-    && (is_image_generation || http_req.model == "gpt-image-1")
+    && (is_image_generation || http_req.model.starts_with("gpt-image"))
   {
     let mut map = Map::new();
     map.insert("model".to_string(), Value::String(http_req.model.clone()));
@@ -692,7 +692,7 @@ pub async fn exec_tool(
     // Special handling for OpenAI image generation models
     if http_req.provider == Provider::OpenAI
       && (http_req.model.starts_with("dall-e")
-        || http_req.model == "gpt-image-1"
+        || http_req.model.starts_with("gpt-image")
         || is_image_generation)
     {
       let response_json = resp.json::<Value>().await?;
@@ -704,7 +704,7 @@ pub async fn exec_tool(
       );
 
       // Handle Responses API format (gpt-5, gpt-4.1, gpt-4o when used for image generation)
-      if is_image_generation || http_req.model == "gpt-image-1" {
+      if is_image_generation || http_req.model.starts_with("gpt-image") {
         if let Some(outputs) = response_json["output"].as_array() {
           let mut image_count = 0;
           for output in outputs {

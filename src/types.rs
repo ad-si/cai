@@ -45,7 +45,7 @@ pub enum Commands {
     prompt: Vec<String>,
   },
 
-  /// Generate an image using GPT-5 image generation
+  /// Generate an image using GPT-image-1.5
   #[clap(visible_alias = "img")]
   Image {
     /// The prompt describing the image to generate
