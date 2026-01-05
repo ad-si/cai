@@ -208,9 +208,9 @@ fn default_req_for_model(model: &Model) -> AiRequest {
       let resolved_model = types::get_openai_model(model_id);
       let url = if resolved_model.contains("-tts") {
         "https://api.openai.com/v1/audio/speech".to_string()
-      } else if resolved_model.starts_with("gpt-image") {
-        "https://api.openai.com/v1/responses".to_string()
-      } else if resolved_model.starts_with("dall") {
+      } else if resolved_model.starts_with("gpt-image")
+        || resolved_model.starts_with("dall")
+      {
         "https://api.openai.com/v1/images/generations".to_string()
       } else {
         "https://api.openai.com/v1/chat/completions".to_string()
@@ -462,39 +462,18 @@ fn get_req_body_obj(
     return Value::Object(map);
   }
 
-  // Special handling for OpenAI image generation (detect when "image" alias was used)
+  // Special handling for OpenAI image generation models (gpt-image and DALL-E)
   let is_image_generation = matches!(&opts.subcommand, Some(Commands::Openai { model, .. }) if model == "image")
     || matches!(&opts.subcommand, Some(Commands::Image { .. }));
 
   if http_req.provider == Provider::OpenAI
-    && (is_image_generation || http_req.model.starts_with("gpt-image"))
-  {
-    let mut map = Map::new();
-    map.insert("model".to_string(), Value::String(http_req.model.clone()));
-    map.insert("input".to_string(), Value::String(user_input.to_string()));
-
-    let mut tools = Vec::new();
-    let mut tool = Map::new();
-    tool.insert(
-      "type".to_string(),
-      Value::String("image_generation".to_string()),
-    );
-    tools.push(Value::Object(tool));
-
-    map.insert("tools".to_string(), Value::Array(tools));
-
-    return Value::Object(map);
-  }
-
-  // Special handling for OpenAI DALL-E models (use images API)
-  if http_req.provider == Provider::OpenAI
-    && http_req.model.starts_with("dall-e")
+    && (is_image_generation
+      || http_req.model.starts_with("gpt-image")
+      || http_req.model.starts_with("dall-e"))
   {
     let mut map = Map::new();
     map.insert("model".to_string(), Value::String(http_req.model.clone()));
     map.insert("prompt".to_string(), Value::String(user_input.to_string()));
-    map.insert("n".to_string(), Value::Number(1.into()));
-    map.insert("size".to_string(), Value::String("1024x1024".to_string()));
 
     return Value::Object(map);
   }
@@ -619,16 +598,8 @@ pub async fn exec_tool(
   let start = Instant::now();
   let secrets_path_str = get_secrets_path_str();
   let full_config = get_full_config(&secrets_path_str)?;
-  let (used_model, mut http_req) =
+  let (used_model, http_req) =
     get_http_req(optional_model, &secrets_path_str, &full_config)?;
-
-  // Check if this is an image generation request and update URL accordingly
-  let is_image_generation = matches!(&opts.subcommand, Some(Commands::Openai { model, .. }) if model == "image")
-    || matches!(&opts.subcommand, Some(Commands::Image { .. }));
-
-  if http_req.provider == Provider::OpenAI && is_image_generation {
-    http_req.url = "https://api.openai.com/v1/responses".to_string();
-  }
 
   // This is checked here, so that the missing API key message comes first
   if user_input.is_empty() {
@@ -703,52 +674,38 @@ pub async fn exec_tool(
         time_unit,
       );
 
-      // Handle Responses API format (gpt-5, gpt-4.1, gpt-4o when used for image generation)
-      if is_image_generation || http_req.model.starts_with("gpt-image") {
-        if let Some(outputs) = response_json["output"].as_array() {
-          let mut image_count = 0;
-          for output in outputs {
-            if let Some(output_type) = output["type"].as_str() {
-              if output_type == "image_generation_call" {
-                image_count += 1;
-                if let Some(image_base64) = output["result"].as_str() {
-                  use base64::{engine::general_purpose, Engine as _};
-                  match general_purpose::STANDARD.decode(image_base64) {
-                    Ok(image_bytes) => {
-                      // Find the next available filename
-                      let mut counter = 1;
-                      let mut filename =
-                        format!("generated_image_{counter}.png");
-                      while std::path::Path::new(&filename).exists() {
-                        counter += 1;
-                        filename = format!("generated_image_{counter}.png");
-                      }
+      // Handle Images API format with base64 (gpt-image and dall-e models)
+      if let Some(data) = response_json["data"].as_array() {
+        let mut image_count = 0;
+        for image_data in data {
+          image_count += 1;
 
-                      match std::fs::write(&filename, image_bytes) {
-                        Ok(_) => {
-                          println!("Generated image saved to: {filename}")
-                        }
-                        Err(e) => {
-                          println!("Failed to save image {image_count}: {e}")
-                        }
-                      }
-                    }
-                    Err(e) => println!(
-                      "Failed to decode base64 for image {image_count}: {e}"
-                    ),
-                  }
+          // Check for base64 format first
+          if let Some(image_base64) = image_data["b64_json"].as_str() {
+            use base64::{engine::general_purpose, Engine as _};
+            match general_purpose::STANDARD.decode(image_base64) {
+              Ok(image_bytes) => {
+                // Find the next available filename
+                let mut counter = 1;
+                let mut filename = format!("generated_image_{counter}.png");
+                while std::path::Path::new(&filename).exists() {
+                  counter += 1;
+                  filename = format!("generated_image_{counter}.png");
                 }
+
+                match std::fs::write(&filename, image_bytes) {
+                  Ok(_) => println!("Generated image saved to: {filename}"),
+                  Err(e) => println!("Failed to save image {image_count}: {e}"),
+                }
+              }
+              Err(e) => {
+                println!("Failed to decode base64 for image {image_count}: {e}")
               }
             }
           }
-        }
-      } else {
-        // Handle dall-e models (legacy format)
-        if let Some(data) = response_json["data"].as_array() {
-          for (i, image) in data.iter().enumerate() {
-            if let Some(url) = image["url"].as_str() {
-              println!("Generated image {}: {}", i + 1, url);
-            }
+          // Fall back to URL format if base64 not present
+          else if let Some(url) = image_data["url"].as_str() {
+            println!("Generated image {}: {}", image_count, url);
           }
         }
       }
