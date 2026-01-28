@@ -52,6 +52,12 @@ pub enum Commands {
     prompt: Vec<String>,
   },
 
+  /// Generate a photorealistic image that looks like a camera photo
+  Photo {
+    /// The prompt describing the photo to generate
+    prompt: Vec<String>,
+  },
+
   /// Convert text to speech using OpenAI's TTS model
   #[clap(visible_alias = "tts")]
   Say {
@@ -566,6 +572,7 @@ impl Commands {
       Commands::Transcribe { .. } => Some("Transcribe"),
       Commands::Say { .. } => Some("Say"),
       Commands::Image { .. } => Some("Image"),
+      Commands::Photo { .. } => Some("Photo"),
 
       // Models
       Commands::SectionModels { .. } => None,

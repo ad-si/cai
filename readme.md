@@ -94,6 +94,7 @@ Commands:
   rewrite       Fix spelling, grammar, and wording issues in text passed via standard input
   reply         Reply to a conversation passed via standard input. Add additional reply instructions as the prompt
   image         Generate an image using GPT-image-1.5 [aliases: img]
+  photo         Generate a photorealistic image that looks like a camera photo
   say           Convert text to speech using OpenAI's TTS model [aliases: tts]
   transcribe    Transcribe an audio file
   ocr           Extract text from an image

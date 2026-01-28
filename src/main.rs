@@ -510,6 +510,21 @@ async fn exec_with_args(args: Args, stdin: &str) {
         )
         .await
       }
+      Commands::Photo { prompt } => {
+        let photo_prompt = format!(
+          "Generate a photorealistic image that looks like it was taken with a camera. \
+          The image should have natural lighting, realistic textures, and appear as an \
+          authentic photograph rather than a digital illustration or rendering. \
+          Subject: {}",
+          prompt.join(" ")
+        );
+        submit_prompt(
+          &Some(&Model::Model(Provider::OpenAI, "gpt-image-1.5".to_string())),
+          &opts,
+          &format!("{stdin}{photo_prompt}"),
+        )
+        .await
+      }
 
       //////////////////////////////////////////////////////////////////////////
       //=============================== MODELS =================================
