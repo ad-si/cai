@@ -173,6 +173,9 @@ Commands:
   wl            Use Wolfram Language and Mathematica development as the prompt context
   zig           Use Zig development as the prompt context
   jq            Use jq development as the prompt context
+                
+                🗄️ DATABASE                                                 
+  query         Query a SQLite database using natural language
   help          Print this message or the help of the given subcommand(s)
 
 Arguments:

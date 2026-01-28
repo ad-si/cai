@@ -945,6 +945,19 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Jq { prompt } => {
         prompt_with_lang_cntxt(&opts, &cmd, prompt).await
       }
+
+      //////////////////////////////////////////////////////////////////////////
+      //============================== DATABASE ================================
+      //////////////////////////////////////////////////////////////////////////
+      Commands::SectionDatabase {} => {}
+      Commands::Query { database, prompt } => {
+        if let Err(err) =
+          cai::query_database(&opts, database, &prompt.join(" ")).await
+        {
+          eprintln!("Error querying database: {err}");
+          std::process::exit(1);
+        }
+      }
     },
   };
 }

@@ -1512,6 +1512,169 @@ pub async fn create_commits(
   Ok(())
 }
 
+pub async fn query_database(
+  opts: &ExecOptions,
+  database_path: &str,
+  prompt_text: &str,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+  use rusqlite::Connection;
+
+  // Open the database
+  let conn = Connection::open(database_path).map_err(|e| {
+    format!("Failed to open database '{}': {}", database_path, e)
+  })?;
+
+  // Get the database schema
+  let mut schema_parts: Vec<String> = Vec::new();
+
+  // Get all table names
+  let mut stmt = conn
+    .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+    .map_err(|e| format!("Failed to query schema: {}", e))?;
+
+  let table_names: Vec<String> = stmt
+    .query_map([], |row| row.get(0))
+    .map_err(|e| format!("Failed to get table names: {}", e))?
+    .filter_map(|r| r.ok())
+    .collect();
+
+  // Get CREATE TABLE statement for each table
+  for table_name in &table_names {
+    let sql: String = conn
+      .query_row(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name=?1",
+        [table_name],
+        |row| row.get(0),
+      )
+      .map_err(|e| {
+        format!("Failed to get schema for table '{}': {}", table_name, e)
+      })?;
+    schema_parts.push(sql);
+  }
+
+  let schema = schema_parts.join("\n\n");
+
+  // Build the prompt for the LLM to generate SQL
+  let sql_prompt = format!(
+    "You are a SQLite expert. Given the following database schema, \
+    generate a SQL query to answer the user's question.\n\n\
+    IMPORTANT: Respond with ONLY the SQL query, no explanations, \
+    no markdown code blocks, no comments. Just the raw SQL.\n\n\
+    Schema:\n{schema}\n\n\
+    Question: {prompt_text}"
+  );
+
+  // Use OpenAI to generate the SQL query
+  let model = Model::Model(Provider::OpenAI, "gpt-4.1".to_string());
+  let secrets_path_str = get_secrets_path_str();
+  let full_config = get_full_config(&secrets_path_str)?;
+  let (_used_model, http_req) =
+    get_http_req(&Some(&model), &secrets_path_str, &full_config)?;
+
+  let mut raw_opts = opts.clone();
+  raw_opts.is_raw = true;
+
+  let req_body_obj = get_req_body_obj(&raw_opts, &http_req, &sql_prompt);
+  let resp = exec_request(&http_req, &req_body_obj).await?;
+
+  if !resp.status().is_success() {
+    let resp_json = resp.json::<Value>().await?;
+    let resp_formatted = serde_json::to_string_pretty(&resp_json).unwrap();
+    return Err(format!("Failed to generate SQL: {}", resp_formatted).into());
+  }
+
+  let ai_response = resp.json::<AiResponse>().await?;
+  let generated_sql = ai_response.choices[0]
+    .message
+    .content
+    .trim()
+    .trim_start_matches("```sql")
+    .trim_start_matches("```")
+    .trim_end_matches("```")
+    .trim()
+    .to_string();
+
+  if !opts.is_raw {
+    cprintln!("<bold>Generated SQL:</bold>");
+    println!("{}\n", generated_sql);
+  }
+
+  // Execute the generated SQL query
+  let mut stmt = conn
+    .prepare(&generated_sql)
+    .map_err(|e| format!("SQL error: {}", e))?;
+
+  let column_count = stmt.column_count();
+  let column_names: Vec<String> =
+    stmt.column_names().iter().map(|s| s.to_string()).collect();
+
+  // Execute and collect results
+  let rows_result = stmt.query_map([], |row| {
+    let mut row_values: Vec<String> = Vec::new();
+    for i in 0..column_count {
+      let value: rusqlite::types::Value = row.get(i)?;
+      let str_value = match value {
+        rusqlite::types::Value::Null => "NULL".to_string(),
+        rusqlite::types::Value::Integer(i) => i.to_string(),
+        rusqlite::types::Value::Real(f) => f.to_string(),
+        rusqlite::types::Value::Text(s) => s,
+        rusqlite::types::Value::Blob(b) => format!("<blob {} bytes>", b.len()),
+      };
+      row_values.push(str_value);
+    }
+    Ok(row_values)
+  });
+
+  let rows: Vec<Vec<String>> = rows_result
+    .map_err(|e| format!("Query execution error: {}", e))?
+    .filter_map(|r| r.ok())
+    .collect();
+
+  if !opts.is_raw {
+    cprintln!("<bold>Results ({} rows):</bold>", rows.len());
+  }
+
+  // Calculate column widths for pretty printing
+  let mut col_widths: Vec<usize> =
+    column_names.iter().map(|n| n.len()).collect();
+  for row in &rows {
+    for (i, val) in row.iter().enumerate() {
+      if val.len() > col_widths[i] {
+        col_widths[i] = val.len();
+      }
+    }
+  }
+
+  // Print header
+  let header: Vec<String> = column_names
+    .iter()
+    .enumerate()
+    .map(|(i, name)| format!("{:width$}", name, width = col_widths[i]))
+    .collect();
+  println!("{}", header.join(" | "));
+
+  // Print separator
+  let separator: Vec<String> =
+    col_widths.iter().map(|w| "-".repeat(*w)).collect();
+  println!("{}", separator.join("-+-"));
+
+  // Print rows
+  for row in &rows {
+    let formatted: Vec<String> = row
+      .iter()
+      .enumerate()
+      .map(|(i, val)| format!("{:width$}", val, width = col_widths[i]))
+      .collect();
+    println!("{}", formatted.join(" | "));
+  }
+
+  if !opts.is_raw {
+    println!();
+  }
+
+  Ok(())
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;

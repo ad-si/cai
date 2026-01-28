@@ -544,6 +544,25 @@ for all supported model ids):"
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
+
+  #[clap(
+    about = color_print::cformat!(
+      "\n<u><em><b!>{:<60}</b!></em></u>", "🗄️ DATABASE"
+    ),
+    verbatim_doc_comment,
+    name = "\u{00A0}\u{00A0}\u{00A0}" // Non-breaking space placeholder
+  )]
+  SectionDatabase {},
+
+  /// Query a SQLite database using natural language
+  Query {
+    /// Path to the SQLite database file
+    #[clap(required = true)]
+    database: String,
+    /// The natural language query/question about the data
+    #[clap(required = true)]
+    prompt: Vec<String>,
+  },
 }
 
 impl std::fmt::Display for Commands {
@@ -644,6 +663,10 @@ impl Commands {
       Commands::Wl { .. } => Some("Wolfram Language"),
       Commands::Zig { .. } => Some("Zig"),
       Commands::Jq { .. } => Some("JQ"),
+
+      // Database
+      Commands::SectionDatabase { .. } => None,
+      Commands::Query { .. } => Some("Query"),
     }
     .map(|s| s.to_string())
   }
