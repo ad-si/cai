@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-01-28 - v0.13.0
+
+- Add new subcommands
+    - `photo` - Generate photorealistic images
+    - `short` - Provide a compact and focused answer
+    - `say` - Convert text to speech using OpenAI's TTS model
+    - `config` - Show currently applied settings
+    - `query` - Query SQLite databases
+    - `edit` - Edit prompt with your default editor
+    - `commit` - Intelligently commit modified files based on current changes
+- Add Google OCR feature powered by Gemini 3 Pro Preview
+- Add Google Gemini image generation support
+- Use prompt-based descriptive filenames for generated images
+- Add configurable base URL support for all providers
+- Add support for new models
+    - GPT-5.1 models
+    - GPT-5 Codex model
+    - GPT Image 1.5 (new default for image generation)
+    - Claude Opus 4.5
+    - Gemini 3 preview models
+    - Grok 2 Image
+    - Perplexity and its Sonar models
+    - Groq Qwen and DeepSeek
+- Upgrade Claude default models to latest versions
+- Show execution time in seconds instead of ms when > 10 seconds
+
+
 ## 2025-08-15 - v0.12.0
 
 - Add new subcommands
