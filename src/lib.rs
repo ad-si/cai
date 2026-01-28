@@ -17,6 +17,29 @@ use serde_json::{json, Map, Value};
 pub use types::Commands;
 use xdg::BaseDirectories;
 
+/// Filler words to exclude from generated filenames
+const FILLER_WORDS: &[&str] = &[
+  "a", "an", "the", "of", "in", "on", "at", "to", "for", "with", "and", "or",
+  "is", "it", "that", "this", "as", "by", "from",
+];
+
+/// Generate a short name from a prompt for use in filenames
+/// (lowercase, underscores, filters filler words, max 30 chars)
+fn prompt_to_short_name(prompt: &str) -> String {
+  prompt
+    .to_lowercase()
+    .chars()
+    .map(|c| if c.is_alphanumeric() { c } else { '_' })
+    .collect::<String>()
+    .split('_')
+    .filter(|s| !s.is_empty() && !FILLER_WORDS.contains(s))
+    .collect::<Vec<&str>>()
+    .join("_")
+    .chars()
+    .take(30)
+    .collect()
+}
+
 /// Format elapsed time for display - show in seconds if > 10 seconds, otherwise in milliseconds
 fn format_elapsed_time(elapsed_millis: u128) -> (String, &'static str) {
   if elapsed_millis > 10_000 {
@@ -772,12 +795,28 @@ pub async fn exec_tool(
             use base64::{engine::general_purpose, Engine as _};
             match general_purpose::STANDARD.decode(image_base64) {
               Ok(image_bytes) => {
+                // Generate timestamp prefix in format: 2025-08-17t1943
+                let now = Utc::now();
+                let timestamp_prefix = now.format("%Y-%m-%dt%H%M").to_string();
+
+                // Extract original user prompt from subcommand if available
+                // (for Photo/Image commands, user_input contains system instructions)
+                let original_prompt = match &opts.subcommand {
+                  Some(Commands::Photo { prompt }) => prompt.join(" "),
+                  Some(Commands::Image { prompt }) => prompt.join(" "),
+                  _ => user_input.to_string(),
+                };
+
+                let short_name = prompt_to_short_name(&original_prompt);
+
                 // Find the next available filename
                 let mut counter = 1;
-                let mut filename = format!("generated_image_{counter}.png");
+                let mut filename =
+                  format!("{timestamp_prefix}_{short_name}.png");
                 while std::path::Path::new(&filename).exists() {
                   counter += 1;
-                  filename = format!("generated_image_{counter}.png");
+                  filename =
+                    format!("{timestamp_prefix}_{short_name}_{counter}.png");
                 }
 
                 match std::fs::write(&filename, image_bytes) {
@@ -851,13 +890,23 @@ pub async fn exec_tool(
                       let timestamp_prefix =
                         now.format("%Y-%m-%dt%H%M").to_string();
 
+                      // Extract original user prompt from subcommand if available
+                      let original_prompt = match &opts.subcommand {
+                        Some(Commands::GoogleImage { prompt }) => {
+                          prompt.join(" ")
+                        }
+                        _ => user_input.to_string(),
+                      };
+
+                      let short_name = prompt_to_short_name(&original_prompt);
+
                       // Find a unique filename with timestamp prefix
                       let mut filename =
-                        format!("{timestamp_prefix}_google_image.png");
+                        format!("{timestamp_prefix}_{short_name}.png");
                       let mut counter = 1;
                       while std::path::Path::new(&filename).exists() {
                         filename = format!(
-                          "{timestamp_prefix}_google_image_{counter}.png"
+                          "{timestamp_prefix}_{short_name}_{counter}.png"
                         );
                         counter += 1;
                       }
