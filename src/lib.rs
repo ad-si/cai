@@ -27,6 +27,17 @@ fn format_elapsed_time(elapsed_millis: u128) -> (String, &'static str) {
   }
 }
 
+const DEFAULT_OPENAI_BASE_URL: &str = "https://api.openai.com/v1";
+
+/// Get OpenAI base URL from config (supports config.yaml and CAI_OPENAI_BASE_URL env var)
+fn get_openai_base_url(full_config: &HashMap<String, String>) -> String {
+  full_config
+    .get("openai_base_url")
+    .filter(|s| !s.is_empty())
+    .map(|s| s.trim_end_matches('/').to_string())
+    .unwrap_or_else(|| DEFAULT_OPENAI_BASE_URL.to_string())
+}
+
 #[derive(Serialize, Debug, PartialEq, Default, Clone)]
 pub struct ExecOptions {
   pub is_raw: bool, // Raw output mode (no metadata and no syntax highlighting)
@@ -155,7 +166,10 @@ struct AnthropicAiResponse {
   content: Vec<AnthropicAiContent>,
 }
 
-fn default_req_for_model(model: &Model) -> AiRequest {
+fn default_req_for_model(
+  model: &Model,
+  full_config: &HashMap<String, String>,
+) -> AiRequest {
   let Model::Model(provider, model_id) = model;
 
   match provider {
@@ -206,14 +220,15 @@ fn default_req_for_model(model: &Model) -> AiRequest {
     },
     Provider::OpenAI => {
       let resolved_model = types::get_openai_model(model_id);
+      let base_url = get_openai_base_url(full_config);
       let url = if resolved_model.contains("-tts") {
-        "https://api.openai.com/v1/audio/speech".to_string()
+        format!("{base_url}/audio/speech")
       } else if resolved_model.starts_with("gpt-image")
         || resolved_model.starts_with("dall")
       {
-        "https://api.openai.com/v1/images/generations".to_string()
+        format!("{base_url}/images/generations")
       } else {
-        "https://api.openai.com/v1/chat/completions".to_string()
+        format!("{base_url}/chat/completions")
       };
       AiRequest {
         provider: *provider,
@@ -292,7 +307,7 @@ fn get_api_request(
   .ok_or(get_key_setup_msg(secrets_path_str))
   .map(|api_key| AiRequest {
     api_key: api_key.clone(),
-    ..(default_req_for_model(model)).clone()
+    ..(default_req_for_model(model, full_config)).clone()
   })
 }
 
@@ -327,12 +342,22 @@ fn get_secrets_path_str() -> String {
   secrets_path.to_str().unwrap().to_string()
 }
 
+fn get_config_path_str() -> String {
+  let xdg_dirs = BaseDirectories::with_prefix("cai").unwrap();
+  let config_path = xdg_dirs
+    .place_config_file("config.yaml")
+    .expect("Couldn't create configuration directory");
+  let _ = std::fs::File::create_new(&config_path);
+  config_path.to_str().unwrap().to_string()
+}
+
 pub fn get_full_config(
   secrets_path_str: &str,
 ) -> Result<
   HashMap<std::string::String, std::string::String>,
   config::ConfigError,
 > {
+  let config_path_str = get_config_path_str();
   let config = Config::builder()
     .set_default(
       "anthropic_api_key",
@@ -355,6 +380,7 @@ pub fn get_full_config(
       env::var("PERPLEXITY_API_KEY").unwrap_or_default(),
     )?
     .add_source(config::File::with_name(secrets_path_str))
+    .add_source(config::File::with_name(&config_path_str).required(false))
     .add_source(config::Environment::with_prefix("CAI"))
     .build()
     .unwrap();
@@ -1004,9 +1030,11 @@ pub async fn extract_text_from_file(
     base64::engine::general_purpose::STANDARD.encode(&file_content);
   let model_id = "gpt-4o";
   let model = &Model::Model(Provider::OpenAI, model_id.to_string());
+  let secrets_path_str = get_secrets_path_str();
+  let full_config = get_full_config(&secrets_path_str)?;
   let prompt = json!({
     "model": format!("{model_id}"),
-    "max_tokens": default_req_for_model(model).max_tokens,
+    "max_tokens": default_req_for_model(model, &full_config).max_tokens,
     "messages": [{
       "role": "user",
       "content": [
@@ -1098,8 +1126,10 @@ pub async fn transcribe_audio_file(
     .part("file", part);
 
   let client = reqwest::Client::new();
+  let transcription_url =
+    format!("{}/audio/transcriptions", get_openai_base_url(&full_config));
   let resp = client
-    .post("https://api.openai.com/v1/audio/transcriptions")
+    .post(&transcription_url)
     .bearer_auth(&http_req.api_key)
     .multipart(form)
     .send()
