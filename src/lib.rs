@@ -27,15 +27,17 @@ fn format_elapsed_time(elapsed_millis: u128) -> (String, &'static str) {
   }
 }
 
-const DEFAULT_OPENAI_BASE_URL: &str = "https://api.openai.com/v1";
-
-/// Get OpenAI base URL from config (supports config.yaml and CAI_OPENAI_BASE_URL env var)
-fn get_openai_base_url(full_config: &HashMap<String, String>) -> String {
+/// Get a provider base URL from config, with fallback to default
+fn get_base_url(
+  full_config: &HashMap<String, String>,
+  key: &str,
+  default: &str,
+) -> String {
   full_config
-    .get("openai_base_url")
+    .get(key)
     .filter(|s| !s.is_empty())
     .map(|s| s.trim_end_matches('/').to_string())
-    .unwrap_or_else(|| DEFAULT_OPENAI_BASE_URL.to_string())
+    .unwrap_or_else(|| default.to_string())
 }
 
 #[derive(Serialize, Debug, PartialEq, Default, Clone)]
@@ -173,54 +175,104 @@ fn default_req_for_model(
   let Model::Model(provider, model_id) = model;
 
   match provider {
-    Provider::Anthropic => AiRequest {
-      provider: *provider,
-      url: "https://api.anthropic.com/v1/messages".to_string(),
-      model: types::get_anthropic_model(model_id).to_string(),
-      ..Default::default()
-    },
-    Provider::Cerebras => AiRequest {
-      provider: *provider,
-      url: "https://api.cerebras.ai/v1/chat/completions".to_string(),
-      model: types::get_cerebras_model(model_id).to_string(),
-      ..Default::default()
-    },
-    Provider::DeepSeek => AiRequest {
-      provider: *provider,
-      url: "https://api.deepseek.com/chat/completions".to_string(),
-      model: types::get_cerebras_model(model_id).to_string(),
-      ..Default::default()
-    },
-    Provider::Google => {
-      let resolved_model = types::get_google_model(model_id);
+    Provider::Anthropic => {
+      let base_url = get_base_url(
+        full_config,
+        "anthropic_base_url",
+        "https://api.anthropic.com/v1",
+      );
       AiRequest {
         provider: *provider,
-        url: "https://generativelanguage.googleapis.com/v1beta/models"
-          .to_string(),
+        url: format!("{base_url}/messages"),
+        model: types::get_anthropic_model(model_id).to_string(),
+        ..Default::default()
+      }
+    }
+    Provider::Cerebras => {
+      let base_url = get_base_url(
+        full_config,
+        "cerebras_base_url",
+        "https://api.cerebras.ai/v1",
+      );
+      AiRequest {
+        provider: *provider,
+        url: format!("{base_url}/chat/completions"),
+        model: types::get_cerebras_model(model_id).to_string(),
+        ..Default::default()
+      }
+    }
+    Provider::DeepSeek => {
+      let base_url = get_base_url(
+        full_config,
+        "deepseek_base_url",
+        "https://api.deepseek.com",
+      );
+      AiRequest {
+        provider: *provider,
+        url: format!("{base_url}/chat/completions"),
+        model: types::get_deepseek_model(model_id).to_string(),
+        ..Default::default()
+      }
+    }
+    Provider::Google => {
+      let resolved_model = types::get_google_model(model_id);
+      let base_url = get_base_url(
+        full_config,
+        "google_base_url",
+        "https://generativelanguage.googleapis.com/v1beta",
+      );
+      AiRequest {
+        provider: *provider,
+        url: format!("{base_url}/models"),
         model: resolved_model.to_string(),
         ..Default::default()
       }
     }
-    Provider::Groq => AiRequest {
-      provider: *provider,
-      url: "https://api.groq.com/openai/v1/chat/completions".to_string(),
-      model: types::get_groq_model(model_id).to_string(),
-      ..Default::default()
-    },
-    Provider::Llamafile => AiRequest {
-      provider: *provider,
-      url: "http://localhost:8080/v1/chat/completions".to_string(),
-      ..Default::default()
-    },
-    Provider::Ollama => AiRequest {
-      provider: *provider,
-      url: "http://localhost:11434/v1/chat/completions".to_string(),
-      model: types::get_ollama_model(model_id).to_string(),
-      ..Default::default()
-    },
+    Provider::Groq => {
+      let base_url = get_base_url(
+        full_config,
+        "groq_base_url",
+        "https://api.groq.com/openai/v1",
+      );
+      AiRequest {
+        provider: *provider,
+        url: format!("{base_url}/chat/completions"),
+        model: types::get_groq_model(model_id).to_string(),
+        ..Default::default()
+      }
+    }
+    Provider::Llamafile => {
+      let base_url = get_base_url(
+        full_config,
+        "llamafile_base_url",
+        "http://localhost:8080/v1",
+      );
+      AiRequest {
+        provider: *provider,
+        url: format!("{base_url}/chat/completions"),
+        ..Default::default()
+      }
+    }
+    Provider::Ollama => {
+      let base_url = get_base_url(
+        full_config,
+        "ollama_base_url",
+        "http://localhost:11434/v1",
+      );
+      AiRequest {
+        provider: *provider,
+        url: format!("{base_url}/chat/completions"),
+        model: types::get_ollama_model(model_id).to_string(),
+        ..Default::default()
+      }
+    }
     Provider::OpenAI => {
       let resolved_model = types::get_openai_model(model_id);
-      let base_url = get_openai_base_url(full_config);
+      let base_url = get_base_url(
+        full_config,
+        "openai_base_url",
+        "https://api.openai.com/v1",
+      );
       let url = if resolved_model.contains("-tts") {
         format!("{base_url}/audio/speech")
       } else if resolved_model.starts_with("gpt-image")
@@ -239,10 +291,12 @@ fn default_req_for_model(
     }
     Provider::XAI => {
       let resolved_model = types::get_xai_model(model_id);
+      let base_url =
+        get_base_url(full_config, "xai_base_url", "https://api.x.ai/v1");
       let url = if resolved_model == "grok-2-image" {
-        "https://api.x.ai/v1/images/generations".to_string()
+        format!("{base_url}/images/generations")
       } else {
-        "https://api.x.ai/v1/chat/completions".to_string()
+        format!("{base_url}/chat/completions")
       };
       AiRequest {
         provider: *provider,
@@ -251,12 +305,19 @@ fn default_req_for_model(
         ..Default::default()
       }
     }
-    Provider::Perplexity => AiRequest {
-      provider: *provider,
-      url: "https://api.perplexity.ai/chat/completions".to_string(),
-      model: types::get_perplexity_model(model_id).to_string(),
-      ..Default::default()
-    },
+    Provider::Perplexity => {
+      let base_url = get_base_url(
+        full_config,
+        "perplexity_base_url",
+        "https://api.perplexity.ai",
+      );
+      AiRequest {
+        provider: *provider,
+        url: format!("{base_url}/chat/completions"),
+        model: types::get_perplexity_model(model_id).to_string(),
+        ..Default::default()
+      }
+    }
   }
 }
 
@@ -1126,8 +1187,9 @@ pub async fn transcribe_audio_file(
     .part("file", part);
 
   let client = reqwest::Client::new();
-  let transcription_url =
-    format!("{}/audio/transcriptions", get_openai_base_url(&full_config));
+  let base_url =
+    get_base_url(&full_config, "openai_base_url", "https://api.openai.com/v1");
+  let transcription_url = format!("{base_url}/audio/transcriptions");
   let resp = client
     .post(&transcription_url)
     .bearer_auth(&http_req.api_key)
