@@ -316,7 +316,7 @@ checksum = "a3e368af43e418a04d52505cf3dbc23dda4e3407ae2fa99fd0e4f308ce546acc"
 
 [[package]]
 name = "cai"
-version = "0.12.0"
+version = "0.13.0"
 dependencies = [
  "assert_cmd",
  "base64 0.22.1",

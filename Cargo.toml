@@ -1,6 +1,6 @@
 [package]
 name = "cai"
-version = "0.12.0"
+version = "0.13.0"
 description = "User friendly CLI tool for AI tasks"
 keywords = ["llm", "ai", "cli", "ml", "gpt"]
 categories = ["command-line-utilities", "text-processing"]
