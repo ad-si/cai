@@ -45,9 +45,12 @@ pub enum Commands {
     prompt: Vec<String>,
   },
 
-  /// Generate an image using GPT-image-1.5
+  /// Generate an image using GPT-image-2
   #[clap(visible_alias = "img")]
   Image {
+    /// Background behavior for the generated image
+    #[clap(long, value_parser = ["transparent", "opaque", "auto"])]
+    background: Option<String>,
     /// The prompt describing the image to generate
     prompt: Vec<String>,
   },
@@ -56,6 +59,22 @@ pub enum Commands {
   Photo {
     /// The prompt describing the photo to generate
     prompt: Vec<String>,
+  },
+
+  /// Edit 1 or more images using GPT-image-2
+  /// (pass image files followed by the edit prompt as the last argument)
+  #[clap(
+    name = "imgedit",
+    visible_alias = "imge",
+    override_usage = "cai imgedit [--background <BG>] <IMAGE>... <PROMPT>"
+  )]
+  ImgEdit {
+    /// Background behavior for the edited image
+    #[clap(long, value_parser = ["transparent", "opaque", "auto"])]
+    background: Option<String>,
+    /// One or more image files followed by the edit prompt as the last argument
+    #[clap(required = true, num_args = 1.., value_name = "IMAGE>... <PROMPT")]
+    args: Vec<String>,
   },
 
   /// Convert text to speech using OpenAI's TTS model
@@ -592,6 +611,7 @@ impl Commands {
       Commands::Say { .. } => Some("Say"),
       Commands::Image { .. } => Some("Image"),
       Commands::Photo { .. } => Some("Photo"),
+      Commands::ImgEdit { .. } => Some("Image Edit"),
 
       // Models
       Commands::SectionModels { .. } => None,

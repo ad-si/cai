@@ -2,9 +2,10 @@ use std::io::stdin;
 use std::io::{read_to_string, IsTerminal};
 
 use cai::{
-  analyze_file_content, create_commits, exec_tool, extract_text_from_file,
-  generate_changelog, google_ocr_file, prompt_with_lang_cntxt, submit_prompt,
-  transcribe_audio_file, Commands, ExecOptions, Model, Provider,
+  analyze_file_content, create_commits, edit_images, exec_tool,
+  extract_text_from_file, generate_changelog, google_ocr_file,
+  prompt_with_lang_cntxt, submit_prompt, transcribe_audio_file, Commands,
+  ExecOptions, Model, Provider,
 };
 use chrono::NaiveDateTime;
 use clap::crate_description;
@@ -501,10 +502,15 @@ async fn exec_with_args(args: Args, stdin: &str) {
         )
         .await
       }
-      Commands::Image { prompt } => {
+      Commands::Image { prompt, background } => {
         let image_prompt = prompt.join(" ").to_string();
+        let model_id = if background.is_some() {
+          "gpt-image-1.5"
+        } else {
+          "gpt-image-2"
+        };
         submit_prompt(
-          &Some(&Model::Model(Provider::OpenAI, "gpt-image-1.5".to_string())),
+          &Some(&Model::Model(Provider::OpenAI, model_id.to_string())),
           &opts,
           &format!("{stdin}{image_prompt}"),
         )
@@ -519,11 +525,28 @@ async fn exec_with_args(args: Args, stdin: &str) {
           prompt.join(" ")
         );
         submit_prompt(
-          &Some(&Model::Model(Provider::OpenAI, "gpt-image-1.5".to_string())),
+          &Some(&Model::Model(Provider::OpenAI, "gpt-image-2".to_string())),
           &opts,
           &format!("{stdin}{photo_prompt}"),
         )
         .await
+      }
+      Commands::ImgEdit { args, background } => {
+        if args.len() < 2 {
+          eprintln!(
+            "Usage: cai imgedit [--background <BG>] <image1> [image2 ...] <prompt>\n\
+             Provide at least one image file followed by the edit prompt."
+          );
+          std::process::exit(1);
+        }
+        let (image_files, prompt_parts) = args.split_at(args.len() - 1);
+        let prompt = &prompt_parts[0];
+        if let Err(err) =
+          edit_images(&opts, image_files, prompt, background.as_deref()).await
+        {
+          eprintln!("Error editing images: {err}");
+          std::process::exit(1);
+        }
       }
 
       //////////////////////////////////////////////////////////////////////////

@@ -93,8 +93,9 @@ Commands:
   short         Answer the prompt in a short, compact, and focused manner
   rewrite       Fix spelling, grammar, and wording issues in text passed via standard input
   reply         Reply to a conversation passed via standard input. Add additional reply instructions as the prompt
-  image         Generate an image using GPT-image-1.5 [aliases: img]
+  image         Generate an image using GPT-image-2 [aliases: img]
   photo         Generate a photorealistic image that looks like a camera photo
+  imgedit       Edit 1 or more images using GPT-image-2 (pass image files followed by the edit prompt as the last argument) [aliases: imge]
   say           Convert text to speech using OpenAI's TTS model [aliases: tts]
   transcribe    Transcribe an audio file
   ocr           Extract text from an image

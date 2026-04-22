@@ -585,6 +585,14 @@ fn get_req_body_obj(
     map.insert("model".to_string(), Value::String(http_req.model.clone()));
     map.insert("prompt".to_string(), Value::String(user_input.to_string()));
 
+    if let Some(Commands::Image {
+      background: Some(bg),
+      ..
+    }) = &opts.subcommand
+    {
+      map.insert("background".to_string(), Value::String(bg.clone()));
+    }
+
     return Value::Object(map);
   }
 
@@ -803,7 +811,7 @@ pub async fn exec_tool(
                 // (for Photo/Image commands, user_input contains system instructions)
                 let original_prompt = match &opts.subcommand {
                   Some(Commands::Photo { prompt }) => prompt.join(" "),
-                  Some(Commands::Image { prompt }) => prompt.join(" "),
+                  Some(Commands::Image { prompt, .. }) => prompt.join(" "),
                   _ => user_input.to_string(),
                 };
 
@@ -1258,6 +1266,140 @@ pub async fn transcribe_audio_file(
     let resp_json = resp.json::<Value>().await?;
     let resp_formatted = serde_json::to_string_pretty(&resp_json).unwrap();
     Err(resp_formatted)?;
+  }
+
+  Ok(())
+}
+
+fn get_image_mime_type(file_path: &str) -> &'static str {
+  let lower = file_path.to_lowercase();
+  if lower.ends_with(".png") {
+    "image/png"
+  } else if lower.ends_with(".jpg") || lower.ends_with(".jpeg") {
+    "image/jpeg"
+  } else if lower.ends_with(".webp") {
+    "image/webp"
+  } else if lower.ends_with(".gif") {
+    "image/gif"
+  } else {
+    "image/png"
+  }
+}
+
+pub async fn edit_images(
+  opts: &ExecOptions,
+  image_files: &[String],
+  prompt: &str,
+  background: Option<&str>,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+  let start = Instant::now();
+  let secrets_path_str = get_secrets_path_str();
+  let full_config = get_full_config(&secrets_path_str)?;
+  let model_id = if background.is_some() {
+    "gpt-image-1.5"
+  } else {
+    "gpt-image-2"
+  };
+  let model = &Model::Model(Provider::OpenAI, model_id.to_string());
+  let (used_model, http_req) =
+    get_http_req(&Some(model), &secrets_path_str, &full_config)?;
+
+  let mut form = reqwest::multipart::Form::new()
+    .text("model", http_req.model.clone())
+    .text("prompt", prompt.to_string());
+
+  if let Some(bg) = background {
+    form = form.text("background", bg.to_string());
+  }
+
+  for file_path in image_files {
+    let file_bytes = std::fs::read(file_path)
+      .map_err(|e| format!("Failed to read image file '{file_path}': {e}"))?;
+    let mime_type = get_image_mime_type(file_path);
+    let file_name = std::path::Path::new(file_path)
+      .file_name()
+      .and_then(|n| n.to_str())
+      .unwrap_or(file_path)
+      .to_string();
+    let part = reqwest::multipart::Part::bytes(file_bytes)
+      .file_name(file_name)
+      .mime_str(mime_type)?;
+    form = form.part("image[]", part);
+  }
+
+  let client = reqwest::Client::new();
+  let base_url =
+    get_base_url(&full_config, "openai_base_url", "https://api.openai.com/v1");
+  let url = format!("{base_url}/images/edits");
+
+  let resp = client
+    .post(&url)
+    .bearer_auth(&http_req.api_key)
+    .multipart(form)
+    .send()
+    .await?;
+
+  let elapsed_millis = start.elapsed().as_millis();
+  let (elapsed_time, time_unit) = format_elapsed_time(elapsed_millis);
+  let subcommand = opts
+    .subcommand
+    .as_ref()
+    .and_then(|x| x.to_string_pretty())
+    .map(|subcom| format!("➡️ {subcom} | "))
+    .unwrap_or_default();
+
+  let status = resp.status();
+  let response_json = resp.json::<Value>().await?;
+
+  if !status.is_success() {
+    let resp_formatted = serde_json::to_string_pretty(&response_json).unwrap();
+    Err(cformat!(
+      "<bold>{subcommand}{used_model} | ⏱️ {} {}</bold>\n\
+      \n{resp_formatted}",
+      elapsed_time,
+      time_unit,
+    ))?;
+  }
+
+  cprintln!(
+    "<bold>{subcommand}{used_model} | ⏱️ {} {}</bold>\n",
+    elapsed_time,
+    time_unit,
+  );
+
+  if let Some(data) = response_json["data"].as_array() {
+    let mut image_count = 0;
+    for image_data in data {
+      image_count += 1;
+      if let Some(image_base64) = image_data["b64_json"].as_str() {
+        use base64::{engine::general_purpose, Engine as _};
+        match general_purpose::STANDARD.decode(image_base64) {
+          Ok(image_bytes) => {
+            let now = Utc::now();
+            let timestamp_prefix = now.format("%Y-%m-%dt%H%M").to_string();
+            let short_name = prompt_to_short_name(prompt);
+
+            let mut counter = 1;
+            let mut filename = format!("{timestamp_prefix}_{short_name}.png");
+            while std::path::Path::new(&filename).exists() {
+              counter += 1;
+              filename =
+                format!("{timestamp_prefix}_{short_name}_{counter}.png");
+            }
+
+            match std::fs::write(&filename, image_bytes) {
+              Ok(_) => println!("Edited image saved to: {filename}"),
+              Err(e) => println!("Failed to save image {image_count}: {e}"),
+            }
+          }
+          Err(e) => {
+            println!("Failed to decode base64 for image {image_count}: {e}")
+          }
+        }
+      } else if let Some(url) = image_data["url"].as_str() {
+        println!("Edited image {}: {}", image_count, url);
+      }
+    }
   }
 
   Ok(())
