@@ -80,7 +80,7 @@ Full help output:
 
 ```txt
 $ cai help
-Cai 0.12.0
+Cai 0.13.0
 
 User friendly CLI tool for AI tasks
 
