@@ -123,8 +123,6 @@ Commands:
   gpt5n         - GPT-5 nano shortcut [aliases: gn]
   gpt41         - gpt-4.1 shortcut
   gpt41m        - gpt-4.1-mini shortcut
-  gpt41n        - gpt-4.1-nano shortcut
-  o1p           - o1-pro shortcut
   anthropic     Anthropic [aliases: an]
   opus          - Claude Opus [aliases: claude, cl]
   sonnet        - Claude Sonnet [aliases: so]

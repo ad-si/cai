@@ -1841,7 +1841,6 @@ mod tests {
   #[test]
   fn test_o_models_use_max_completion_tokens() {
     let test_cases = vec![
-      ("o1-pro", true),
       ("o3", true),
       ("o4-mini", true),
       ("gpt-5", true),

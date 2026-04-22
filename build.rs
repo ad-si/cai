@@ -166,14 +166,13 @@ const OLLAMA_MODEL_MAPPING_SRC: [(&str, &str); 21] = [
   ("llama2", "llama2"),
 ];
 
-const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 51] = [
+const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 36] = [
   // Default models
   ("gpt", "gpt-5"),
   ("mini", "gpt-5-mini"),
   ("m", "gpt-5-mini"),
   ("nano", "gpt-5-nano"),
   ("n", "gpt-5-nano"),
-  ("codex", "gpt-5-codex"),
   ("image", "gpt-image-2"),
   ("tts", "gpt-4o-mini-tts"),
   ("transcribe", "gpt-4o-transcribe"),
@@ -181,7 +180,6 @@ const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 51] = [
   ("gpt5", "gpt-5"),
   ("gpt5mini", "gpt-5-mini"),
   ("gpt5nano", "gpt-5-nano"),
-  ("gpt5codex", "gpt-5-codex"),
   ("5", "gpt-5"),
   ("5mini", "gpt-5-mini"),
   ("5m", "gpt-5-mini"),
@@ -189,20 +187,12 @@ const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 51] = [
   ("5n", "gpt-5-nano"),
   // GPT-5.1
   ("gpt5.1", "gpt-5.1"),
-  ("gpt5.1codex", "gpt-5.1-codex"),
-  ("gpt5.1codexmini", "gpt-5.1-codex-mini"),
-  ("gpt5.1codexmax", "gpt-5.1-codex-max"),
-  ("gpt5.1chat", "gpt-5.1-chat-latest"),
   ("5.1", "gpt-5.1"),
-  ("5.1codex", "gpt-5.1-codex"),
-  ("5.1codexmini", "gpt-5.1-codex-mini"),
-  ("5.1chat", "gpt-5.1-chat-latest"),
   // GPT Image
   ("gptimage", "gpt-image-2"),
   ("gpt-image", "gpt-image-2"),
   ("gpt-image-2", "gpt-image-2"),
   ("gpt-image-1.5", "gpt-image-1.5"),
-  ("gpt-image-1", "gpt-image-1"),
   ("gpt-image-1-mini", "gpt-image-1-mini"),
   // DALL-E
   ("dalle", "dall-e-3"),
@@ -213,9 +203,6 @@ const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 51] = [
   ("gpt4mini", "gpt-4.1-mini"),
   ("4mini", "gpt-4.1-mini"),
   ("4m", "gpt-4.1-mini"),
-  ("gpt4nano", "gpt-4.1-nano"),
-  ("4nano", "gpt-4.1-nano"),
-  ("4n", "gpt-4.1-nano"),
   // GPT-4o
   ("gpt4o", "gpt-4o"),
   ("4o", "gpt-4o"),
@@ -223,10 +210,8 @@ const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 51] = [
   ("gpt4otranscribe", "gpt-4o-transcribe"),
   // o4
   ("o4m", "o4-mini"),
-  ("o4mdr", "o4-mini-deep-research"),
   // o3
   ("o3pro", "o3-pro"),
-  ("o3dr", "o3-deep-research"),
 ];
 
 const XAI_MODEL_MAPPING_SRC: [(&str, &str); 13] = [

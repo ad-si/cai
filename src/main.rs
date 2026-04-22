@@ -677,22 +677,6 @@ async fn exec_with_args(args: Args, stdin: &str) {
         )
         .await
       }
-      Commands::Gpt41Nano { prompt } => {
-        submit_prompt(
-          &Some(&Model::Model(Provider::OpenAI, "gpt-4.1-nano".to_string())),
-          &opts,
-          &format!("{stdin}{}", prompt.join(" ")),
-        )
-        .await
-      }
-      Commands::O1Pro { prompt } => {
-        submit_prompt(
-          &Some(&Model::Model(Provider::OpenAI, "o1-pro".to_string())),
-          &opts,
-          &format!("{stdin}{}", prompt.join(" ")),
-        )
-        .await
-      }
       Commands::Anthropic { model, prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::Anthropic, model.to_string())),
