@@ -64,6 +64,12 @@ pub fn get_deepseek_model(model_id: &str) -> &str {
     .map_or(model_id, |(_, value)| *value)
 }
 
+pub fn is_deepseek_model(model_id: &str) -> bool {
+  DEEPSEEK_MODEL_MAPPING
+    .iter()
+    .any(|(key, value)| *key == model_id || *value == model_id)
+}
+
 macro_rules! deepseek_models_pretty {
   ($prefix: expr) => {
     // This will be replaced by build.rs

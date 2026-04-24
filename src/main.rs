@@ -4,8 +4,8 @@ use std::io::{read_to_string, IsTerminal};
 use cai::{
   analyze_file_content, create_commits, edit_images, exec_tool,
   extract_text_from_file, generate_changelog, google_ocr_file,
-  prompt_with_lang_cntxt, submit_prompt, transcribe_audio_file, Commands,
-  ExecOptions, Model, Provider,
+  is_deepseek_model, prompt_with_lang_cntxt, submit_prompt,
+  transcribe_audio_file, Commands, ExecOptions, Model, Provider,
 };
 use chrono::NaiveDateTime;
 use clap::crate_description;
@@ -622,10 +622,17 @@ async fn exec_with_args(args: Args, stdin: &str) {
         .await
       }
       Commands::Deepseek { model, prompt } => {
+        let (resolved_model, resolved_prompt) = if is_deepseek_model(model) {
+          (model.to_string(), prompt.join(" "))
+        } else {
+          let mut parts = vec![model.clone()];
+          parts.extend(prompt.iter().cloned());
+          ("deepseek".to_string(), parts.join(" "))
+        };
         submit_prompt(
-          &Some(&Model::Model(Provider::DeepSeek, model.to_string())),
+          &Some(&Model::Model(Provider::DeepSeek, resolved_model)),
           &opts,
-          &format!("{stdin}{}", prompt.join(" ")),
+          &format!("{stdin}{resolved_prompt}"),
         )
         .await
       }

@@ -14,6 +14,7 @@ use config::Config;
 use reqwest::Response;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
+pub use types::is_deepseek_model;
 pub use types::Commands;
 use xdg::BaseDirectories;
 
