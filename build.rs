@@ -135,9 +135,23 @@ const CEREBRAS_MODEL_MAPPING_SRC: [(&str, &str); 14] = [
   ("deepseek-r1", "deepseek-r1-distill-llama-70b"),
 ];
 
-const DEEPSEEK_MODEL_MAPPING_SRC: [(&str, &str); 2] = [
+const DEEPSEEK_MODEL_MAPPING_SRC: [(&str, &str); 13] = [
+  // Default models
+  ("deepseek", "deepseek-v4-pro"),
+  ("pro", "deepseek-v4-pro"),
+  ("p", "deepseek-v4-pro"),
+  ("flash", "deepseek-v4-flash"),
+  ("f", "deepseek-v4-flash"),
+  // Version 4 models
+  ("v4-flash", "deepseek-v4-flash"),
+  ("v4-pro", "deepseek-v4-pro"),
+  ("deepseek-v4-flash", "deepseek-v4-flash"),
+  ("deepseek-v4-pro", "deepseek-v4-pro"),
+  // Legacy aliases (deprecated 2026/07/24, map to v4-flash thinking modes)
   ("chat", "deepseek-chat"),
-  ("reasoner", "deepseek-reasoner"), //
+  ("c", "deepseek-chat"),
+  ("reasoner", "deepseek-reasoner"),
+  ("r", "deepseek-reasoner"),
 ];
 
 const OLLAMA_MODEL_MAPPING_SRC: [(&str, &str); 21] = [
