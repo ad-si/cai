@@ -228,13 +228,11 @@ const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 36] = [
   ("o3pro", "o3-pro"),
 ];
 
-const XAI_MODEL_MAPPING_SRC: [(&str, &str); 13] = [
+const XAI_MODEL_MAPPING_SRC: [(&str, &str); 10] = [
   // Default models
   ("grok", "grok-4"),
   ("grok-fast", "grok-4-fast"),
   ("fast", "grok-4-fast"),
-  ("grok-fast-non-reasoning", "grok-4-fast-non-reasoning"),
-  ("fast-non-reasoning", "grok-4-fast-non-reasoning"),
   ("grok-mini", "grok-3-mini"),
   ("mini", "grok-3-mini"),
   ("grok-image", "grok-2-image"),
@@ -243,7 +241,6 @@ const XAI_MODEL_MAPPING_SRC: [(&str, &str); 13] = [
   ("grok4", "grok-4"),
   ("grok4fast", "grok-4-fast"),
   // Grok 3
-  ("grok3", "grok-3"),
   ("grok3mini", "grok-3-mini"),
 ];
 
