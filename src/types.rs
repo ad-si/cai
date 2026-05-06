@@ -45,6 +45,12 @@ pub enum Commands {
     prompt: Vec<String>,
   },
 
+  /// Generate a shell command from a prompt and confirm before executing it
+  Run {
+    /// Description of what the shell command should do
+    prompt: Vec<String>,
+  },
+
   /// Generate an image using GPT-image-2
   #[clap(visible_alias = "img")]
   Image {
@@ -593,6 +599,7 @@ impl Commands {
       Commands::Changelog { .. } => Some("Changelog"),
       Commands::Commit { .. } => Some("Commit"),
       Commands::Reply { .. } => Some("Reply"),
+      Commands::Run { .. } => Some("Run"),
       Commands::Rewrite { .. } => Some("Rewrite"),
       Commands::Config { .. } => None,
       Commands::Transcribe { .. } => Some("Transcribe"),

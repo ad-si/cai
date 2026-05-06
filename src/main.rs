@@ -4,7 +4,7 @@ use std::io::{read_to_string, IsTerminal};
 use cai::{
   analyze_file_content, create_commits, edit_images, exec_tool,
   extract_text_from_file, generate_changelog, google_ocr_file,
-  is_deepseek_model, prompt_with_lang_cntxt, submit_prompt,
+  is_deepseek_model, prompt_with_lang_cntxt, run_shell_command, submit_prompt,
   transcribe_audio_file, Commands, ExecOptions, Model, Provider,
 };
 use chrono::NaiveDateTime;
@@ -454,6 +454,16 @@ async fn exec_with_args(args: Args, stdin: &str) {
           &reply_prompt,
         )
         .await
+      }
+      Commands::Run { prompt } => {
+        if prompt.is_empty() {
+          eprintln!("Please provide a description of the command to run.");
+          std::process::exit(1);
+        }
+        if let Err(err) = run_shell_command(&opts, &prompt.join(" ")).await {
+          eprintln!("Error generating or running command: {err}");
+          std::process::exit(1);
+        }
       }
       Commands::Rewrite { prompt } => {
         if stdin.is_empty() {

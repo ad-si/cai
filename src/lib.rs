@@ -1740,6 +1740,147 @@ pub async fn prompt_with_lang_cntxt(
     std::process::exit(1);
   }
 }
+
+/// Strip surrounding markdown code fences from a generated command.
+fn strip_code_fences(text: &str) -> String {
+  let trimmed = text.trim();
+  if let Some(after) = trimmed.strip_prefix("```") {
+    // Drop an optional language tag on the opening fence's first line.
+    let after = after
+      .split_once('\n')
+      .map(|(_, rest)| rest)
+      .unwrap_or(after);
+    let inner = after.trim_end().trim_end_matches("```");
+    return inner.trim().to_string();
+  }
+  trimmed.to_string()
+}
+
+async fn generate_command(
+  http_req: &AiRequest,
+  raw_opts: &ExecOptions,
+  prompt: &str,
+) -> Result<String, Box<dyn Error + Send + Sync>> {
+  let req_body_obj = get_req_body_obj(raw_opts, http_req, prompt);
+  let resp = exec_request(http_req, &req_body_obj, false).await?;
+
+  if !resp.status().is_success() {
+    let resp_json = resp.json::<Value>().await?;
+    let resp_formatted = serde_json::to_string_pretty(&resp_json).unwrap();
+    return Err(format!("Failed to generate command: {resp_formatted}").into());
+  }
+
+  let ai_response = resp.json::<AiResponse>().await?;
+  let command = strip_code_fences(&ai_response.choices[0].message.content);
+
+  if command.is_empty() {
+    return Err("LLM returned an empty command.".into());
+  }
+
+  Ok(command)
+}
+
+pub async fn run_shell_command(
+  opts: &ExecOptions,
+  prompt_text: &str,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+  let os = std::env::consts::OS;
+
+  let rules = format!(
+    "Rules:\n\
+    - Respond with ONLY the command. No explanations, no comments, \
+      no markdown code fences.\n\
+    - The command will be executed via `bash -c` on `{os}`, \
+      so use bash/POSIX syntax.\n\
+    - It is fine to span multiple lines if needed for a heredoc \
+      or multi-statement pipeline."
+  );
+
+  let initial_prompt = format!(
+    "You are a shell command generator. \
+    Given the user's request, output a single shell command \
+    (or pipeline) that fulfills it.\n\n\
+    {rules}\n\n\
+    User request: {prompt_text}"
+  );
+
+  let model = Model::Model(Provider::OpenAI, "gpt-4.1".to_string());
+  let secrets_path_str = get_secrets_path_str();
+  let full_config = get_full_config(&secrets_path_str)?;
+  let (_used_model, http_req) =
+    get_http_req(&Some(&model), &secrets_path_str, &full_config)?;
+
+  let mut raw_opts = opts.clone();
+  raw_opts.is_raw = true;
+  raw_opts.is_streaming = false;
+
+  let mut command =
+    generate_command(&http_req, &raw_opts, &initial_prompt).await?;
+
+  loop {
+    println!();
+    bat::PrettyPrinter::new()
+      .input_from_bytes(command.as_bytes())
+      .language("bash")
+      .print()
+      .ok();
+    println!("\n");
+    print!("Execute command? [y]es, [n]o, [c]hange: ");
+    std::io::stdout().flush()?;
+
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
+    let choice = input.trim().to_lowercase();
+
+    match choice.as_str() {
+      "" | "y" | "yes" | "e" | "execute" => {
+        let status = std::process::Command::new("bash")
+          .arg("-c")
+          .arg(&command)
+          .status()?;
+        if !status.success() {
+          if let Some(code) = status.code() {
+            std::process::exit(code);
+          }
+          return Err("Command terminated by signal".into());
+        }
+        return Ok(());
+      }
+      "c" | "change" => {
+        print!("Describe the change: ");
+        std::io::stdout().flush()?;
+        let mut suggestion = String::new();
+        std::io::stdin().read_line(&mut suggestion)?;
+        let suggestion = suggestion.trim();
+        if suggestion.is_empty() {
+          eprintln!("No change suggestion provided. Keeping previous command.");
+          continue;
+        }
+        let refine_prompt = format!(
+          "You are a shell command generator. \
+          The user originally requested: {prompt_text}\n\n\
+          The previous command you generated was:\n{command}\n\n\
+          The user wants the following change: {suggestion}\n\n\
+          Generate an updated shell command.\n\n\
+          {rules}"
+        );
+        command =
+          generate_command(&http_req, &raw_opts, &refine_prompt).await?;
+      }
+      "a" | "n" | "no" | "abort" => {
+        println!("Aborted.");
+        return Ok(());
+      }
+      other => {
+        eprintln!(
+          "Unrecognized choice '{other}'. \
+          Please answer with 'y', 'n', or 'c'."
+        );
+      }
+    }
+  }
+}
+
 pub async fn create_commits(
   opts: &ExecOptions,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {

@@ -94,6 +94,7 @@ Commands:
   rewrite       Fix spelling, grammar, and wording issues in text passed via standard input
   reply         Reply to a conversation passed via standard input. Add additional reply instructions as the
                 prompt
+  run           Generate a shell command from a prompt and confirm before executing it
   image         Generate an image using GPT-image-2 [aliases: img]
   photo         Generate a photorealistic image that looks like a camera photo
   imgedit       Edit 1 or more images using GPT-image-2 (pass image files followed by the edit prompt as the
