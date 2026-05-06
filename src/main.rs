@@ -158,6 +158,13 @@ struct Args {
   #[arg(long, action, help = "JSON schema to validate the output against")]
   json_schema: Option<String>,
 
+  #[arg(
+    long = "no-streaming",
+    action,
+    help = "Wait for the full response instead of streaming tokens"
+  )]
+  no_streaming: bool,
+
   #[command(subcommand)]
   command: Option<Commands>,
 
@@ -211,6 +218,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
         })
       }),
     subcommand: args.command.clone(),
+    is_streaming: !args.no_streaming,
   };
 
   match args.command {
@@ -815,6 +823,11 @@ async fn exec_with_args(args: Args, stdin: &str) {
         .await
       }
       Commands::All { prompt } => {
+        // Streaming output from many models in parallel would interleave;
+        // run each one to completion and print as a block.
+        let mut opts = opts.clone();
+        opts.is_streaming = false;
+
         let models = vec![
           Model::Model(Provider::Anthropic, "claude-sonnet-4-5".to_string()),
           Model::Model(Provider::Cerebras, "gpt-oss-120b".to_string()),

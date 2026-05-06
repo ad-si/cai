@@ -5,12 +5,14 @@ use base64::Engine;
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
+use std::io::Write;
 use std::str;
 use std::time::Instant;
 
 use chrono::Utc;
 use color_print::{cformat, cprintln};
 use config::Config;
+use futures::StreamExt;
 use reqwest::Response;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
@@ -64,12 +66,25 @@ fn get_base_url(
     .unwrap_or_else(|| default.to_string())
 }
 
-#[derive(Serialize, Debug, PartialEq, Default, Clone)]
+#[derive(Serialize, Debug, PartialEq, Clone)]
 pub struct ExecOptions {
   pub is_raw: bool, // Raw output mode (no metadata and no syntax highlighting)
   pub is_json: bool, // JSON output mode
   pub json_schema: Option<Value>, // JSON schema of expected output
   pub subcommand: Option<Commands>, // Optional subcommand that was executed
+  pub is_streaming: bool, // Stream tokens as they arrive
+}
+
+impl Default for ExecOptions {
+  fn default() -> Self {
+    Self {
+      is_raw: false,
+      is_json: false,
+      json_schema: None,
+      subcommand: None,
+      is_streaming: true,
+    }
+  }
 }
 
 #[derive(Serialize, Debug, PartialEq, Default, Clone, Copy)]
@@ -687,6 +702,7 @@ fn get_req_body_obj(
 async fn exec_request(
   http_req: &AiRequest,
   req_body_obj: &Value,
+  is_streaming: bool,
 ) -> Result<Response, reqwest::Error> {
   let client = reqwest::Client::new();
   let req_base = client.post(http_req.url.clone()).json(&req_body_obj);
@@ -695,18 +711,262 @@ async fn exec_request(
       .header("anthropic-version", "2023-06-01")
       .header("x-api-key", &http_req.api_key),
     Provider::Google => {
-      // For Google's Gemini API we need to append the model name and ":generateContent"
-      // to the URL along with the API key as a query parameter
+      // For Google's Gemini API we need to append the model name and the
+      // generation action to the URL along with the API key as a query
+      // parameter. When streaming, use ":streamGenerateContent" with SSE.
       let model = &http_req.model;
-      let url = format!(
-        "{}/{model}:generateContent?key={}",
-        http_req.url, http_req.api_key
-      );
+      let url = if is_streaming {
+        format!(
+          "{}/{model}:streamGenerateContent?alt=sse&key={}",
+          http_req.url, http_req.api_key
+        )
+      } else {
+        format!(
+          "{}/{model}:generateContent?key={}",
+          http_req.url, http_req.api_key
+        )
+      };
       client.post(url).json(&req_body_obj)
     }
     _ => req_base.bearer_auth(&http_req.api_key),
   };
   req.send().await
+}
+
+/// Whether a request returns text (vs binary like images or audio)
+fn is_text_response(http_req: &AiRequest, opts: &ExecOptions) -> bool {
+  // OpenAI TTS
+  if http_req.provider == Provider::OpenAI && http_req.model.contains("-tts") {
+    return false;
+  }
+
+  // OpenAI image generation (gpt-image, DALL-E, or `cai openai image …`)
+  let is_image_generation =
+    matches!(
+      &opts.subcommand,
+      Some(Commands::Openai { model, .. }) if model == "image"
+    ) || matches!(&opts.subcommand, Some(Commands::Image { .. }));
+  if http_req.provider == Provider::OpenAI
+    && (is_image_generation
+      || http_req.model.starts_with("gpt-image")
+      || http_req.model.starts_with("dall-e"))
+  {
+    return false;
+  }
+
+  // xAI grok-2-image
+  if http_req.provider == Provider::XAI && http_req.model == "grok-2-image" {
+    return false;
+  }
+
+  // Google Gemini image generation
+  if http_req.provider == Provider::Google && http_req.model.contains("-image")
+  {
+    return false;
+  }
+
+  true
+}
+
+/// Detect whether the terminal has a light background by querying it via
+/// OSC 11. Falls back to dark on any error (e.g. no TTY, unsupported term).
+fn is_light_terminal() -> bool {
+  matches!(terminal_light::luma(), Ok(luma) if luma > 0.5)
+}
+
+/// Render style tuned to the detected terminal background.
+///
+/// Code blocks get a subtle background tint via `dark` so they stand out
+/// from prose; everything else (table headers, surrounding fill) stays
+/// transparent so the terminal's own background shows through.
+fn transparent_render_style(
+  light_terminal: bool,
+) -> streamdown_render::RenderStyle {
+  let (bright, head, symbol, grey, code_bg) = if light_terminal {
+    ("#0050a0", "#005500", "#7d2eb6", "#606060", "#e8e8e8")
+  } else {
+    ("#87ceeb", "#98fb98", "#dda0dd", "#808080", "#1a1a2e")
+  };
+  streamdown_render::RenderStyle {
+    bright: bright.to_string(),
+    head: head.to_string(),
+    symbol: symbol.to_string(),
+    grey: grey.to_string(),
+    dark: code_bg.to_string(),
+    // Empty hex strings make `bg_color` emit nothing for these slots,
+    // keeping table headers and other fills transparent.
+    mid: String::new(),
+    light: String::new(),
+  }
+}
+
+/// Wraps a writer so every `write` is followed by a flush, ensuring streamed
+/// content reaches the terminal as soon as the renderer emits it.
+struct AutoFlush<W: Write>(W);
+
+impl<W: Write> Write for AutoFlush<W> {
+  fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+    let n = self.0.write(buf)?;
+    self.0.flush()?;
+    Ok(n)
+  }
+
+  fn flush(&mut self) -> std::io::Result<()> {
+    self.0.flush()
+  }
+}
+
+/// Render one or more newline-separated lines through the streamdown
+/// markdown renderer, emitting events for any complete lines and keeping
+/// any trailing partial line in `line_buf` for the next chunk.
+fn render_through_streamdown(
+  line_buf: &mut String,
+  parser: &mut streamdown_parser::Parser,
+  renderer: &mut streamdown_render::Renderer<AutoFlush<std::io::Stdout>>,
+  flush_partial: bool,
+) -> std::io::Result<()> {
+  while let Some(pos) = line_buf.find('\n') {
+    let line: String = line_buf.drain(..pos + 1).collect();
+    let line_no_nl = &line[..line.len() - 1];
+    for event in parser.parse_line(line_no_nl) {
+      renderer.render_event(&event)?;
+    }
+  }
+  if flush_partial && !line_buf.is_empty() {
+    let remaining = std::mem::take(line_buf);
+    for event in parser.parse_line(&remaining) {
+      renderer.render_event(&event)?;
+    }
+  }
+  Ok(())
+}
+
+/// Read an SSE response stream and emit text deltas as they arrive.
+/// In non-raw mode, output is rendered as markdown via `streamdown` so
+/// headings, code blocks, lists, etc. are styled even while streaming.
+/// In raw mode, deltas go to stdout unmodified for downstream piping.
+/// Returns the accumulated full text and any search results encountered.
+async fn stream_text_response(
+  resp: Response,
+  provider: Provider,
+  is_raw: bool,
+) -> Result<(String, Option<Vec<SearchResult>>), Box<dyn Error + Send + Sync>> {
+  let mut full_text = String::new();
+  let mut search_results: Option<Vec<SearchResult>> = None;
+  let mut buffer: Vec<u8> = Vec::new();
+  let mut byte_stream = resp.bytes_stream();
+
+  let width = textwrap::termwidth();
+  let light = is_light_terminal();
+  let mut md_parser = streamdown_parser::Parser::new();
+  let mut md_renderer = (!is_raw).then(|| {
+    let mut r =
+      streamdown_render::Renderer::new(AutoFlush(std::io::stdout()), width);
+    r.set_style(transparent_render_style(light));
+    if light {
+      r.set_theme("InspiredGitHub");
+    }
+    r
+  });
+  let mut line_buf = String::new();
+
+  while let Some(chunk_result) = byte_stream.next().await {
+    let chunk = chunk_result?;
+    buffer.extend_from_slice(&chunk);
+
+    // Parse complete SSE events (separated by blank lines).
+    loop {
+      let boundary = buffer
+        .windows(2)
+        .position(|w| w == b"\n\n")
+        .map(|p| (p, 2))
+        .or_else(|| {
+          buffer
+            .windows(4)
+            .position(|w| w == b"\r\n\r\n")
+            .map(|p| (p, 4))
+        });
+      let (pos, sep_len) = match boundary {
+        Some(b) => b,
+        None => break,
+      };
+
+      let event_bytes: Vec<u8> = buffer.drain(..pos + sep_len).collect();
+      let event_str = match std::str::from_utf8(&event_bytes) {
+        Ok(s) => s,
+        Err(_) => continue,
+      };
+
+      for line in event_str.lines() {
+        let data = match line.strip_prefix("data:") {
+          Some(d) => d.strip_prefix(' ').unwrap_or(d),
+          None => continue,
+        };
+        if data == "[DONE]" {
+          continue;
+        }
+        let json: Value = match serde_json::from_str(data) {
+          Ok(v) => v,
+          Err(_) => continue,
+        };
+
+        let text_delta: Option<String> = match provider {
+          Provider::Anthropic => {
+            if json["type"].as_str() == Some("content_block_delta") {
+              json["delta"]["text"].as_str().map(str::to_string)
+            } else {
+              None
+            }
+          }
+          Provider::Google => json["candidates"][0]["content"]["parts"][0]
+            ["text"]
+            .as_str()
+            .map(str::to_string),
+          _ => json["choices"][0]["delta"]["content"]
+            .as_str()
+            .map(str::to_string),
+        };
+
+        if let Some(results) = json["search_results"].as_array() {
+          let parsed: Vec<SearchResult> = results
+            .iter()
+            .filter_map(|v| serde_json::from_value(v.clone()).ok())
+            .collect();
+          if !parsed.is_empty() {
+            search_results = Some(parsed);
+          }
+        }
+
+        if let Some(text) = text_delta {
+          full_text.push_str(&text);
+          if let Some(renderer) = md_renderer.as_mut() {
+            line_buf.push_str(&text);
+            render_through_streamdown(
+              &mut line_buf,
+              &mut md_parser,
+              renderer,
+              false,
+            )?;
+          } else {
+            let mut stdout = std::io::stdout();
+            stdout.write_all(text.as_bytes())?;
+            stdout.flush()?;
+          }
+        }
+      }
+    }
+  }
+
+  // End of stream: render any trailing partial line, then close any
+  // still-open blocks (lists, code fences, …) via `finalize()`.
+  if let Some(renderer) = md_renderer.as_mut() {
+    render_through_streamdown(&mut line_buf, &mut md_parser, renderer, true)?;
+    for event in md_parser.finalize() {
+      renderer.render_event(&event)?;
+    }
+  }
+
+  Ok((full_text, search_results))
 }
 
 pub async fn exec_tool(
@@ -725,11 +985,18 @@ pub async fn exec_tool(
     Err("No prompt was provided")?;
   }
 
-  let req_body_obj = get_req_body_obj(opts, &http_req, user_input);
+  let should_stream = opts.is_streaming && is_text_response(&http_req, opts);
 
-  let resp = exec_request(&http_req, &req_body_obj).await?;
-  let elapsed_millis = start.elapsed().as_millis();
-  let (elapsed_time, time_unit) = format_elapsed_time(elapsed_millis);
+  let mut req_body_obj = get_req_body_obj(opts, &http_req, user_input);
+  // Google controls streaming via the URL (:streamGenerateContent), not a
+  // body field — adding `stream: true` there is rejected as an unknown field.
+  if should_stream && http_req.provider != Provider::Google {
+    if let Some(obj) = req_body_obj.as_object_mut() {
+      obj.insert("stream".to_string(), Value::Bool(true));
+    }
+  }
+
+  let resp = exec_request(&http_req, &req_body_obj, should_stream).await?;
   let subcommand = opts
     .subcommand
     .as_ref()
@@ -738,6 +1005,8 @@ pub async fn exec_tool(
     .unwrap_or_default();
 
   if !&resp.status().is_success() {
+    let elapsed_millis = start.elapsed().as_millis();
+    let (elapsed_time, time_unit) = format_elapsed_time(elapsed_millis);
     let resp_json = resp.json::<Value>().await?;
     let resp_formatted = serde_json::to_string_pretty(&resp_json).unwrap();
     Err(cformat!(
@@ -746,7 +1015,47 @@ pub async fn exec_tool(
       elapsed_time,
       time_unit,
     ))?;
+  } else if should_stream {
+    if !opts.is_raw {
+      cprintln!("<bold>{subcommand}{used_model}</bold>\n");
+    }
+
+    let (_full_text, search_results) =
+      stream_text_response(resp, http_req.provider, opts.is_raw).await?;
+
+    let elapsed_millis = start.elapsed().as_millis();
+    let (elapsed_time, time_unit) = format_elapsed_time(elapsed_millis);
+
+    if opts.is_raw {
+      println!();
+    } else {
+      cprintln!("\n<bold>⏱️ {} {}</bold>", elapsed_time, time_unit);
+
+      if let Some(results) = search_results {
+        if !results.is_empty() {
+          println!("\n## Search Results\n");
+          for (i, result) in results.iter().enumerate() {
+            let index = i + 1;
+            println!(
+              "[{index}] {title} ({url})",
+              title = result.title,
+              url = result.url
+            );
+            if let Some(date) = &result.date {
+              println!("    Date: {date}");
+            }
+            if let Some(last_updated) = &result.last_updated {
+              println!("    Updated: {last_updated}");
+            }
+          }
+        }
+      }
+      println!();
+    }
+    return Ok(());
   } else {
+    let elapsed_millis = start.elapsed().as_millis();
+    let (elapsed_time, time_unit) = format_elapsed_time(elapsed_millis);
     // Special handling for OpenAI TTS models - they return audio data
     if http_req.provider == Provider::OpenAI && http_req.model.contains("-tts")
     {
@@ -1119,7 +1428,7 @@ pub async fn analyze_file_content(
     &full_config,
   )?;
   let req_body_obj = get_req_body_obj(&opts, &http_req, &prompt);
-  let resp = exec_request(&http_req, &req_body_obj).await?;
+  let resp = exec_request(&http_req, &req_body_obj, false).await?;
 
   if resp.status().is_success() {
     let ai_response = resp.json::<AiResponse>().await?;
@@ -1543,7 +1852,7 @@ pub async fn create_commits(
     get_http_req(&Some(&model), &secrets_path_str, &full_config)?;
   let req_body_obj =
     get_req_body_obj(&analysis_opts, &http_req, &analysis_prompt);
-  let response = exec_request(&http_req, &req_body_obj).await?;
+  let response = exec_request(&http_req, &req_body_obj, false).await?;
 
   // Parse the response using the standard AiResponse struct
   let ai_response = response
@@ -1718,7 +2027,7 @@ pub async fn query_database(
   raw_opts.is_raw = true;
 
   let req_body_obj = get_req_body_obj(&raw_opts, &http_req, &sql_prompt);
-  let resp = exec_request(&http_req, &req_body_obj).await?;
+  let resp = exec_request(&http_req, &req_body_obj, false).await?;
 
   if !resp.status().is_success() {
     let resp_json = resp.json::<Value>().await?;
@@ -1827,12 +2136,7 @@ mod tests {
     let prompt = "";
     let result = exec_tool(
       &Some(&Model::Model(Provider::OpenAI, "gpt-4o-mini".to_owned())),
-      &ExecOptions {
-        is_raw: false,
-        is_json: false,
-        json_schema: None,
-        subcommand: None,
-      },
+      &ExecOptions::default(),
       prompt,
     )
     .await;
@@ -1859,12 +2163,7 @@ mod tests {
         ..Default::default()
       };
 
-      let opts = ExecOptions {
-        is_raw: false,
-        is_json: false,
-        json_schema: None,
-        subcommand: None,
-      };
+      let opts = ExecOptions::default();
 
       let body = get_req_body_obj(&opts, &http_req, "test");
       let has_max_completion = body
