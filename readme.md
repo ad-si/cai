@@ -92,21 +92,20 @@ Commands:
   value         Return only the value/answer without explanations
   short         Answer the prompt in a short, compact, and focused manner
   rewrite       Fix spelling, grammar, and wording issues in text passed via standard input
-  reply         Reply to a conversation passed via standard input. Add additional reply instructions as the
-                prompt
+  reply         Reply to a conversation passed via standard input. Add additional reply instructions as the prompt
   run           Generate a shell command from a prompt and confirm before executing it
+  agent         Run an agentic loop with tool use to fulfill a request
   image         Generate an image using GPT-image-2 [aliases: img]
   photo         Generate a photorealistic image that looks like a camera photo
-  imgedit       Edit 1 or more images using GPT-image-2 (pass image files followed by the edit prompt as the
-                last argument) [aliases: imge]
+  imgedit       Edit 1 or more images using GPT-image-2 (pass image files followed by the edit prompt as the last argument)
+                [aliases: imge]
   say           Convert text to speech using OpenAI's TTS model [aliases: tts]
   transcribe    Transcribe an audio file
   ocr           Extract text from an image
   google-ocr    Extract text from an image using Google Gemini with high resolution [aliases: gocr]
   rename        Analyze and rename files to timestamp + title (e.g. 2025-08-19t2041_invoice_car.pdf)
   changelog     Generate a changelog starting from a given commit
-  commit        Commit modified files with AI-generated commit messages and group related changes into separate
-                commits
+  commit        Commit modified files with AI-generated commit messages and group related changes into separate commits
   svg           Generate an SVG graphic from a textual description
   edit          Open your editor to write the prompt
   config        Print the configuration settings loaded from the config file

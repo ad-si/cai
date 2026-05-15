@@ -51,6 +51,15 @@ pub enum Commands {
     prompt: Vec<String>,
   },
 
+  /// Run an agentic loop with tool use to fulfill a request
+  Agent {
+    /// When to ask for permission before running a tool
+    #[clap(long, value_parser = ["always", "edit", "never"])]
+    ask_for_permission: Option<String>,
+    /// The task for the agent to perform
+    prompt: Vec<String>,
+  },
+
   /// Generate an image using GPT-image-2
   #[clap(visible_alias = "img")]
   Image {
@@ -600,6 +609,7 @@ impl Commands {
       Commands::Commit { .. } => Some("Commit"),
       Commands::Reply { .. } => Some("Reply"),
       Commands::Run { .. } => Some("Run"),
+      Commands::Agent { .. } => Some("Agent"),
       Commands::Rewrite { .. } => Some("Rewrite"),
       Commands::Config { .. } => None,
       Commands::Transcribe { .. } => Some("Transcribe"),

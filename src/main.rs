@@ -465,6 +465,25 @@ async fn exec_with_args(args: Args, stdin: &str) {
           std::process::exit(1);
         }
       }
+      Commands::Agent {
+        ask_for_permission,
+        prompt,
+      } => {
+        if prompt.is_empty() {
+          eprintln!("Please provide a task for the agent to perform.");
+          std::process::exit(1);
+        }
+        if let Err(err) = cai::agent::run_agent(
+          &opts,
+          ask_for_permission.as_deref(),
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+        {
+          eprintln!("Agent error: {err}");
+          std::process::exit(1);
+        }
+      }
       Commands::Rewrite { prompt } => {
         if stdin.is_empty() {
           eprintln!("Please pipe the text to be rewritten into cai via stdin.");
