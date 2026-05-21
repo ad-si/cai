@@ -110,29 +110,17 @@ const GROQ_MODEL_MAPPING_SRC: [(&str, &str); 20] = [
   ("deepseek", "deepseek-r1-distill-llama-70b"),
 ];
 
-const CEREBRAS_MODEL_MAPPING_SRC: [(&str, &str); 14] = [
+const CEREBRAS_MODEL_MAPPING_SRC: [(&str, &str); 5] = [
   ///// Default models /////
   // GPT
   ("gpt", "gpt-oss-120b"),
-  // Llama
-  ("llama", "llama3.1-8b"),
-  ("ll", "llama3.1-8b"),
-  ("l", "llama3.1-8b"),
-  ("llama-8b", "llama3.1-8b"),
-  ("llama-70b", "llama-3.3-70b"),
-  // Deepseek
-  ("deepseek", "deepseek-r1-distill-llama-70b"),
-  ("deep", "deepseek-r1-distill-llama-70b"),
-  ("d", "deepseek-r1-distill-llama-70b"),
+  // Z.ai GLM
+  ("glm", "zai-glm-4.7"),
+  ("zai", "zai-glm-4.7"),
   ///// Specific versions /////
-  // Llama 3.1
-  ("llama31", "llama-3.1-8b"),
-  ("llama31-8b", "llama-3.1-8b"),
-  // Llama 3.3
-  ("llama33", "llama-3.3-70b"),
-  ("llama33-70b", "llama-3.3-70b"),
-  // Deepseek R1
-  ("deepseek-r1", "deepseek-r1-distill-llama-70b"),
+  // Z.ai GLM 4.7
+  ("glm-4.7", "zai-glm-4.7"),
+  ("gpt-120b", "gpt-oss-120b"),
 ];
 
 const DEEPSEEK_MODEL_MAPPING_SRC: [(&str, &str); 13] = [
