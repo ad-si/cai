@@ -111,6 +111,9 @@ Commands:
   config        Print the configuration settings loaded from the config file
                 
                 📚 MODELS                                                    
+  models        List all models offered by every supported provider
+                (OpenAI, Anthropic, Gemini, Groq, Cerebras, DeepSeek, xAI,
+                Perplexity, Ollama, Mistral)
   all           Simultaneously send prompt to each provider's default model
   google        Google [aliases: go]
   gemini        - Gemini Pro shortcut [aliases: ge]

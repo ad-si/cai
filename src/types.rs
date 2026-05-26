@@ -157,6 +157,12 @@ pub enum Commands {
   )]
   SectionModels {},
 
+  /// List all models offered by every supported provider
+  /// (OpenAI, Anthropic, Gemini, Groq, Cerebras, DeepSeek, xAI,
+  /// Perplexity, Ollama, Mistral)
+  #[clap(verbatim_doc_comment)]
+  Models {},
+
   /// Simultaneously send prompt to each provider's default model
   #[clap(
     verbatim_doc_comment,
@@ -620,6 +626,7 @@ impl Commands {
 
       // Models
       Commands::SectionModels { .. } => None,
+      Commands::Models { .. } => None,
       Commands::All { .. } => None,
 
       Commands::Google { .. } => None,

@@ -13,6 +13,7 @@ use std::time::Instant;
 use chrono::Utc;
 use color_print::{cformat, cprintln};
 use config::Config;
+use futures::future::join_all;
 use futures::StreamExt;
 use reqwest::Response;
 use serde_derive::{Deserialize, Serialize};
@@ -2263,6 +2264,245 @@ pub async fn query_database(
   }
 
   if !opts.is_raw {
+    println!();
+  }
+
+  Ok(())
+}
+
+/// How a provider authenticates requests to its `models` listing endpoint.
+enum ModelsAuth {
+  Bearer,
+  AnthropicKey,
+  GoogleQuery,
+  None,
+}
+
+async fn fetch_provider_models(
+  client: &reqwest::Client,
+  url: &str,
+  api_key: Option<String>,
+  auth: ModelsAuth,
+) -> Result<Vec<String>, String> {
+  let resp = match auth {
+    ModelsAuth::Bearer => {
+      let key = api_key.ok_or("No API key configured")?;
+      client.get(url).bearer_auth(&key).send().await
+    }
+    ModelsAuth::AnthropicKey => {
+      let key = api_key.ok_or("No API key configured")?;
+      client
+        .get(url)
+        .header("x-api-key", &key)
+        .header("anthropic-version", "2023-06-01")
+        .send()
+        .await
+    }
+    ModelsAuth::GoogleQuery => {
+      let key = api_key.ok_or("No API key configured")?;
+      client.get(format!("{url}?key={key}")).send().await
+    }
+    ModelsAuth::None => client.get(url).send().await,
+  };
+
+  let resp = resp.map_err(|e| format!("Request failed: {e}"))?;
+  let status = resp.status();
+  if !status.is_success() {
+    let body = resp.text().await.unwrap_or_default();
+    let snippet: String = body.chars().take(200).collect();
+    return Err(format!("HTTP {status}: {snippet}"));
+  }
+
+  let json: Value = resp
+    .json()
+    .await
+    .map_err(|e| format!("Failed to parse JSON: {e}"))?;
+
+  // Common response shapes:
+  //   {"data":   [{"id":   "..."}]}  OpenAI, Anthropic, Groq, Mistral
+  //   {"models": [{"name": "..."}]}  Gemini, Ollama
+  if let Some(arr) = json.get("data").and_then(|v| v.as_array()) {
+    return Ok(
+      arr
+        .iter()
+        .filter_map(|m| m.get("id").and_then(|i| i.as_str()).map(String::from))
+        .collect(),
+    );
+  }
+  if let Some(arr) = json.get("models").and_then(|v| v.as_array()) {
+    return Ok(
+      arr
+        .iter()
+        .filter_map(|m| {
+          m.get("name")
+            .or_else(|| m.get("id"))
+            .and_then(|n| n.as_str())
+            // Gemini prefixes ids with "models/"; strip it for display.
+            .map(|s| s.strip_prefix("models/").unwrap_or(s).to_string())
+        })
+        .collect(),
+    );
+  }
+
+  Err(format!("Unexpected response shape: {json}"))
+}
+
+fn get_models_key(
+  cfg: &HashMap<String, String>,
+  cfg_key: &str,
+  env_key: &str,
+) -> Option<String> {
+  cfg
+    .get(cfg_key)
+    .cloned()
+    .or_else(|| env::var(env_key).ok())
+    .filter(|s| !s.is_empty())
+}
+
+pub async fn list_models() -> Result<(), Box<dyn Error + Send + Sync>> {
+  let secrets_path_str = get_secrets_path_str();
+  let full_config = get_full_config(&secrets_path_str)?;
+  let client = reqwest::Client::new();
+
+  let openai_url = format!(
+    "{}/models",
+    get_base_url(&full_config, "openai_base_url", "https://api.openai.com/v1")
+  );
+  let anthropic_url = format!(
+    "{}/models",
+    get_base_url(
+      &full_config,
+      "anthropic_base_url",
+      "https://api.anthropic.com/v1"
+    )
+  );
+  let groq_url = format!(
+    "{}/models",
+    get_base_url(
+      &full_config,
+      "groq_base_url",
+      "https://api.groq.com/openai/v1"
+    )
+  );
+  let gemini_url = format!(
+    "{}/models",
+    get_base_url(
+      &full_config,
+      "google_base_url",
+      "https://generativelanguage.googleapis.com/v1beta"
+    )
+  );
+  let cerebras_url = format!(
+    "{}/models",
+    get_base_url(
+      &full_config,
+      "cerebras_base_url",
+      "https://api.cerebras.ai/v1"
+    )
+  );
+  let deepseek_url = format!(
+    "{}/models",
+    get_base_url(
+      &full_config,
+      "deepseek_base_url",
+      "https://api.deepseek.com"
+    )
+  );
+  let xai_url = format!(
+    "{}/models",
+    get_base_url(&full_config, "xai_base_url", "https://api.x.ai/v1")
+  );
+  // Perplexity's chat completions live at `{base}/chat/completions` with
+  // the default base lacking `/v1`, but the models endpoint sits under
+  // `/v1/models`, so it's hardcoded here.
+  let perplexity_url = "https://api.perplexity.ai/v1/models".to_string();
+  // Ollama's models endpoint lives under `/api/tags`, not the
+  // OpenAI-compatible `/v1` prefix used for chat completions.
+  let ollama_base =
+    get_base_url(&full_config, "ollama_base_url", "http://localhost:11434/v1");
+  let ollama_host = ollama_base.trim_end_matches("/v1").to_string();
+  let ollama_url = format!("{ollama_host}/api/tags");
+
+  let providers: Vec<(&'static str, String, Option<String>, ModelsAuth)> = vec![
+    (
+      "OpenAI",
+      openai_url,
+      get_models_key(&full_config, "openai_api_key", "OPENAI_API_KEY"),
+      ModelsAuth::Bearer,
+    ),
+    (
+      "Anthropic",
+      anthropic_url,
+      get_models_key(&full_config, "anthropic_api_key", "ANTHROPIC_API_KEY"),
+      ModelsAuth::AnthropicKey,
+    ),
+    (
+      "Google Gemini",
+      gemini_url,
+      get_models_key(&full_config, "google_api_key", "GOOGLE_API_KEY"),
+      ModelsAuth::GoogleQuery,
+    ),
+    (
+      "Groq",
+      groq_url,
+      get_models_key(&full_config, "groq_api_key", "GROQ_API_KEY"),
+      ModelsAuth::Bearer,
+    ),
+    (
+      "Cerebras",
+      cerebras_url,
+      get_models_key(&full_config, "cerebras_api_key", "CEREBRAS_API_KEY"),
+      ModelsAuth::Bearer,
+    ),
+    (
+      "DeepSeek",
+      deepseek_url,
+      get_models_key(&full_config, "deepseek_api_key", "DEEPSEEK_API_KEY"),
+      ModelsAuth::Bearer,
+    ),
+    (
+      "xAI",
+      xai_url,
+      get_models_key(&full_config, "xai_api_key", "XAI_API_KEY"),
+      ModelsAuth::Bearer,
+    ),
+    // Perplexity's models endpoint is public — no key required.
+    ("Perplexity", perplexity_url, None, ModelsAuth::None),
+    ("Ollama", ollama_url, None, ModelsAuth::None),
+    (
+      "Mistral",
+      "https://api.mistral.ai/v1/models".to_string(),
+      get_models_key(&full_config, "mistral_api_key", "MISTRAL_API_KEY"),
+      ModelsAuth::Bearer,
+    ),
+  ];
+
+  let mut handles = Vec::new();
+  for (name, url, key, auth) in providers {
+    let client = client.clone();
+    handles.push(tokio::spawn(async move {
+      (name, fetch_provider_models(&client, &url, key, auth).await)
+    }));
+  }
+
+  let results = join_all(handles).await;
+
+  for handle_result in results {
+    let (provider, models_result) = handle_result?;
+    cprintln!("<bold,underline>{}</bold,underline>", provider);
+    match models_result {
+      Ok(mut models) => {
+        if models.is_empty() {
+          println!("  (no models returned)");
+        } else {
+          models.sort();
+          for m in &models {
+            println!("  {m}");
+          }
+        }
+      }
+      Err(e) => cprintln!("  <red>{}</red>", e),
+    }
     println!();
   }
 

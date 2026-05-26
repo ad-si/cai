@@ -590,6 +590,12 @@ async fn exec_with_args(args: Args, stdin: &str) {
       //=============================== MODELS =================================
       //////////////////////////////////////////////////////////////////////////
       Commands::SectionModels {} => {}
+      Commands::Models {} => {
+        if let Err(err) = cai::list_models().await {
+          eprintln!("Error listing models: {err}");
+          std::process::exit(1);
+        }
+      }
       Commands::Google { model, prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::Google, model.to_string())),
