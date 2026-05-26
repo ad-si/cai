@@ -12,7 +12,7 @@ const GOOGLE_MODEL_MAPPING_SRC: [(&str, &str); 20] = [
   ("gemini-pro", "gemini-2.5-pro"),
   ("pro", "gemini-2.5-pro"),
   ("gemini-flash-lite", "gemini-2.0-flash-lite"),
-  ("flast-lite", "gemini-2.0-flash-lite"),
+  ("flash-lite", "gemini-2.0-flash-lite"),
   ("lite", "gemini-2.0-flash-lite"),
   // Image generation model
   ("gemini-image", "gemini-2.5-flash-image"),
