@@ -31,23 +31,27 @@ const GOOGLE_MODEL_MAPPING_SRC: [(&str, &str); 20] = [
   ("gemini-1.5-pro", "gemini-1.5-pro"),
 ];
 
-const ANTHROPIC_MODEL_MAPPING_SRC: [(&str, &str); 33] = [
+const ANTHROPIC_MODEL_MAPPING_SRC: [(&str, &str); 35] = [
   // Default models
   // Opus
-  ("claude-opus", "claude-opus-4-5"),
-  ("opus", "claude-opus-4-5"),
-  ("op", "claude-opus-4-5"),
-  ("o", "claude-opus-4-5"),
+  ("claude-opus", "claude-opus-4-7"),
+  ("opus", "claude-opus-4-7"),
+  ("op", "claude-opus-4-7"),
+  ("o", "claude-opus-4-7"),
   // Sonnet
-  ("claude-sonnet", "claude-sonnet-4-5"),
-  ("sonnet", "claude-sonnet-4-5"),
-  ("so", "claude-sonnet-4-5"),
-  ("s", "claude-sonnet-4-5"),
+  ("claude-sonnet", "claude-sonnet-4-6"),
+  ("sonnet", "claude-sonnet-4-6"),
+  ("so", "claude-sonnet-4-6"),
+  ("s", "claude-sonnet-4-6"),
   // Haiku
   ("claude-haiku", "claude-haiku-4-5"),
   ("haiku", "claude-haiku-4-5"),
   ("ha", "claude-haiku-4-5"),
   ("h", "claude-haiku-4-5"),
+  // Version 4.7 models
+  ("opus-4-7", "claude-opus-4-7"),
+  // Version 4.6 models
+  ("sonnet-4-6", "claude-sonnet-4-6"),
   // Version 4.5 models
   ("opus-4-5", "claude-opus-4-5"),
   ("sonnet-4-5", "claude-sonnet-4-5"),

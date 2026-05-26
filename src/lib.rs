@@ -1365,7 +1365,7 @@ pub async fn generate_changelog(
     \n\n{changelog}"
   );
 
-  let model = Model::Model(Provider::OpenAI, "gpt-4o".to_string());
+  let model = Model::Model(Provider::OpenAI, "gpt-5".to_string());
 
   exec_tool(&Some(&model), opts, &prompt).await
 }
@@ -1424,7 +1424,7 @@ pub async fn analyze_file_content(
   let secrets_path_str = get_secrets_path_str();
   let full_config = get_full_config(&secrets_path_str)?;
   let (_used_model, http_req) = get_http_req(
-    &Some(&Model::Model(Provider::OpenAI, "gpt-4o-mini".to_string())),
+    &Some(&Model::Model(Provider::OpenAI, "gpt-5-mini".to_string())),
     &secrets_path_str,
     &full_config,
   )?;
@@ -1457,7 +1457,7 @@ pub async fn extract_text_from_file(
   let file_content = std::fs::read(file_path)?;
   let base64_content =
     base64::engine::general_purpose::STANDARD.encode(&file_content);
-  let model_id = "gpt-4o";
+  let model_id = "gpt-5";
   let model = &Model::Model(Provider::OpenAI, model_id.to_string());
   let secrets_path_str = get_secrets_path_str();
   let full_config = get_full_config(&secrets_path_str)?;
@@ -1805,7 +1805,7 @@ pub async fn run_shell_command(
     User request: {prompt_text}"
   );
 
-  let model = Model::Model(Provider::OpenAI, "gpt-4.1".to_string());
+  let model = Model::Model(Provider::OpenAI, "gpt-5".to_string());
   let secrets_path_str = get_secrets_path_str();
   let full_config = get_full_config(&secrets_path_str)?;
   let (_used_model, http_req) =
@@ -1952,7 +1952,7 @@ pub async fn create_commits(
     Git diff:\n{diff}"
   );
 
-  let model = Model::Model(Provider::OpenAI, "gpt-4o".to_string());
+  let model = Model::Model(Provider::OpenAI, "gpt-5".to_string());
 
   // Get AI analysis of commit groupings
   let json_schema = json!({
@@ -2159,7 +2159,7 @@ pub async fn query_database(
   );
 
   // Use OpenAI to generate the SQL query
-  let model = Model::Model(Provider::OpenAI, "gpt-4.1".to_string());
+  let model = Model::Model(Provider::OpenAI, "gpt-5".to_string());
   let secrets_path_str = get_secrets_path_str();
   let full_config = get_full_config(&secrets_path_str)?;
   let (_used_model, http_req) =
