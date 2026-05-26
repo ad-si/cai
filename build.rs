@@ -236,6 +236,34 @@ const XAI_MODEL_MAPPING_SRC: [(&str, &str); 10] = [
   ("grok3mini", "grok-3-mini"),
 ];
 
+const MISTRAL_MODEL_MAPPING_SRC: [(&str, &str); 20] = [
+  // Default models
+  ("mistral", "mistral-large-latest"),
+  ("m", "mistral-large-latest"),
+  ("large", "mistral-large-latest"),
+  ("l", "mistral-large-latest"),
+  ("medium", "mistral-medium-latest"),
+  ("small", "mistral-small-latest"),
+  ("tiny", "mistral-tiny-latest"),
+  // Code models
+  ("codestral", "codestral-latest"),
+  ("code", "codestral-latest"),
+  ("devstral", "devstral-latest"),
+  // Ministral
+  ("ministral", "ministral-8b-latest"),
+  ("ministral-3b", "ministral-3b-latest"),
+  ("ministral-8b", "ministral-8b-latest"),
+  ("ministral-14b", "ministral-14b-latest"),
+  // Reasoning
+  ("magistral", "magistral-medium-latest"),
+  // Specialty
+  ("embed", "mistral-embed"),
+  ("ocr", "mistral-ocr-latest"),
+  ("pixtral", "pixtral-large-latest"),
+  ("voxtral", "voxtral-small-latest"),
+  ("nemo", "open-mistral-nemo"),
+];
+
 const PERPLEXITY_MODEL_MAPPING_SRC: [(&str, &str); 19] = [
   // Supported models
   ("sonar", "sonar"),
@@ -374,15 +402,15 @@ fn main() {
       &pretty_print_mapping(&PERPLEXITY_MODEL_MAPPING_SRC),
     )
     .replace(
-      "{google_models_pretty}",
-      &pretty_print_mapping(&GOOGLE_MODEL_MAPPING_SRC),
-    )
-    .replace(
-      "// {google_model_hashmap}",
-      &GOOGLE_MODEL_MAPPING_SRC
+      "// {mistral_model_hashmap}",
+      &MISTRAL_MODEL_MAPPING_SRC
         .iter()
         .map(|(model, constant)| format!("(\"{model}\", \"{constant}\"),\n"))
         .collect::<String>(),
+    )
+    .replace(
+      "{mistral_models_pretty}",
+      &pretty_print_mapping(&MISTRAL_MODEL_MAPPING_SRC),
     );
 
   fs::write(&dest_path, code).unwrap();
