@@ -739,7 +739,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
         submit_prompt(
           &Some(&Model::Model(
             Provider::Anthropic,
-            "claude-opus-4-7".to_string(),
+            "claude-opus-4-8".to_string(),
           )),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
