@@ -128,7 +128,7 @@ pub enum Model {
 
 impl Default for Model {
   fn default() -> Model {
-    Model::Model(Provider::Groq, "openai/gpt-oss-20b".to_owned())
+    Model::Model(Provider::Cerebras, "gpt-oss-120b".to_owned())
   }
 }
 

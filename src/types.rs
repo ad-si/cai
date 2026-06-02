@@ -7,7 +7,7 @@ use serde_derive::Serialize;
 #[derive(Subcommand, Debug, PartialEq, Clone, Serialize)]
 #[clap(args_conflicts_with_subcommands = false, arg_required_else_help(true))]
 pub enum Commands {
-  /// Shortcut for `groq openai/gpt-oss-20b`
+  /// Shortcut for `cerebras gpt-oss-120b`
   Fast {
     /// The prompt to send to the AI model
     prompt: Vec<String>,

@@ -87,7 +87,7 @@ User friendly CLI tool for AI tasks
 Usage: cai [OPTIONS] [PROMPT]... [COMMAND]
 
 Commands:
-  fast          Shortcut for `groq openai/gpt-oss-20b`
+  fast          Shortcut for `cerebras gpt-oss-120b`
   local         Shortcut for `ollama llama3.2`
   value         Return only the value/answer without explanations
   short         Answer the prompt in a short, compact, and focused manner
