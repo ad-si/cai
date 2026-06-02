@@ -614,25 +614,29 @@ fn get_http_req(
       get_api_request(full_config, secrets_path_str, model)
         .map(|req| (used_model, req))
     }
-    // Use the first provider that has an API key
+    // Prefer the `fast` shortcut's model (overridable via
+    // `shortcut_models.fast`), then fall back to the first provider with a key.
     None => {
-      let req =
-        get_api_request(full_config, secrets_path_str, &Default::default())
-          .or(get_api_request(
-            full_config,
-            secrets_path_str,
-            &Model::Model(Provider::Groq, "openai/gpt-oss-20b".to_owned()),
-          ))
-          .or(get_api_request(
-            full_config,
-            secrets_path_str,
-            &Model::Model(Provider::OpenAI, "gpt-5-mini".to_string()),
-          ))
-          .or(get_api_request(
-            full_config,
-            secrets_path_str,
-            &Model::Model(Provider::Anthropic, "claude-haiku-4-5".to_string()),
-          ))?;
+      let fast_model = shortcut_model(
+        &Commands::Fast { prompt: vec![] },
+        Model::Model(Provider::Groq, "openai/gpt-oss-20b".to_owned()),
+      );
+      let req = get_api_request(full_config, secrets_path_str, &fast_model)
+        .or(get_api_request(
+          full_config,
+          secrets_path_str,
+          &Model::Model(Provider::Groq, "openai/gpt-oss-20b".to_owned()),
+        ))
+        .or(get_api_request(
+          full_config,
+          secrets_path_str,
+          &Model::Model(Provider::OpenAI, "gpt-5-mini".to_string()),
+        ))
+        .or(get_api_request(
+          full_config,
+          secrets_path_str,
+          &Model::Model(Provider::Anthropic, "claude-haiku-4-5".to_string()),
+        ))?;
       let used_model = get_used_model(
         &Model::Model(req.provider, req.model.clone()), //
       );
