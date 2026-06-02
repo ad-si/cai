@@ -53,7 +53,7 @@ pub async fn execute(input: &Value, ctx: &mut AgentContext) -> ToolResult {
       total += 1;
     }
   }
-  hits.sort_by(|a, b| b.1.cmp(&a.1));
+  hits.sort_by_key(|b| std::cmp::Reverse(b.1));
   let truncated = total > CAP;
   hits.truncate(CAP);
 
