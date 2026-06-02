@@ -619,13 +619,13 @@ fn get_http_req(
     None => {
       let fast_model = shortcut_model(
         &Commands::Fast { prompt: vec![] },
-        Model::Model(Provider::Groq, "openai/gpt-oss-20b".to_owned()),
+        Model::Model(Provider::Cerebras, "gpt-oss-120b".to_owned()),
       );
       let req = get_api_request(full_config, secrets_path_str, &fast_model)
         .or(get_api_request(
           full_config,
           secrets_path_str,
-          &Model::Model(Provider::Groq, "openai/gpt-oss-20b".to_owned()),
+          &Model::Model(Provider::Cerebras, "gpt-oss-120b".to_owned()),
         ))
         .or(get_api_request(
           full_config,

@@ -236,7 +236,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Fast { prompt } => {
         let model = shortcut_model(
           &cmd,
-          Model::Model(Provider::Groq, "openai/gpt-oss-20b".to_string()),
+          Model::Model(Provider::Cerebras, "gpt-oss-120b".to_string()),
         );
         submit_prompt(
           &Some(&model),
