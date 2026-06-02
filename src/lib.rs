@@ -435,6 +435,83 @@ fn get_used_model(model: &Model) -> String {
   }
 }
 
+/// Parse a provider name (case-insensitive) as used in config model overrides.
+fn provider_from_name(name: &str) -> Option<Provider> {
+  match name.trim().to_lowercase().as_str() {
+    "anthropic" => Some(Provider::Anthropic),
+    "cerebras" => Some(Provider::Cerebras),
+    "deepseek" => Some(Provider::DeepSeek),
+    "google" => Some(Provider::Google),
+    "groq" => Some(Provider::Groq),
+    "openai" => Some(Provider::OpenAI),
+    "llamafile" => Some(Provider::Llamafile),
+    "ollama" => Some(Provider::Ollama),
+    "xai" => Some(Provider::XAI),
+    "perplexity" => Some(Provider::Perplexity),
+    _ => None,
+  }
+}
+
+/// Parse a model override string of the form `<provider> <model_id>`
+/// (e.g. `anthropic claude-opus-4-8`). A bare provider name with no model id
+/// is also accepted (e.g. `llamafile`).
+fn parse_model_override(value: &str) -> Option<Model> {
+  let value = value.trim();
+  match value.split_once(char::is_whitespace) {
+    Some((provider, model_id)) => provider_from_name(provider)
+      .map(|p| Model::Model(p, model_id.trim().to_string())),
+    None => provider_from_name(value).map(|p| Model::Model(p, String::new())),
+  }
+}
+
+/// Lazily loaded, process-wide configuration used to resolve shortcut model
+/// overrides. Falls back to an empty map if the config can't be read.
+static CONFIG_CACHE: std::sync::OnceLock<HashMap<String, String>> =
+  std::sync::OnceLock::new();
+
+fn cached_config() -> &'static HashMap<String, String> {
+  CONFIG_CACHE.get_or_init(|| {
+    let secrets_path_str = get_secrets_path_str();
+    get_full_config(&secrets_path_str).unwrap_or_default()
+  })
+}
+
+/// Look up a per-shortcut model override from `~/.config/cai/config.yaml`.
+///
+/// Overrides live under a `shortcut_models:` table keyed by shortcut name,
+/// e.g.:
+/// ```yaml
+/// shortcut_models:
+///   fast: groq llama-3.1-8b-instant
+///   opus: openai gpt-4.1
+/// ```
+/// Returns `None` when the shortcut isn't overridable, no override is set, or
+/// the override value is malformed (a warning is printed in the latter case).
+pub fn shortcut_model_override(cmd: &Commands) -> Option<Model> {
+  let key = cmd.config_key()?;
+  let raw = cached_config().get(&format!("shortcut_models.{key}"))?;
+  if raw.trim().is_empty() {
+    return None;
+  }
+  match parse_model_override(raw) {
+    Some(model) => Some(model),
+    None => {
+      eprintln!(
+        "⚠️  Invalid model override for `shortcut_models.{key}`: '{raw}'. \
+        Expected format '<provider> <model>', \
+        e.g. 'anthropic claude-opus-4-8'. Using default."
+      );
+      None
+    }
+  }
+}
+
+/// Resolve the model for a shortcut, preferring a config override over the
+/// built-in `default`.
+pub fn shortcut_model(cmd: &Commands, default: Model) -> Model {
+  shortcut_model_override(cmd).unwrap_or(default)
+}
+
 fn get_secrets_path_str() -> String {
   let xdg_dirs = BaseDirectories::with_prefix("cai").unwrap();
   let secrets_path = xdg_dirs
@@ -487,11 +564,43 @@ pub fn get_full_config(
     .build()
     .unwrap();
 
-  Ok(
-    config //
-      .try_deserialize::<HashMap<String, String>>()
-      .unwrap(),
-  )
+  // Deserialize into the config crate's own value type first so that nested
+  // tables (e.g. the `models:` section) don't break a flat string mapping.
+  // Nested tables are then flattened into dotted keys (e.g. `models.fast`).
+  let raw = config.try_deserialize::<HashMap<String, config::Value>>()?;
+  let mut flat = HashMap::new();
+  for (key, value) in raw {
+    flatten_config_value(&key, value, &mut flat);
+  }
+  Ok(flat)
+}
+
+/// Flatten a (possibly nested) config value into dotted string keys.
+/// Tables recurse with a `parent.child` prefix; scalars are stringified;
+/// arrays and nulls are dropped.
+fn flatten_config_value(
+  prefix: &str,
+  value: config::Value,
+  out: &mut HashMap<String, String>,
+) {
+  match value.kind {
+    config::ValueKind::Table(table) => {
+      for (key, val) in table {
+        let full_key = if prefix.is_empty() {
+          key
+        } else {
+          format!("{prefix}.{key}")
+        };
+        flatten_config_value(&full_key, val, out);
+      }
+    }
+    config::ValueKind::Nil | config::ValueKind::Array(_) => {}
+    _ => {
+      if let Ok(string) = value.into_string() {
+        out.insert(prefix.to_string(), string);
+      }
+    }
+  }
 }
 
 fn get_http_req(
@@ -1729,7 +1838,10 @@ pub async fn prompt_with_lang_cntxt(
     Keep your answer concise and to the point.\n"
   );
 
-  let model = Model::Model(Provider::Anthropic, "claude-haiku-4-5".to_string());
+  let model = shortcut_model(
+    cmd,
+    Model::Model(Provider::Anthropic, "claude-haiku-4-5".to_string()),
+  );
 
   if let Err(err) = exec_tool(
     &Some(&model),
@@ -2563,6 +2675,83 @@ mod tests {
         "Failed for model {model}"
       );
     }
+  }
+
+  #[test]
+  fn test_parse_model_override() {
+    assert_eq!(
+      parse_model_override("anthropic claude-opus-4-8"),
+      Some(Model::Model(
+        Provider::Anthropic,
+        "claude-opus-4-8".to_string()
+      ))
+    );
+    // Case-insensitive provider, surrounding whitespace trimmed
+    assert_eq!(
+      parse_model_override("  OpenAI   gpt-4.1  "),
+      Some(Model::Model(Provider::OpenAI, "gpt-4.1".to_string()))
+    );
+    // Model id may itself contain a slash
+    assert_eq!(
+      parse_model_override("groq openai/gpt-oss-120b"),
+      Some(Model::Model(
+        Provider::Groq,
+        "openai/gpt-oss-120b".to_string()
+      ))
+    );
+    // Bare provider with no model id (e.g. llamafile)
+    assert_eq!(
+      parse_model_override("llamafile"),
+      Some(Model::Model(Provider::Llamafile, String::new()))
+    );
+    // Unknown provider is rejected
+    assert_eq!(parse_model_override("acme some-model"), None);
+    assert_eq!(parse_model_override("not-a-provider"), None);
+  }
+
+  #[test]
+  fn test_flatten_config_value() {
+    // A nested `shortcut_models` table is flattened into dotted keys, scalars
+    // are stringified, and arrays/nulls are dropped.
+    let shortcut_models = config::Value::from(HashMap::from([
+      ("fast".to_string(), "groq llama".to_string()),
+      ("opus".to_string(), "openai gpt-4.1".to_string()),
+    ]));
+    let mut out = HashMap::new();
+    flatten_config_value("openai_api_key", "secret".into(), &mut out);
+    flatten_config_value("shortcut_models", shortcut_models, &mut out);
+
+    assert_eq!(
+      out.get("openai_api_key").map(String::as_str),
+      Some("secret")
+    );
+    assert_eq!(
+      out.get("shortcut_models.fast").map(String::as_str),
+      Some("groq llama")
+    );
+    assert_eq!(
+      out.get("shortcut_models.opus").map(String::as_str),
+      Some("openai gpt-4.1")
+    );
+  }
+
+  #[test]
+  fn test_config_key_overridable_and_not() {
+    // Shortcut with a default model is overridable
+    assert_eq!(
+      Commands::ClaudeOpus { prompt: vec![] }.config_key(),
+      Some("opus")
+    );
+    assert_eq!(Commands::Py { prompt: vec![] }.config_key(), Some("py"));
+    // Commands taking an explicit model arg are not overridable
+    assert_eq!(
+      Commands::Anthropic {
+        model: "x".to_string(),
+        prompt: vec![]
+      }
+      .config_key(),
+      None
+    );
   }
 
   #[test]

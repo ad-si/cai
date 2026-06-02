@@ -4,8 +4,9 @@ use std::io::{read_to_string, IsTerminal};
 use cai::{
   analyze_file_content, create_commits, edit_images, exec_tool,
   extract_text_from_file, generate_changelog, google_ocr_file,
-  is_deepseek_model, prompt_with_lang_cntxt, run_shell_command, submit_prompt,
-  transcribe_audio_file, Commands, ExecOptions, Model, Provider,
+  is_deepseek_model, prompt_with_lang_cntxt, run_shell_command, shortcut_model,
+  shortcut_model_override, submit_prompt, transcribe_audio_file, Commands,
+  ExecOptions, Model, Provider,
 };
 use chrono::NaiveDateTime;
 use clap::crate_description;
@@ -233,19 +234,24 @@ async fn exec_with_args(args: Args, stdin: &str) {
     }
     Some(cmd) => match &cmd {
       Commands::Fast { prompt } => {
+        let model = shortcut_model(
+          &cmd,
+          Model::Model(Provider::Groq, "openai/gpt-oss-20b".to_string()),
+        );
         submit_prompt(
-          &Some(&Model::Model(
-            Provider::Groq,
-            "openai/gpt-oss-20b".to_string(),
-          )),
+          &Some(&model),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
       Commands::Local { prompt } => {
+        let model = shortcut_model(
+          &cmd,
+          Model::Model(Provider::Ollama, "llama3.2".to_string()),
+        );
         submit_prompt(
-          &Some(&Model::Model(Provider::Ollama, "llama3.2".to_string())),
+          &Some(&model),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
@@ -258,12 +264,12 @@ async fn exec_with_args(args: Args, stdin: &str) {
           reasoning, or additional information. Just give me the answer value.\n\n{}",
           prompt.join(" ")
         );
-        submit_prompt(
-          &Some(&Model::Model(Provider::OpenAI, "gpt-5".to_string())),
-          &opts,
-          &format!("{stdin}{value_prompt}"),
-        )
-        .await
+        let model = shortcut_model(
+          &cmd,
+          Model::Model(Provider::OpenAI, "gpt-5".to_string()),
+        );
+        submit_prompt(&Some(&model), &opts, &format!("{stdin}{value_prompt}"))
+          .await
       }
       Commands::Short { prompt } => {
         let short_prompt = format!(
@@ -272,7 +278,9 @@ async fn exec_with_args(args: Args, stdin: &str) {
           Avoid unnecessary elaboration or tangential information.\n\n{}",
           prompt.join(" ")
         );
-        submit_prompt(&None, &opts, &format!("{stdin}{short_prompt}")).await
+        let model = shortcut_model_override(&cmd);
+        submit_prompt(&model.as_ref(), &opts, &format!("{stdin}{short_prompt}"))
+          .await
       }
       Commands::Svg { prompt } => {
         // Force raw so only the SVG markup is printed
@@ -285,12 +293,12 @@ async fn exec_with_args(args: Args, stdin: &str) {
           prompt.join(" ")
         );
 
-        submit_prompt(
-          &Some(&Model::Model(Provider::OpenAI, "gpt-5-mini".to_string())),
-          &opts_svg,
-          &format!("{stdin}{svg_prompt}"),
-        )
-        .await
+        let model = shortcut_model(
+          &cmd,
+          Model::Model(Provider::OpenAI, "gpt-5-mini".to_string()),
+        );
+        submit_prompt(&Some(&model), &opts_svg, &format!("{stdin}{svg_prompt}"))
+          .await
       }
       Commands::Edit {} => {
         // Create a temp file and open it in the user's editor
@@ -448,12 +456,11 @@ async fn exec_with_args(args: Args, stdin: &str) {
           prompt.join(" ")
         );
 
-        submit_prompt(
-          &Some(&Model::Model(Provider::OpenAI, "gpt-5".to_string())),
-          &opts,
-          &reply_prompt,
-        )
-        .await
+        let model = shortcut_model(
+          &cmd,
+          Model::Model(Provider::OpenAI, "gpt-5".to_string()),
+        );
+        submit_prompt(&Some(&model), &opts, &reply_prompt).await
       }
       Commands::Run { prompt } => {
         if prompt.is_empty() {
@@ -515,12 +522,11 @@ async fn exec_with_args(args: Args, stdin: &str) {
         let mut rewrite_opts = opts.clone();
         rewrite_opts.is_raw = true;
 
-        submit_prompt(
-          &Some(&Model::Model(Provider::OpenAI, "gpt-5".to_string())),
-          &rewrite_opts,
-          &rewrite_prompt,
-        )
-        .await
+        let model = shortcut_model(
+          &cmd,
+          Model::Model(Provider::OpenAI, "gpt-5".to_string()),
+        );
+        submit_prompt(&Some(&model), &rewrite_opts, &rewrite_prompt).await
       }
       Commands::Transcribe { file } => {
         if let Err(_err) = transcribe_audio_file(&opts, file).await {
@@ -605,22 +611,24 @@ async fn exec_with_args(args: Args, stdin: &str) {
         .await
       }
       Commands::Gemini { prompt } => {
+        let model = shortcut_model(
+          &cmd,
+          Model::Model(Provider::Google, "gemini-2.5-flash".to_string()),
+        );
         submit_prompt(
-          &Some(&Model::Model(
-            Provider::Google,
-            "gemini-2.5-flash".to_string(),
-          )),
+          &Some(&model),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
       Commands::GeminiFlash { prompt } => {
+        let model = shortcut_model(
+          &cmd,
+          Model::Model(Provider::Google, "gemini-2.5-flash".to_string()),
+        );
         submit_prompt(
-          &Some(&Model::Model(
-            Provider::Google,
-            "gemini-2.5-flash".to_string(),
-          )),
+          &Some(&model),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
@@ -646,11 +654,12 @@ async fn exec_with_args(args: Args, stdin: &str) {
         .await
       }
       Commands::Llama3 { prompt } => {
+        let model = shortcut_model(
+          &cmd,
+          Model::Model(Provider::Groq, "llama-3.1-8b-instant".to_string()),
+        );
         submit_prompt(
-          &Some(&Model::Model(
-            Provider::Groq,
-            "llama-3.1-8b-instant".to_string(),
-          )),
+          &Some(&model),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
@@ -688,40 +697,60 @@ async fn exec_with_args(args: Args, stdin: &str) {
         .await
       }
       Commands::Gpt5 { prompt } => {
+        let model = shortcut_model(
+          &cmd,
+          Model::Model(Provider::OpenAI, "gpt-5".to_string()),
+        );
         submit_prompt(
-          &Some(&Model::Model(Provider::OpenAI, "gpt-5".to_string())),
+          &Some(&model),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
       Commands::Gpt5Mini { prompt } => {
+        let model = shortcut_model(
+          &cmd,
+          Model::Model(Provider::OpenAI, "gpt-5-mini".to_string()),
+        );
         submit_prompt(
-          &Some(&Model::Model(Provider::OpenAI, "gpt-5-mini".to_string())),
+          &Some(&model),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
       Commands::Gpt5Nano { prompt } => {
+        let model = shortcut_model(
+          &cmd,
+          Model::Model(Provider::OpenAI, "gpt-5-nano".to_string()),
+        );
         submit_prompt(
-          &Some(&Model::Model(Provider::OpenAI, "gpt-5-nano".to_string())),
+          &Some(&model),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
       Commands::Gpt41 { prompt } => {
+        let model = shortcut_model(
+          &cmd,
+          Model::Model(Provider::OpenAI, "gpt-4.1".to_string()),
+        );
         submit_prompt(
-          &Some(&Model::Model(Provider::OpenAI, "gpt-4.1".to_string())),
+          &Some(&model),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
       Commands::Gpt41Mini { prompt } => {
+        let model = shortcut_model(
+          &cmd,
+          Model::Model(Provider::OpenAI, "gpt-4.1-mini".to_string()),
+        );
         submit_prompt(
-          &Some(&Model::Model(Provider::OpenAI, "gpt-4.1-mini".to_string())),
+          &Some(&model),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
@@ -736,33 +765,36 @@ async fn exec_with_args(args: Args, stdin: &str) {
         .await
       }
       Commands::ClaudeOpus { prompt } => {
+        let model = shortcut_model(
+          &cmd,
+          Model::Model(Provider::Anthropic, "claude-opus-4-8".to_string()),
+        );
         submit_prompt(
-          &Some(&Model::Model(
-            Provider::Anthropic,
-            "claude-opus-4-8".to_string(),
-          )),
+          &Some(&model),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
       Commands::ClaudeSonnet { prompt } => {
+        let model = shortcut_model(
+          &cmd,
+          Model::Model(Provider::Anthropic, "claude-sonnet-4-6".to_string()),
+        );
         submit_prompt(
-          &Some(&Model::Model(
-            Provider::Anthropic,
-            "claude-sonnet-4-6".to_string(),
-          )),
+          &Some(&model),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
       Commands::ClaudeHaiku { prompt } => {
+        let model = shortcut_model(
+          &cmd,
+          Model::Model(Provider::Anthropic, "claude-haiku-4-5".to_string()),
+        );
         submit_prompt(
-          &Some(&Model::Model(
-            Provider::Anthropic,
-            "claude-haiku-4-5".to_string(),
-          )),
+          &Some(&model),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
@@ -793,8 +825,12 @@ async fn exec_with_args(args: Args, stdin: &str) {
         .await //
       }
       Commands::Grok { prompt } => {
+        let model = shortcut_model(
+          &cmd,
+          Model::Model(Provider::XAI, "grok-4-latest".to_string()),
+        );
         submit_prompt(
-          &Some(&Model::Model(Provider::XAI, "grok-4-latest".to_string())),
+          &Some(&model),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
@@ -809,49 +845,60 @@ async fn exec_with_args(args: Args, stdin: &str) {
         .await
       }
       Commands::Sonar { prompt } => {
+        let model = shortcut_model(
+          &cmd,
+          Model::Model(Provider::Perplexity, "sonar".to_string()),
+        );
         submit_prompt(
-          &Some(&Model::Model(Provider::Perplexity, "sonar".to_string())),
+          &Some(&model),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
       Commands::SonarPro { prompt } => {
+        let model = shortcut_model(
+          &cmd,
+          Model::Model(Provider::Perplexity, "sonar-pro".to_string()),
+        );
         submit_prompt(
-          &Some(&Model::Model(Provider::Perplexity, "sonar-pro".to_string())),
+          &Some(&model),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
       Commands::SonarReasoning { prompt } => {
+        let model = shortcut_model(
+          &cmd,
+          Model::Model(Provider::Perplexity, "sonar-reasoning".to_string()),
+        );
         submit_prompt(
-          &Some(&Model::Model(
-            Provider::Perplexity,
-            "sonar-reasoning".to_string(),
-          )),
+          &Some(&model),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
       Commands::SonarReasoningPro { prompt } => {
+        let model = shortcut_model(
+          &cmd,
+          Model::Model(Provider::Perplexity, "sonar-reasoning-pro".to_string()),
+        );
         submit_prompt(
-          &Some(&Model::Model(
-            Provider::Perplexity,
-            "sonar-reasoning-pro".to_string(),
-          )),
+          &Some(&model),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
       Commands::SonarDeepResearch { prompt } => {
+        let model = shortcut_model(
+          &cmd,
+          Model::Model(Provider::Perplexity, "sonar-deep-research".to_string()),
+        );
         submit_prompt(
-          &Some(&Model::Model(
-            Provider::Perplexity,
-            "sonar-deep-research".to_string(),
-          )),
+          &Some(&model),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )

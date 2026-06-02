@@ -700,4 +700,81 @@ impl Commands {
     }
     .map(|s| s.to_string())
   }
+
+  /// Config key prefix used to override a shortcut's default model via
+  /// `~/.config/cai/config.yaml` (the looked-up key is `<prefix>_model`).
+  ///
+  /// Returns `None` for commands that don't have an overridable default model,
+  /// i.e. commands that already take an explicit model argument
+  /// (e.g. `anthropic`, `openai`) or that are tied to a specific modality
+  /// (e.g. image generation, text-to-speech, OCR).
+  pub fn config_key(&self) -> Option<&'static str> {
+    match self {
+      // Generic chat shortcuts
+      Commands::Fast { .. } => Some("fast"),
+      Commands::Local { .. } => Some("local"),
+      Commands::Value { .. } => Some("value"),
+      Commands::Short { .. } => Some("short"),
+      Commands::Svg { .. } => Some("svg"),
+      Commands::Reply { .. } => Some("reply"),
+      Commands::Rewrite { .. } => Some("rewrite"),
+
+      // Provider default-model shortcuts
+      Commands::Gemini { .. } => Some("gemini"),
+      Commands::GeminiFlash { .. } => Some("flash"),
+      Commands::Llama3 { .. } => Some("llama"),
+      Commands::Gpt5 { .. } => Some("gpt5"),
+      Commands::Gpt5Mini { .. } => Some("gpt5m"),
+      Commands::Gpt5Nano { .. } => Some("gpt5n"),
+      Commands::Gpt41 { .. } => Some("gpt41"),
+      Commands::Gpt41Mini { .. } => Some("gpt41m"),
+      Commands::ClaudeOpus { .. } => Some("opus"),
+      Commands::ClaudeSonnet { .. } => Some("sonnet"),
+      Commands::ClaudeHaiku { .. } => Some("haiku"),
+      Commands::Grok { .. } => Some("grok"),
+      Commands::Sonar { .. } => Some("sonar"),
+      Commands::SonarPro { .. } => Some("sonpro"),
+      Commands::SonarReasoning { .. } => Some("sonreas"),
+      Commands::SonarReasoningPro { .. } => Some("sonreaspro"),
+      Commands::SonarDeepResearch { .. } => Some("sondeep"),
+
+      // Coding (language context) shortcuts
+      Commands::Bash { .. } => Some("bash"),
+      Commands::C { .. } => Some("c"),
+      Commands::Cpp { .. } => Some("cpp"),
+      Commands::Cs { .. } => Some("cs"),
+      Commands::Docker { .. } => Some("docker"),
+      Commands::Elm { .. } => Some("elm"),
+      Commands::Fish { .. } => Some("fish"),
+      Commands::Fs { .. } => Some("fs"),
+      Commands::Gd { .. } => Some("gd"),
+      Commands::Git { .. } => Some("git"),
+      Commands::Gl { .. } => Some("gl"),
+      Commands::Golang { .. } => Some("go"),
+      Commands::Hs { .. } => Some("hs"),
+      Commands::Java { .. } => Some("java"),
+      Commands::Js { .. } => Some("js"),
+      Commands::Kt { .. } => Some("kt"),
+      Commands::Lua { .. } => Some("lua"),
+      Commands::Ly { .. } => Some("ly"),
+      Commands::Nix { .. } => Some("nix"),
+      Commands::Oc { .. } => Some("oc"),
+      Commands::Pg { .. } => Some("pg"),
+      Commands::Php { .. } => Some("php"),
+      Commands::Ps { .. } => Some("ps"),
+      Commands::Py { .. } => Some("py"),
+      Commands::Rb { .. } => Some("rb"),
+      Commands::Rs { .. } => Some("rs"),
+      Commands::Sql { .. } => Some("sql"),
+      Commands::Sw { .. } => Some("sw"),
+      Commands::Ts { .. } => Some("ts"),
+      Commands::Ty { .. } => Some("ty"),
+      Commands::Wl { .. } => Some("wl"),
+      Commands::Zig { .. } => Some("zig"),
+      Commands::Jq { .. } => Some("jq"),
+
+      // Everything else has no overridable default model
+      _ => None,
+    }
+  }
 }

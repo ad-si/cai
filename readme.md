@@ -225,6 +225,16 @@ Examples:
   
 ```
 
+The provider must be one of:
+`anthropic`, `cerebras`, `deepseek`, `google`, `groq`,
+`openai`, `llamafile`, `ollama`, `xai`, `perplexity`.
+
+The key for a shortcut is its subcommand name
+(e.g. `gpt5m`, `sonpro`).
+Shortcuts that already take an explicit model argument
+(`anthropic`, `openai`, `ollama`, …) and modality-specific commands
+(image generation, text-to-speech, OCR) cannot be overridden this way.
+
 
 ## Related
 
