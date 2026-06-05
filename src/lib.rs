@@ -1898,20 +1898,130 @@ async fn generate_command(
   Ok(command)
 }
 
+/// Run `command` via `bash -c`, streaming its stdout/stderr to the terminal
+/// live while also capturing them so the output can be inspected afterwards.
+/// stdin is inherited so interactive commands keep working.
+fn exec_and_capture(
+  command: &str,
+) -> std::io::Result<(std::process::ExitStatus, String, String)> {
+  use std::io::Read;
+  use std::process::Stdio;
+
+  let mut child = std::process::Command::new("bash")
+    .arg("-c")
+    .arg(command)
+    .stdin(Stdio::inherit())
+    .stdout(Stdio::piped())
+    .stderr(Stdio::piped())
+    .spawn()?;
+
+  // Tee a child pipe to the given terminal stream while capturing the bytes.
+  fn tee<R: Read + Send + 'static, W: Write + Send + 'static>(
+    mut reader: R,
+    mut writer: W,
+  ) -> std::thread::JoinHandle<String> {
+    std::thread::spawn(move || {
+      let mut captured = Vec::new();
+      let mut chunk = [0u8; 4096];
+      loop {
+        match reader.read(&mut chunk) {
+          Ok(0) | Err(_) => break,
+          Ok(n) => {
+            let _ = writer.write_all(&chunk[..n]);
+            let _ = writer.flush();
+            captured.extend_from_slice(&chunk[..n]);
+          }
+        }
+      }
+      String::from_utf8_lossy(&captured).into_owned()
+    })
+  }
+
+  let child_stdout = child.stdout.take().expect("piped stdout");
+  let child_stderr = child.stderr.take().expect("piped stderr");
+  let stdout_handle = tee(child_stdout, std::io::stdout());
+  let stderr_handle = tee(child_stderr, std::io::stderr());
+
+  let status = child.wait()?;
+  let captured_stdout = stdout_handle.join().unwrap_or_default();
+  let captured_stderr = stderr_handle.join().unwrap_or_default();
+  Ok((status, captured_stdout, captured_stderr))
+}
+
+/// Keep only the last `max_chars` characters, prefixing with a marker when
+/// truncated, so a large error log doesn't blow up the follow-up prompt.
+fn tail_chars(text: &str, max_chars: usize) -> String {
+  let chars: Vec<char> = text.chars().collect();
+  if chars.len() <= max_chars {
+    text.to_string()
+  } else {
+    let tail: String = chars[chars.len() - max_chars..].iter().collect();
+    format!("[... truncated ...]\n{tail}")
+  }
+}
+
+/// Resolve the on-disk paths of common shell tools so the model can tell
+/// which implementation it is dealing with (GNU coreutils vs BSD, or the exact
+/// package on Nix systems, where the store path encodes it). Returns a
+/// formatted, newline-separated `tool: /path` list, or an empty string if
+/// detection fails.
+fn detect_tool_locations() -> String {
+  const TOOLS: &[&str] = &[
+    "bash", "sed", "awk", "grep", "find", "stat", "date", "xargs", "sort",
+    "ls", "readlink", "head", "tail", "cut",
+  ];
+  // Only report absolute paths: a bare name means a builtin/alias/function,
+  // which carries no GNU-vs-BSD signal and would just be noise.
+  let script = TOOLS
+    .iter()
+    .map(|t| {
+      format!(
+        "p=$(command -v {t} 2>/dev/null); \
+        case \"$p\" in /*) echo \"{t}: $p\";; esac"
+      )
+    })
+    .collect::<Vec<_>>()
+    .join("; ");
+
+  match std::process::Command::new("bash")
+    .arg("-c")
+    .arg(&script)
+    .output()
+  {
+    Ok(out) => String::from_utf8_lossy(&out.stdout).trim().to_string(),
+    Err(_) => String::new(),
+  }
+}
+
 pub async fn run_shell_command(
   opts: &ExecOptions,
   prompt_text: &str,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
   let os = std::env::consts::OS;
+  let arch = std::env::consts::ARCH;
+
+  let tool_locations = detect_tool_locations();
+  let tools_section = if tool_locations.is_empty() {
+    String::new()
+  } else {
+    format!(
+      "\n\nResolved paths of common tools on this system, provided ONLY so you \
+      can pick the correct flag syntax — e.g. a `coreutils`/`findutils` (GNU) \
+      path means GNU flags, a macOS `/usr/bin` path or a `*-bsd-*` path means \
+      BSD flags. Do NOT put these absolute paths in the command: always invoke \
+      tools by their bare name (`find`, `sort`, …) and let `PATH` resolve them:\n\
+      {tool_locations}"
+    )
+  };
 
   let rules = format!(
     "Rules:\n\
     - Respond with ONLY the command. No explanations, no comments, \
       no markdown code fences.\n\
-    - The command will be executed via `bash -c` on `{os}`, \
+    - The command will be executed via `bash -c` on `{os}` ({arch}), \
       so use bash/POSIX syntax.\n\
     - It is fine to span multiple lines if needed for a heredoc \
-      or multi-statement pipeline."
+      or multi-statement pipeline.{tools_section}"
   );
 
   let initial_prompt = format!(
@@ -1952,17 +2062,47 @@ pub async fn run_shell_command(
 
     match choice.as_str() {
       "" | "y" | "yes" | "e" | "execute" => {
-        let status = std::process::Command::new("bash")
-          .arg("-c")
-          .arg(&command)
-          .status()?;
-        if !status.success() {
-          if let Some(code) = status.code() {
-            std::process::exit(code);
-          }
-          return Err("Command terminated by signal".into());
+        let (status, _stdout, stderr) = exec_and_capture(&command)?;
+        if status.success() {
+          return Ok(());
         }
-        return Ok(());
+
+        let code_str = status
+          .code()
+          .map(|c| c.to_string())
+          .unwrap_or_else(|| "signal".to_string());
+        eprintln!("\nCommand failed (exit {code_str}).");
+        print!("Ask AI to fix it from the error output? [y]es, [n]o: ");
+        std::io::stdout().flush()?;
+
+        let mut fix_input = String::new();
+        std::io::stdin().read_line(&mut fix_input)?;
+        match fix_input.trim().to_lowercase().as_str() {
+          "" | "y" | "yes" => {
+            let captured_stderr = if stderr.trim().is_empty() {
+              "(no stderr output)".to_string()
+            } else {
+              tail_chars(stderr.trim(), 4000)
+            };
+            let fix_prompt = format!(
+              "You are a shell command generator. \
+              The user originally requested: {prompt_text}\n\n\
+              You generated this command:\n{command}\n\n\
+              It failed with exit code {code_str} \
+              and produced this stderr:\n{captured_stderr}\n\n\
+              Generate a corrected shell command that fixes the error.\n\n\
+              {rules}"
+            );
+            command =
+              generate_command(&http_req, &raw_opts, &fix_prompt).await?;
+          }
+          _ => {
+            if let Some(code) = status.code() {
+              std::process::exit(code);
+            }
+            return Err("Command terminated by signal".into());
+          }
+        }
       }
       "c" | "change" => {
         print!("Describe the change: ");
