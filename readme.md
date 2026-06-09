@@ -130,6 +130,7 @@ Commands:
   gpt41         - gpt-4.1 shortcut
   gpt41m        - gpt-4.1-mini shortcut
   anthropic     Anthropic [aliases: an]
+  fable         - Claude Fable [aliases: fa]
   opus          - Claude Opus [aliases: claude, cl]
   sonnet        - Claude Sonnet [aliases: so]
   haiku         - Claude Haiku [aliases: ha]

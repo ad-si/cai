@@ -300,6 +300,12 @@ for all supported model ids):"
     #[clap(required(true))]
     prompt: Vec<String>,
   },
+  /// - Claude Fable
+  #[clap(name = "fable", visible_alias = "fa")]
+  ClaudeFable {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
   /// - Claude Opus
   #[clap(name = "opus", visible_alias = "claude", visible_alias = "cl")]
   ClaudeOpus {
@@ -650,6 +656,7 @@ impl Commands {
       Commands::Gpt41 { .. } => None,
       Commands::Gpt41Mini { .. } => None,
       Commands::Anthropic { .. } => None,
+      Commands::ClaudeFable { .. } => None,
       Commands::ClaudeOpus { .. } => None,
       Commands::ClaudeSonnet { .. } => None,
       Commands::ClaudeHaiku { .. } => None,
@@ -728,6 +735,7 @@ impl Commands {
       Commands::Gpt5Nano { .. } => Some("gpt5n"),
       Commands::Gpt41 { .. } => Some("gpt41"),
       Commands::Gpt41Mini { .. } => Some("gpt41m"),
+      Commands::ClaudeFable { .. } => Some("fable"),
       Commands::ClaudeOpus { .. } => Some("opus"),
       Commands::ClaudeSonnet { .. } => Some("sonnet"),
       Commands::ClaudeHaiku { .. } => Some("haiku"),

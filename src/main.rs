@@ -764,6 +764,18 @@ async fn exec_with_args(args: Args, stdin: &str) {
         )
         .await
       }
+      Commands::ClaudeFable { prompt } => {
+        let model = shortcut_model(
+          &cmd,
+          Model::Model(Provider::Anthropic, "claude-fable-5".to_string()),
+        );
+        submit_prompt(
+          &Some(&model),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
       Commands::ClaudeOpus { prompt } => {
         let model = shortcut_model(
           &cmd,
