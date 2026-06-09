@@ -13,6 +13,12 @@ pub enum Commands {
     prompt: Vec<String>,
   },
 
+  /// Shortcut for `anthropic claude-fable-5`
+  Smart {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+
   /// Shortcut for `ollama llama3.2`
   Local {
     /// The prompt to send to the AI model
@@ -610,6 +616,7 @@ impl Commands {
     match &self {
       Commands::Edit { .. } => None,
       Commands::Fast { .. } => None,
+      Commands::Smart { .. } => None,
       Commands::Local { .. } => None,
       Commands::Value { .. } => Some("Value"),
       Commands::Short { .. } => Some("Short"),
@@ -719,6 +726,7 @@ impl Commands {
     match self {
       // Generic chat shortcuts
       Commands::Fast { .. } => Some("fast"),
+      Commands::Smart { .. } => Some("smart"),
       Commands::Local { .. } => Some("local"),
       Commands::Value { .. } => Some("value"),
       Commands::Short { .. } => Some("short"),

@@ -88,6 +88,7 @@ Usage: cai [OPTIONS] [PROMPT]... [COMMAND]
 
 Commands:
   fast          Shortcut for `cerebras gpt-oss-120b`
+  smart         Shortcut for `anthropic claude-fable-5`
   local         Shortcut for `ollama llama3.2`
   value         Return only the value/answer without explanations
   short         Answer the prompt in a short, compact, and focused manner
