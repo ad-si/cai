@@ -69,7 +69,7 @@ const ANTHROPIC_MODEL_MAPPING_SRC: [(&str, &str); 26] = [
   ("sonnet-4-0", "claude-sonnet-4-0"),
 ];
 
-const GROQ_MODEL_MAPPING_SRC: [(&str, &str); 14] = [
+const GROQ_MODEL_MAPPING_SRC: [(&str, &str); 11] = [
   ///// Default models /////
   // GPT OSS
   ("gpt", "openai/gpt-oss-20b"),
@@ -78,7 +78,6 @@ const GROQ_MODEL_MAPPING_SRC: [(&str, &str); 14] = [
   ("llama", "llama-3.1-8b-instant"),
   ("ll", "llama-3.1-8b-instant"),
   ("llama-instant", "llama-3.1-8b-instant"),
-  ("llama-versatile", "llama-3.3-70b-versatile"),
   ///// Specific versions /////
   // GPT OSS
   ("gpt-20b", "openai/gpt-oss-20b"),
@@ -86,13 +85,9 @@ const GROQ_MODEL_MAPPING_SRC: [(&str, &str); 14] = [
   // Llama 3.1
   ("llama31", "llama-3.1-8b-instant"),
   ("llama31-8b", "llama-3.1-8b-instant"),
-  // Llama 3.3
-  ("llama33-70b", "llama-3.3-70b-versatile"),
   // Whisper
   ("whisper", "whisper-large-v3"),
   ("whisper-turbo", "whisper-large-v3-turbo"),
-  // Qwen
-  ("qwen", "qwen/qwen3-32b"),
 ];
 
 const CEREBRAS_MODEL_MAPPING_SRC: [(&str, &str); 5] = [
