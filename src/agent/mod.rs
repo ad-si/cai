@@ -42,7 +42,7 @@ pub(crate) struct ReadState {
   pub size: u64,
 }
 
-const DEFAULT_AGENT_MODEL: &str = "claude-sonnet-4-6";
+const DEFAULT_AGENT_MODEL: &str = "claude-sonnet-5";
 const FETCH_HELPER_MODEL: &str = "claude-haiku-4-5";
 
 pub async fn run_agent(

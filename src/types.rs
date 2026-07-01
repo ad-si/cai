@@ -177,7 +177,7 @@ pub enum Commands {
 
 - Groq GPT OSS 20B
 - Cerebras GPT OSS 120B
-- Anthropic Claude Sonnet 4.0
+- Anthropic Claude Sonnet 5
 - Google Gemini 2.5 Flash
 - OpenAI GPT-5 mini
 - Ollama Llama 3
