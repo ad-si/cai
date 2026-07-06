@@ -13,14 +13,25 @@ use clap::crate_description;
 use clap::{builder::styling, crate_version, Parser};
 use color_print::cformat;
 use futures::future::join_all;
+use futures::StreamExt;
 use serde_json::{json, Value};
 use std::error::Error;
+use std::sync::Mutex;
+
+/// Maximum number of files renamed concurrently,
+/// to avoid exhausting file descriptors or hitting API rate limits
+const MAX_CONCURRENT_RENAMES: usize = 8;
+
+/// Serializes the check-for-free-name + rename step in `rename_file`
+/// so concurrent tasks can't pick the same target name
+static RENAME_LOCK: Mutex<()> = Mutex::new(());
 
 // Rename a single file
 async fn process_rename(
   opts: &ExecOptions,
   file: &str,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
+  eprintln!("{}", cformat!("<dim>Processing {file} …</dim>"));
   match analyze_file_content(opts, file).await {
     Ok(analysis) => {
       let timestamp_str = analysis.timestamp.unwrap_or_default();
@@ -57,11 +68,18 @@ async fn process_rename(
           },
           "",
         );
-      rename_file(file.to_string(), timestamp, description);
+      rename_file(file.to_string(), timestamp, description)?;
       Ok(())
     }
     Err(error) => match error.downcast_ref::<std::io::Error>() {
       Some(err) if err.kind() == std::io::ErrorKind::InvalidData => {
+        eprintln!(
+          "{}",
+          cformat!(
+            "<dim>{file}: No text content found, \
+            keeping original name and using creation time …</dim>"
+          )
+        );
         // If it's not a text file, use the creation time
         let timestamp = std::fs::metadata(file)
           .map(|meta| {
@@ -80,16 +98,16 @@ async fn process_rename(
             chrono::Local::now().format("%Y-%m-%dt%H%M").to_string()
           });
 
-        std::path::Path::new(file)
+        let file_name = std::path::Path::new(file)
           .file_stem()
           .and_then(|file_name_no_ext| {
             file_name_no_ext.to_str().map(|s| s.to_string())
           })
-          .map(|file_name| rename_file(file.to_string(), timestamp, file_name))
           .ok_or_else(|| {
-            // Could not rename -> propagate error
+            // Could not determine a new name -> propagate error
             Box::<dyn Error + Send + Sync>::from("Failed to rename file")
           })?;
+        rename_file(file.to_string(), timestamp, file_name)?;
         Ok(())
       }
       _ => Err(error),
@@ -434,11 +452,35 @@ async fn exec_with_args(args: Args, stdin: &str) {
         }
       }
       Commands::Rename { files } => {
-        for file in files {
-          if let Err(e) = process_rename(&opts, file).await {
-            eprintln!("{e}");
-            std::process::exit(1);
+        let results = futures::stream::iter(files)
+          .map(|file| {
+            let opts = &opts;
+            async move { (file, process_rename(opts, file).await) }
+          })
+          .buffer_unordered(MAX_CONCURRENT_RENAMES)
+          .collect::<Vec<_>>()
+          .await;
+
+        let errors = results
+          .iter()
+          .filter_map(|(file, result)| {
+            result.as_ref().err().map(|err| (file, err))
+          })
+          .collect::<Vec<_>>();
+
+        if !errors.is_empty() {
+          for (file, err) in &errors {
+            eprintln!(
+              "{}",
+              cformat!("<red>Error renaming {file}: {err}</red>")
+            );
           }
+          eprintln!(
+            "{} of {} files could not be renamed",
+            errors.len(),
+            results.len()
+          );
+          std::process::exit(1);
         }
       }
       Commands::Changelog { commit_hash } => {
@@ -1095,32 +1137,40 @@ async fn exec_with_args(args: Args, stdin: &str) {
   };
 }
 
-fn rename_file(file: String, timestamp: String, description: String) {
+fn rename_file(
+  file: String,
+  timestamp: String,
+  description: String,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
   let path = std::path::Path::new(&file);
   let ext = path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
-  let mut new_name = path
-    .parent()
-    .unwrap_or_else(|| std::path::Path::new(""))
+  let parent = path.parent().unwrap_or_else(|| std::path::Path::new(""));
+  let mut new_name = parent
     .join(format!("{timestamp}_{description}.{ext}"))
     .to_str()
-    .unwrap()
+    .ok_or("New file name is not valid UTF-8")?
     .to_string();
 
+  // Hold the lock until the rename is done, otherwise concurrent tasks
+  // could pick the same free name and overwrite each other's files
+  let _guard = RENAME_LOCK
+    .lock()
+    .unwrap_or_else(|poisoned| poisoned.into_inner());
+
   let mut counter = 0;
-  loop {
-    if std::path::Path::new(&new_name).exists() {
-      counter += 1;
-      new_name = format!("{timestamp}_{description}_{counter}.{ext}")
-    } else {
-      break;
-    }
+  while std::path::Path::new(&new_name).exists() {
+    counter += 1;
+    new_name = parent
+      .join(format!("{timestamp}_{description}_{counter}.{ext}"))
+      .to_str()
+      .ok_or("New file name is not valid UTF-8")?
+      .to_string();
   }
 
-  if let Err(err) = std::fs::rename(&file, &new_name) {
-    eprintln!("Error renaming file: {err}");
-    std::process::exit(1);
-  }
+  std::fs::rename(&file, &new_name)
+    .map_err(|err| format!("Error renaming file: {err}"))?;
   println!("Renamed {file} to {new_name}");
+  Ok(())
 }
 
 #[tokio::main]
