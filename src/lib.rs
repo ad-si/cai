@@ -1490,13 +1490,140 @@ pub struct FileAnalysis {
   pub timestamp: Option<String>,
 }
 
+const OCR_PROMPT: &str = "Extract and return all text from this image. \
+  Just the text and no explanation!";
+
+/// Extract all text from an image via OCR with a vision model
+/// and return it as a string.
+async fn ocr_image_to_text(
+  file_path: &str,
+) -> Result<String, Box<dyn Error + Send + Sync>> {
+  let file_content = std::fs::read(file_path)?;
+  let base64_content =
+    base64::engine::general_purpose::STANDARD.encode(&file_content);
+  let mime_type = get_image_mime_type(file_path);
+
+  let secrets_path_str = get_secrets_path_str();
+  let full_config = get_full_config(&secrets_path_str)?;
+
+  // OpenAI's vision API doesn't accept HEIC/HEIF, but Google Gemini does
+  if mime_type == "image/heic" || mime_type == "image/heif" {
+    eprintln!(
+      "{}",
+      cformat!(
+        "<dim>{file_path}: \
+        Extracting text from image with Google Gemini …</dim>"
+      )
+    );
+    let model =
+      Model::Model(Provider::Google, "gemini-3-pro-preview".to_string());
+    let (_used_model, http_req) =
+      get_http_req(&Some(&model), &secrets_path_str, &full_config)?;
+
+    let req_body_obj = json!({
+      "contents": [{
+        "parts": [
+          { "text": OCR_PROMPT },
+          {
+            "inlineData": {
+              "mimeType": mime_type,
+              "data": base64_content
+            }
+          }
+        ]
+      }],
+      "generationConfig": {
+        "mediaResolution": "media_resolution_high"
+      }
+    });
+
+    let resp = exec_request(&http_req, &req_body_obj, false).await?;
+
+    if resp.status().is_success() {
+      let json_val = resp.json::<Value>().await?;
+      Ok(
+        json_val["candidates"][0]["content"]["parts"][0]["text"]
+          .as_str()
+          .unwrap_or_default()
+          .to_string(),
+      )
+    } else {
+      let json_val = resp.json::<Value>().await?;
+      let json_str = serde_json::to_string_pretty(&json_val).unwrap();
+      Err(json_str.into())
+    }
+  } else {
+    eprintln!(
+      "{}",
+      cformat!(
+        "<dim>{file_path}: Extracting text from image with OpenAI …</dim>"
+      )
+    );
+    let model = Model::Model(Provider::OpenAI, "gpt-5-mini".to_string());
+    let (_used_model, http_req) =
+      get_http_req(&Some(&model), &secrets_path_str, &full_config)?;
+
+    let req_body_obj = json!({
+      "model": http_req.model,
+      "max_completion_tokens": http_req.max_tokens,
+      "messages": [{
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": OCR_PROMPT
+          },
+          {
+            "type": "image_url",
+            "image_url": {
+              "url": format!("data:{mime_type};base64,{base64_content}")
+            }
+          }
+        ]
+      }]
+    });
+
+    let resp = exec_request(&http_req, &req_body_obj, false).await?;
+
+    if resp.status().is_success() {
+      let ai_response = resp.json::<AiResponse>().await?;
+      Ok(ai_response.choices[0].message.content.clone())
+    } else {
+      let json_val = resp.json::<Value>().await?;
+      let json_str = serde_json::to_string_pretty(&json_val).unwrap();
+      Err(json_str.into())
+    }
+  }
+}
+
+fn is_image_file(file_path: &str) -> bool {
+  let lower = file_path.to_lowercase();
+  [".png", ".jpg", ".jpeg", ".gif", ".webp", ".heic", ".heif"]
+    .iter()
+    .any(|ext| lower.ends_with(ext))
+}
+
 pub async fn analyze_file_content(
   opts: &ExecOptions,
   file_path: &str,
 ) -> Result<FileAnalysis, Box<dyn Error + Send + Sync>> {
   let content = if file_path.to_lowercase().ends_with(".pdf") {
+    eprintln!(
+      "{}",
+      cformat!("<dim>{file_path}: Extracting text from PDF …</dim>")
+    );
     pdf_extract::extract_text(file_path)
       .map_err(|e| format!("Failed to extract PDF text: {e}"))?
+  } else if is_image_file(file_path) {
+    let ocr_text = ocr_image_to_text(file_path).await?;
+    if ocr_text.trim().is_empty() {
+      // No text in the image -> let callers use their non-text fallback
+      return Err(Box::new(std::io::Error::new(
+        std::io::ErrorKind::InvalidData,
+        "Image contains no extractable text",
+      )));
+    }
+    ocr_text
   } else {
     std::fs::read_to_string(file_path)?
   };
@@ -1542,6 +1669,10 @@ pub async fn analyze_file_content(
     &secrets_path_str,
     &full_config,
   )?;
+  eprintln!(
+    "{}",
+    cformat!("<dim>{file_path}: Generating description and timestamp …</dim>")
+  );
   let req_body_obj = get_req_body_obj(&opts, &http_req, &prompt);
   let resp = exec_request(&http_req, &req_body_obj, false).await?;
 
@@ -1607,20 +1738,7 @@ pub async fn google_ocr_file(
   let base64_content =
     base64::engine::general_purpose::STANDARD.encode(&file_content);
 
-  // Detect MIME type based on file extension
-  let mime_type = if file_path.to_lowercase().ends_with(".png") {
-    "image/png"
-  } else if file_path.to_lowercase().ends_with(".jpg")
-    || file_path.to_lowercase().ends_with(".jpeg")
-  {
-    "image/jpeg"
-  } else if file_path.to_lowercase().ends_with(".gif") {
-    "image/gif"
-  } else if file_path.to_lowercase().ends_with(".webp") {
-    "image/webp"
-  } else {
-    "image/jpeg" // default
-  };
+  let mime_type = get_image_mime_type(file_path);
 
   let model_id = "gemini-3-pro-preview";
   let model = &Model::Model(Provider::Google, model_id.to_string());
@@ -1706,6 +1824,10 @@ fn get_image_mime_type(file_path: &str) -> &'static str {
     "image/webp"
   } else if lower.ends_with(".gif") {
     "image/gif"
+  } else if lower.ends_with(".heic") {
+    "image/heic"
+  } else if lower.ends_with(".heif") {
+    "image/heif"
   } else {
     "image/png"
   }
