@@ -582,9 +582,25 @@ async fn exec_with_args(args: Args, stdin: &str) {
         );
         submit_prompt(&Some(&model), &rewrite_opts, &rewrite_prompt).await
       }
-      Commands::Transcribe { file } => {
-        if let Err(_err) = transcribe_audio_file(&opts, file).await {
-          eprintln!("Error transcribing file: {{_err}}");
+      Commands::Transcribe {
+        model,
+        languages,
+        keywords,
+        file,
+      } => {
+        let model = match model {
+          Some(model_id) => {
+            Model::Model(Provider::OpenAI, model_id.to_string())
+          }
+          None => shortcut_model(
+            &cmd,
+            Model::Model(Provider::OpenAI, "gpt-transcribe".to_string()),
+          ),
+        };
+        if let Err(err) =
+          transcribe_audio_file(&opts, &model, languages, keywords, file).await
+        {
+          eprintln!("Error transcribing file: {err}");
           std::process::exit(1);
         }
       }

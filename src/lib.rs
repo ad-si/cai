@@ -1767,24 +1767,94 @@ pub async fn google_ocr_file(
   exec_tool(&Some(model), opts, &prompt).await
 }
 
+/// Guess the MIME type of an audio file from its file extension.
+/// Falls back to `audio/mpeg` for unknown extensions.
+fn get_audio_mime_type(file_path: &str) -> &'static str {
+  let lower = file_path.to_lowercase();
+  let extension = lower.rsplit('.').next().unwrap_or_default();
+  match extension {
+    "wav" => "audio/wav",
+    "flac" => "audio/flac",
+    "ogg" | "oga" => "audio/ogg",
+    "webm" => "audio/webm",
+    "m4a" | "mp4" => "audio/mp4",
+    _ => "audio/mpeg",
+  }
+}
+
+/// Transcribe an audio file via OpenAI's `/audio/transcriptions` endpoint.
+///
+/// `languages` and `keywords` are only supported by `gpt-transcribe`.
+/// For the other models the first language is sent as the legacy `language`
+/// parameter and the keywords are ignored.
 pub async fn transcribe_audio_file(
   opts: &ExecOptions,
+  model: &Model,
+  languages: &[String],
+  keywords: &[String],
   file_path: &str,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
   let secrets_path_str = get_secrets_path_str();
   let full_config = get_full_config(&secrets_path_str)?;
-  let model = &Model::Model(Provider::OpenAI, "gpt-4o-transcribe".to_string());
   let (_used_model, http_req) =
     get_http_req(&Some(model), &secrets_path_str, &full_config)?;
 
-  let file = std::fs::read(file_path)?;
-  let part = reqwest::multipart::Part::bytes(file)
-    .file_name(file_path.to_string())
-    .mime_str("audio/mpeg")?;
+  let model_id = http_req.model.clone();
+  if model_id == "gpt-live-transcribe" {
+    Err(
+      "`gpt-live-transcribe` is only available in realtime sessions. \
+      Use `gpt-transcribe` to transcribe audio files.",
+    )?
+  }
+  // Only `gpt-transcribe` accepts multiple languages and keyword hints
+  let is_gpt_transcribe = model_id == "gpt-transcribe";
+  // Speaker annotations require the diarizing model and its own response format
+  let is_diarizing = model_id.ends_with("-diarize");
 
-  let form = reqwest::multipart::Form::new()
-    .text("model", http_req.model.clone())
+  let file = std::fs::read(file_path)?;
+  let file_name = std::path::Path::new(file_path)
+    .file_name()
+    .and_then(|name| name.to_str())
+    .unwrap_or(file_path)
+    .to_string();
+  let part = reqwest::multipart::Part::bytes(file)
+    .file_name(file_name)
+    .mime_str(get_audio_mime_type(file_path))?;
+
+  let mut form = reqwest::multipart::Form::new()
+    .text("model", model_id.clone())
     .part("file", part);
+
+  if is_diarizing {
+    form = form
+      .text("response_format", "diarized_json")
+      // Required for inputs longer than 30 seconds
+      .text("chunking_strategy", "auto");
+  } else {
+    form = form.text("response_format", "json");
+  }
+
+  if is_gpt_transcribe {
+    for language in languages {
+      form = form.text("languages[]", language.clone());
+    }
+    for keyword in keywords {
+      form = form.text("keywords[]", keyword.clone());
+    }
+  } else {
+    if let Some(language) = languages.first() {
+      if languages.len() > 1 {
+        eprintln!(
+          "⚠️  `{model_id}` supports only one language. \
+          Using '{language}' and ignoring the remaining ones."
+        );
+      }
+      form = form.text("language", language.clone());
+    }
+    if !keywords.is_empty() {
+      eprintln!("⚠️  `{model_id}` doesn't support keywords. Ignoring them.");
+    }
+  }
 
   let client = reqwest::Client::new();
   let base_url =
@@ -1799,7 +1869,20 @@ pub async fn transcribe_audio_file(
 
   if resp.status().is_success() {
     let resp_json = resp.json::<Value>().await?;
-    let text = format!("{}\n", resp_json["text"].as_str().unwrap_or_default());
+    let text = match resp_json["segments"].as_array() {
+      // Prefix each segment of a diarized transcript with its speaker label
+      Some(segments) if is_diarizing => segments
+        .iter()
+        .map(|segment| {
+          format!(
+            "{}: {}\n",
+            segment["speaker"].as_str().unwrap_or("Unknown"),
+            segment["text"].as_str().unwrap_or_default().trim(),
+          )
+        })
+        .collect::<String>(),
+      _ => format!("{}\n", resp_json["text"].as_str().unwrap_or_default()),
+    };
     if opts.is_raw {
       println!("{text}");
     } else {
@@ -3002,6 +3085,29 @@ mod tests {
   }
 
   #[test]
+  fn test_get_audio_mime_type() {
+    assert_eq!(get_audio_mime_type("talk.mp3"), "audio/mpeg");
+    assert_eq!(get_audio_mime_type("/tmp/Talk.WAV"), "audio/wav");
+    assert_eq!(get_audio_mime_type("talk.flac"), "audio/flac");
+    assert_eq!(get_audio_mime_type("talk.ogg"), "audio/ogg");
+    assert_eq!(get_audio_mime_type("talk.webm"), "audio/webm");
+    assert_eq!(get_audio_mime_type("talk.m4a"), "audio/mp4");
+    // Unknown and missing extensions fall back to mp3
+    assert_eq!(get_audio_mime_type("talk.xyz"), "audio/mpeg");
+    assert_eq!(get_audio_mime_type("talk"), "audio/mpeg");
+  }
+
+  #[test]
+  fn test_transcription_model_aliases() {
+    assert_eq!(types::get_openai_model("transcribe"), "gpt-transcribe");
+    assert_eq!(
+      types::get_openai_model("diarize"),
+      "gpt-4o-transcribe-diarize"
+    );
+    assert_eq!(types::get_openai_model("whisper"), "whisper-1");
+  }
+
+  #[test]
   fn test_config_key_overridable_and_not() {
     // Shortcut with a default model is overridable
     assert_eq!(
@@ -3009,6 +3115,16 @@ mod tests {
       Some("opus")
     );
     assert_eq!(Commands::Py { prompt: vec![] }.config_key(), Some("py"));
+    assert_eq!(
+      Commands::Transcribe {
+        model: None,
+        languages: vec![],
+        keywords: vec![],
+        file: "audio.mp3".to_string(),
+      }
+      .config_key(),
+      Some("transcribe")
+    );
     // Commands taking an explicit model arg are not overridable
     assert_eq!(
       Commands::Anthropic {

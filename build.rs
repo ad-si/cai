@@ -149,7 +149,7 @@ const OLLAMA_MODEL_MAPPING_SRC: [(&str, &str); 21] = [
   ("llama2", "llama2"),
 ];
 
-const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 41] = [
+const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 51] = [
   // Default models
   ("gpt", "gpt-5"),
   ("mini", "gpt-5-mini"),
@@ -158,7 +158,8 @@ const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 41] = [
   ("n", "gpt-5-nano"),
   ("image", "gpt-image-2"),
   ("tts", "gpt-4o-mini-tts"),
-  ("transcribe", "gpt-4o-transcribe"),
+  ("transcribe", "gpt-transcribe"),
+  ("diarize", "gpt-4o-transcribe-diarize"),
   // GPT-5
   ("gpt5", "gpt-5"),
   ("gpt5mini", "gpt-5-mini"),
@@ -195,7 +196,18 @@ const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 41] = [
   ("gpt4o", "gpt-4o"),
   ("4o", "gpt-4o"),
   ("gpt4ominitts", "gpt-4o-mini-tts"),
+  // Transcription
+  ("gpt-transcribe", "gpt-transcribe"),
+  ("gpttranscribe", "gpt-transcribe"),
+  // Realtime sessions only, not the file transcription endpoint
+  ("gpt-live-transcribe", "gpt-live-transcribe"),
+  ("live-transcribe", "gpt-live-transcribe"),
+  ("gpt-4o-transcribe-diarize", "gpt-4o-transcribe-diarize"),
+  ("transcribe-diarize", "gpt-4o-transcribe-diarize"),
   ("gpt4otranscribe", "gpt-4o-transcribe"),
+  ("gpt-4o-mini-transcribe", "gpt-4o-mini-transcribe"),
+  ("whisper", "whisper-1"),
+  ("whisper-1", "whisper-1"),
   // o4
   ("o4m", "o4-mini"),
   // o3

@@ -105,8 +105,23 @@ pub enum Commands {
     prompt: Vec<String>,
   },
 
-  /// Transcribe an audio file
+  /// Transcribe an audio file using GPT-Transcribe
   Transcribe {
+    /// Transcription model
+    /// (e.g. `gpt-transcribe`, `diarize`, `whisper-1`)
+    #[clap(long, short = 'm')]
+    model: Option<String>,
+
+    /// Possible language of the audio in ISO-639-1 format, e.g. `en`
+    /// (can be passed multiple times for `gpt-transcribe`)
+    #[clap(long = "language", short = 'l')]
+    languages: Vec<String>,
+
+    /// Word or phrase to guide the transcription, e.g. a proper noun
+    /// (can be passed multiple times, only used by `gpt-transcribe`)
+    #[clap(long = "keyword", short = 'k')]
+    keywords: Vec<String>,
+
     /// The audio file to transcribe
     file: String,
   },
@@ -733,6 +748,7 @@ impl Commands {
       Commands::Svg { .. } => Some("svg"),
       Commands::Reply { .. } => Some("reply"),
       Commands::Rewrite { .. } => Some("rewrite"),
+      Commands::Transcribe { .. } => Some("transcribe"),
 
       // Provider default-model shortcuts
       Commands::Gemini { .. } => Some("gemini"),
