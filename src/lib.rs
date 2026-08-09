@@ -2344,6 +2344,37 @@ pub async fn run_shell_command(
   }
 }
 
+fn select_commit_files(
+  status: &str,
+  staged_files: &str,
+) -> (Vec<String>, bool) {
+  let staged_files: Vec<String> = staged_files
+    .lines()
+    .filter(|file| !file.is_empty())
+    .map(ToOwned::to_owned)
+    .collect();
+
+  if !staged_files.is_empty() {
+    return (staged_files, true);
+  }
+
+  // Include modified files when nothing has been staged. Exclude untracked
+  // files, which preserves the command's existing behavior.
+  let modified_files = status
+    .lines()
+    .filter(|line| {
+      let trimmed = line.trim();
+      trimmed.starts_with("M ")
+        || trimmed.starts_with("MM")
+        || trimmed.starts_with("AM")
+        || trimmed.starts_with(" M")
+    })
+    .map(|line| line[3..].to_string()) // Skip the status prefix
+    .collect();
+
+  (modified_files, false)
+}
+
 pub async fn create_commits(
   opts: &ExecOptions,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -2355,35 +2386,44 @@ pub async fn create_commits(
 
   let status = String::from_utf8_lossy(&status_output.stdout);
 
-  // Filter for modified files only (M, MM, or AM status)
-  let modified_files: Vec<String> = status
-    .lines()
-    .filter(|line| {
-      let trimmed = line.trim();
-      // Include files that are modified (M), added and modified (AM), or modified in both index and working tree (MM)
-      // Exclude untracked files (??)
-      trimmed.starts_with("M ")
-        || trimmed.starts_with("MM")
-        || trimmed.starts_with("AM")
-        || trimmed.starts_with(" M")
-    })
-    .map(|line| line[3..].to_string()) // Skip the status prefix
-    .collect();
+  let staged_files_output = std::process::Command::new("git")
+    .args(["diff", "--cached", "--name-only"])
+    .output()
+    .expect("Failed to execute git diff");
+  let staged_files = String::from_utf8_lossy(&staged_files_output.stdout);
+
+  let (modified_files, has_staged_files) =
+    select_commit_files(&status, &staged_files);
 
   if modified_files.is_empty() {
     println!("No modified files to commit.");
     return Ok(());
   }
 
-  println!("Found {} modified file(s):\n", modified_files.len());
+  let file_description = if has_staged_files {
+    "staged"
+  } else {
+    "modified"
+  };
+  println!(
+    "Found {} {} file(s):\n",
+    modified_files.len(),
+    file_description
+  );
   for file in &modified_files {
     println!("  - {}", file);
   }
   println!();
 
-  // Get the diff for all modified files
+  // Respect an existing index selection. Otherwise, analyze all modified
+  // files and stage each approved group as before.
+  let diff_args = if has_staged_files {
+    vec!["diff", "--cached"]
+  } else {
+    vec!["diff", "HEAD"]
+  };
   let diff_output = std::process::Command::new("git")
-    .args(["diff", "HEAD"])
+    .args(diff_args)
     .output()
     .expect("Failed to execute git diff");
 
@@ -2528,14 +2568,17 @@ pub async fn create_commits(
       continue;
     }
 
-    // Stage the files
-    for file in &commit_group.files {
-      let add_output = std::process::Command::new("git")
-        .args(["add", file])
-        .output()?;
+    // An existing index is the user's explicit file selection. Do not expand
+    // it with files from the working tree.
+    if !has_staged_files {
+      for file in &commit_group.files {
+        let add_output = std::process::Command::new("git")
+          .args(["add", file])
+          .output()?;
 
-      if !add_output.status.success() {
-        eprintln!("Warning: Failed to stage {}", file);
+        if !add_output.status.success() {
+          eprintln!("Warning: Failed to stage {}", file);
+        }
       }
     }
 
@@ -3155,5 +3198,16 @@ mod tests {
     assert_eq!(format_elapsed_time(60123), ("60.1".to_string(), "s"));
     assert_eq!(format_elapsed_time(65432), ("65.4".to_string(), "s"));
     assert_eq!(format_elapsed_time(120000), ("120.0".to_string(), "s"));
+  }
+
+  #[test]
+  fn test_select_commit_files_prefers_staged_files() {
+    let status = "M  staged.rs\n M unstaged.rs\n?? untracked.rs\n";
+    let staged_files = "staged.rs\n";
+
+    assert_eq!(
+      select_commit_files(status, staged_files),
+      (vec!["staged.rs".to_string()], true)
+    );
   }
 }
