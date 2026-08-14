@@ -98,7 +98,8 @@ Commands:
   agent         Run an agentic loop with tool use to fulfill a request
   image         Generate an image using GPT-image-2 [aliases: img]
   photo         Generate a photorealistic image that looks like a camera photo
-  imgedit       Edit 1 or more images using GPT-image-2 (pass image files followed by the edit prompt as the last argument) [aliases: imge]
+  imgedit       Edit 1 or more images using GPT-image-2 (pass image files followed by the edit prompt as the last argument) [aliases:
+                imge]
   say           Convert text to speech using OpenAI's TTS model [aliases: tts]
   transcribe    Transcribe an audio file using GPT-Transcribe
   ocr           Extract text from an image
