@@ -1084,6 +1084,38 @@ async fn stream_text_response(
   Ok((full_text, search_results))
 }
 
+/// Extract the assistant's text (and any search results) from a
+/// non-streaming response, accounting for each provider's response shape.
+async fn parse_text_response(
+  resp: Response,
+  provider: Provider,
+) -> Result<(String, Option<Vec<SearchResult>>), Box<dyn Error + Send + Sync>> {
+  Ok(match provider {
+    Provider::Anthropic => {
+      let anth_response = resp.json::<AnthropicAiResponse>().await?;
+      (anth_response.content[0].text.clone(), None)
+    }
+    Provider::Google => {
+      // Handle Google's unique response format
+      let response_text = resp.text().await?;
+      let response_json: Value = serde_json::from_str(&response_text)?;
+
+      // Extract the text from the Gemini response format
+      let text = response_json["candidates"][0]["content"]["parts"][0]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+      (text, None)
+    }
+    _ => {
+      let ai_response = resp.json::<AiResponse>().await?;
+      let msg = ai_response.choices[0].message.content.clone();
+      let search_results = ai_response.search_results;
+      (msg, search_results)
+    }
+  })
+}
+
 pub async fn exec_tool(
   optional_model: &Option<&Model>,
   opts: &ExecOptions,
@@ -1367,31 +1399,8 @@ pub async fn exec_tool(
       return Ok(());
     }
 
-    let (msg, search_results) = match http_req.provider {
-      Provider::Anthropic => {
-        let anth_response = resp.json::<AnthropicAiResponse>().await?;
-        (anth_response.content[0].text.clone(), None)
-      }
-      Provider::Google => {
-        // Handle Google's unique response format
-        let response_text = resp.text().await?;
-        let response_json: Value = serde_json::from_str(&response_text)?;
-
-        // Extract the text from the Gemini response format
-        let text = response_json["candidates"][0]["content"]["parts"][0]
-          ["text"]
-          .as_str()
-          .unwrap_or_default()
-          .to_string();
-        (text, None)
-      }
-      _ => {
-        let ai_response = resp.json::<AiResponse>().await?;
-        let msg = ai_response.choices[0].message.content.clone();
-        let search_results = ai_response.search_results;
-        (msg, search_results)
-      }
-    };
+    let (msg, search_results) =
+      parse_text_response(resp, http_req.provider).await?;
 
     if opts.is_raw {
       println!("{msg}");
@@ -2062,6 +2071,104 @@ pub async fn prompt_with_lang_cntxt(
     eprintln!("Error prompting with OCaml context: {err}");
     std::process::exit(1);
   }
+}
+
+/// Instructions shared by all `rewrite` invocations.
+///
+/// The emphasis on matching the input's level of markup is deliberate:
+/// `cai rewrite` is meant for round-tripping text
+/// (e.g. `pbpaste | cai rewrite | pbcopy`),
+/// so models must neither "helpfully" add backticks, asterisks or bullet
+/// points that were never in the input, nor strip the ones that were.
+const REWRITE_PROMPT: &str = "\
+  Fix any spelling mistakes, grammatical errors, \
+    and wording issues in the following text. \
+  Maintain the original meaning and tone \
+    while improving clarity and correctness.\n\
+  \n\
+  Output rules:\n\
+  - Return only the corrected text, \
+    without explanations or additional commentary.\n\
+  - Do not wrap the text in quotation marks or a code fence.\n\
+  - Match the input's formatting exactly. \
+    Reproduce its line breaks, blank lines, indentation, list markers, \
+    and any markup it already uses.\n\
+  - Keep every piece of existing markup. \
+    If the input is Markdown, return Markdown \
+    with the same headings, emphasis, links, lists, and code spans.\n\
+  - Add no markup that the input does not already have. \
+    Do not introduce backticks, asterisks, underscores, headings, \
+    bullet points, or code fences \
+    that are absent from the text you are given.";
+
+/// Undo a code fence that the model wrapped around the whole rewritten text.
+///
+/// Only strips when the fence encloses *all* of `rewritten` and `original`
+/// wasn't fenced itself, so a fenced input still round-trips unchanged.
+fn strip_wrapping_code_fence(rewritten: &str, original: &str) -> String {
+  let trimmed = rewritten.trim();
+
+  if original.trim_start().starts_with("```") {
+    return trimmed.to_string();
+  }
+
+  let Some(after_open) = trimmed.strip_prefix("```") else {
+    return trimmed.to_string();
+  };
+  // Drop an optional language tag on the opening fence's line.
+  let Some((_lang, rest)) = after_open.split_once('\n') else {
+    return trimmed.to_string();
+  };
+  match rest.trim_end().strip_suffix("```") {
+    Some(inner) => inner.trim_matches('\n').to_string(),
+    None => trimmed.to_string(),
+  }
+}
+
+/// Rewrite `text` with the given model and print the result verbatim,
+/// so it can be piped into other commands.
+pub async fn rewrite_text(
+  optional_model: &Option<&Model>,
+  opts: &ExecOptions,
+  text: &str,
+  instructions: &str,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+  let secrets_path_str = get_secrets_path_str();
+  let full_config = get_full_config(&secrets_path_str)?;
+  let (_used_model, http_req) =
+    get_http_req(optional_model, &secrets_path_str, &full_config)?;
+
+  let prompt = if instructions.is_empty() {
+    format!("{REWRITE_PROMPT}\n\nText to rewrite:\n{text}")
+  } else {
+    format!(
+      "{REWRITE_PROMPT}\n\n\
+      Additional instructions: {instructions}\n\n\
+      Text to rewrite:\n{text}"
+    )
+  };
+
+  // Non-streaming, so the response can be checked for stray code fences
+  // before anything is written to stdout.
+  let mut raw_opts = opts.clone();
+  raw_opts.is_raw = true;
+  raw_opts.is_streaming = false;
+
+  let req_body_obj = get_req_body_obj(&raw_opts, &http_req, &prompt);
+  let resp = exec_request(&http_req, &req_body_obj, false).await?;
+
+  if !resp.status().is_success() {
+    let resp_json = resp.json::<Value>().await?;
+    let resp_formatted = serde_json::to_string_pretty(&resp_json).unwrap();
+    return Err(format!("Failed to rewrite the text: {resp_formatted}").into());
+  }
+
+  let (msg, _search_results) =
+    parse_text_response(resp, http_req.provider).await?;
+
+  println!("{}", strip_wrapping_code_fence(&msg, text));
+
+  Ok(())
 }
 
 /// Strip surrounding markdown code fences from a generated command.
@@ -3027,6 +3134,40 @@ mod tests {
     )
     .await;
     assert!(result.is_err());
+  }
+
+  #[test]
+  fn test_strip_wrapping_code_fence() {
+    // A fence around the whole response is an artifact and gets removed
+    assert_eq!(
+      strip_wrapping_code_fence("```\nHello world\n```", "Helo world"),
+      "Hello world"
+    );
+    assert_eq!(
+      strip_wrapping_code_fence("```text\nHello world\n```", "Helo world"),
+      "Hello world"
+    );
+
+    // Plain text is passed through (modulo surrounding whitespace)
+    assert_eq!(
+      strip_wrapping_code_fence("  Hello world\n", "Helo world"),
+      "Hello world"
+    );
+
+    // A fenced input keeps its fence
+    assert_eq!(
+      strip_wrapping_code_fence(
+        "```\nHello world\n```",
+        "```\nHelo world\n```"
+      ),
+      "```\nHello world\n```"
+    );
+
+    // A fence that doesn't enclose everything is left alone
+    assert_eq!(
+      strip_wrapping_code_fence("```\ncode\n```\nAnd prose.", "…"),
+      "```\ncode\n```\nAnd prose."
+    );
   }
 
   #[test]

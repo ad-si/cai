@@ -550,37 +550,17 @@ async fn exec_with_args(args: Args, stdin: &str) {
           eprintln!("Please pipe the text to be rewritten into cai via stdin.");
           std::process::exit(1);
         }
-        let base_rewrite_prompt = "\
-          Fix any spelling mistakes, grammatical errors, \
-            and wording issues in the following text. \
-          Maintain the original meaning and tone \
-            while improving clarity and correctness. \
-          Return only the corrected text \
-            without any explanations or additional commentary.";
-
-        let rewrite_prompt = if prompt.is_empty() {
-          format!(
-            "{base_rewrite_prompt}\n\n\
-            Text to rewrite:\n{stdin}"
-          )
-        } else {
-          format!(
-            "{base_rewrite_prompt}\n\n
-            Additional instructions: {}\n\n\
-            Text to correct:\n\
-            {stdin}",
-            prompt.join(" ")
-          )
-        };
-
-        let mut rewrite_opts = opts.clone();
-        rewrite_opts.is_raw = true;
-
         let model = shortcut_model(
           &cmd,
           Model::Model(Provider::OpenAI, "gpt-5".to_string()),
         );
-        submit_prompt(&Some(&model), &rewrite_opts, &rewrite_prompt).await
+        if let Err(err) =
+          cai::rewrite_text(&Some(&model), &opts, &stdin, &prompt.join(" "))
+            .await
+        {
+          eprintln!("Error rewriting the text: {err}");
+          std::process::exit(1);
+        }
       }
       Commands::Transcribe {
         model,
