@@ -8,9 +8,14 @@ demo.gif: demo.tape
 
 
 source_files=$(shell find src -type f)
+
+# Clap wraps its help at the terminal width, which would make the readme's
+# usage block depend on whoever ran `make`. Pin it for reproducible output.
+help_width=100
+
 .INTERMEDIATE: usage.txt
 usage.txt: $(source_files)
-	cargo run -- help > usage.txt
+	COLUMNS=$(help_width) cargo run -- help > usage.txt
 
 
 .PHONY: update-readme
