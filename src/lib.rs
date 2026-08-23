@@ -603,46 +603,83 @@ fn flatten_config_value(
   }
 }
 
+/// Models tried, in order, when the user didn't specify one.
+/// Starts with the `fast` shortcut's model (overridable via
+/// `shortcut_models.fast`), then walks the built-in defaults.
+fn default_model_chain() -> Vec<Model> {
+  let cerebras = Model::Model(Provider::Cerebras, "gpt-oss-120b".to_owned());
+  let fast_model = shortcut_model(
+    &Commands::Fast { prompt: vec![] },
+    cerebras.clone(), //
+  );
+  let mut chain = vec![fast_model];
+
+  for model in [
+    cerebras,
+    Model::Model(Provider::OpenAI, "gpt-5-mini".to_string()),
+    Model::Model(Provider::Anthropic, "claude-haiku-4-5".to_string()),
+  ] {
+    if !chain.contains(&model) {
+      chain.push(model);
+    }
+  }
+
+  chain
+}
+
+/// All requests that could serve the given model selection, in priority order.
+/// An explicit model yields exactly one candidate; the default selection
+/// yields every chain entry that has an API key configured, so that a
+/// provider failing at request time (see [`is_provider_unavailable`]) can
+/// fall through to the next one.
+fn get_http_req_chain(
+  optional_model: &Option<&Model>,
+  secrets_path_str: &str,
+  full_config: &HashMap<String, String>,
+) -> Result<Vec<(String, AiRequest)>, std::string::String> {
+  match optional_model {
+    Some(model) => {
+      let used_model = get_used_model(model);
+      get_api_request(full_config, secrets_path_str, model)
+        .map(|req| vec![(used_model, req)])
+    }
+    None => {
+      let candidates: Vec<(String, AiRequest)> = default_model_chain()
+        .iter()
+        .filter_map(|model| {
+          get_api_request(full_config, secrets_path_str, model).ok()
+        })
+        .map(|req| {
+          let used_model =
+            get_used_model(&Model::Model(req.provider, req.model.clone()));
+          (used_model, req)
+        })
+        .collect();
+
+      if candidates.is_empty() {
+        Err(get_key_setup_msg(secrets_path_str))
+      } else {
+        Ok(candidates)
+      }
+    }
+  }
+}
+
+/// Whether a response status means the provider itself can't serve us
+/// (missing/invalid key, exhausted quota, rate limit) as opposed to the
+/// request being malformed. Only these are worth retrying elsewhere.
+fn is_provider_unavailable(status: reqwest::StatusCode) -> bool {
+  matches!(status.as_u16(), 401 | 402 | 403 | 429)
+}
+
 fn get_http_req(
   optional_model: &Option<&Model>,
   secrets_path_str: &str,
   full_config: &HashMap<String, String>,
 ) -> Result<(String, AiRequest), std::string::String> {
-  match optional_model {
-    Some(model) => {
-      let used_model = get_used_model(model);
-      get_api_request(full_config, secrets_path_str, model)
-        .map(|req| (used_model, req))
-    }
-    // Prefer the `fast` shortcut's model (overridable via
-    // `shortcut_models.fast`), then fall back to the first provider with a key.
-    None => {
-      let fast_model = shortcut_model(
-        &Commands::Fast { prompt: vec![] },
-        Model::Model(Provider::Cerebras, "gpt-oss-120b".to_owned()),
-      );
-      let req = get_api_request(full_config, secrets_path_str, &fast_model)
-        .or(get_api_request(
-          full_config,
-          secrets_path_str,
-          &Model::Model(Provider::Cerebras, "gpt-oss-120b".to_owned()),
-        ))
-        .or(get_api_request(
-          full_config,
-          secrets_path_str,
-          &Model::Model(Provider::OpenAI, "gpt-5-mini".to_string()),
-        ))
-        .or(get_api_request(
-          full_config,
-          secrets_path_str,
-          &Model::Model(Provider::Anthropic, "claude-haiku-4-5".to_string()),
-        ))?;
-      let used_model = get_used_model(
-        &Model::Model(req.provider, req.model.clone()), //
-      );
-      Ok((used_model, req))
-    }
-  }
+  get_http_req_chain(optional_model, secrets_path_str, full_config).map(
+    |mut chain| chain.remove(0), //
+  )
 }
 
 fn get_req_body_obj(
@@ -1124,26 +1161,63 @@ pub async fn exec_tool(
   let start = Instant::now();
   let secrets_path_str = get_secrets_path_str();
   let full_config = get_full_config(&secrets_path_str)?;
-  let (used_model, http_req) =
-    get_http_req(optional_model, &secrets_path_str, &full_config)?;
+  let req_chain =
+    get_http_req_chain(optional_model, &secrets_path_str, &full_config)?;
 
   // This is checked here, so that the missing API key message comes first
   if user_input.is_empty() {
     Err("No prompt was provided")?;
   }
 
-  let should_stream = opts.is_streaming && is_text_response(&http_req, opts);
+  // Walk the candidates until one answers. Only a provider-level failure
+  // (no quota, bad key, rate limit) falls through to the next entry;
+  // any other response — including errors — is reported as is.
+  // With an explicit model the chain holds one entry and this is a no-op.
+  let chain_labels: Vec<String> = req_chain
+    .iter()
+    .map(|(_, req)| format!("{} {}", req.provider, req.model))
+    .collect();
+  let last_index = req_chain.len() - 1;
+  let mut attempt = None;
 
-  let mut req_body_obj = get_req_body_obj(opts, &http_req, user_input);
-  // Google controls streaming via the URL (:streamGenerateContent), not a
-  // body field — adding `stream: true` there is rejected as an unknown field.
-  if should_stream && http_req.provider != Provider::Google {
-    if let Some(obj) = req_body_obj.as_object_mut() {
-      obj.insert("stream".to_string(), Value::Bool(true));
+  for (index, (used_model, http_req)) in req_chain.into_iter().enumerate() {
+    let should_stream = opts.is_streaming && is_text_response(&http_req, opts);
+
+    let mut req_body_obj = get_req_body_obj(opts, &http_req, user_input);
+    // Google controls streaming via the URL (:streamGenerateContent), not a
+    // body field — adding `stream: true` there is rejected as an unknown field.
+    if should_stream && http_req.provider != Provider::Google {
+      if let Some(obj) = req_body_obj.as_object_mut() {
+        obj.insert("stream".to_string(), Value::Bool(true));
+      }
     }
+
+    let resp = exec_request(&http_req, &req_body_obj, should_stream).await?;
+
+    if index < last_index && is_provider_unavailable(resp.status()) {
+      let status = resp.status();
+      let reason = status.canonical_reason().unwrap_or("Error");
+      // To stderr, so that piping the answer stays unaffected.
+      eprintln!(
+        "{}",
+        cformat!(
+          "<yellow>⚠️  {} is unavailable ({} {}). Falling back to {} …</yellow>",
+          chain_labels[index],
+          status.as_u16(),
+          reason,
+          chain_labels[index + 1],
+        )
+      );
+      continue;
+    }
+
+    attempt = Some((used_model, http_req, should_stream, resp));
+    break;
   }
 
-  let resp = exec_request(&http_req, &req_body_obj, should_stream).await?;
+  let (used_model, http_req, should_stream, resp) =
+    attempt.expect("request chain is never empty");
+
   let subcommand = opts
     .subcommand
     .as_ref()
