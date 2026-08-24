@@ -10,7 +10,9 @@ use cai::{
 };
 use chrono::NaiveDateTime;
 use clap::crate_description;
-use clap::{builder::styling, crate_version, Parser};
+use clap::{
+  builder::styling, crate_version, CommandFactory, FromArgMatches, Parser,
+};
 use color_print::cformat;
 use futures::future::join_all;
 use futures::StreamExt;
@@ -1169,11 +1171,35 @@ fn rename_file(
   Ok(())
 }
 
+/// Parse arguments, honoring `CAI_HELP_WIDTH`.
+///
+/// Clap otherwise takes its wrap width from whichever of stdout/stderr/stdin
+/// is a terminal, so generated docs would depend on the window they were
+/// rendered in. `COLUMNS` can't be used for this — clap only consults it when
+/// no terminal is attached at all. Unset (the normal case) keeps clap's
+/// terminal-adaptive behavior.
+fn parse_args_from<I, T>(iter: I) -> Args
+where
+  I: IntoIterator<Item = T>,
+  T: Into<std::ffi::OsString> + Clone,
+{
+  let command = match std::env::var("CAI_HELP_WIDTH")
+    .ok()
+    .and_then(|width| width.parse().ok())
+  {
+    Some(width) => Args::command().term_width(width),
+    None => Args::command(),
+  };
+
+  Args::from_arg_matches(&command.get_matches_from(iter))
+    .unwrap_or_else(|err| err.exit())
+}
+
 #[tokio::main]
 async fn main() {
   let stdin = stdin();
   let mut args_vector = std::env::args().collect::<Vec<_>>();
-  let args = Args::parse_from(&args_vector);
+  let args = parse_args_from(&args_vector);
 
   match &args.command {
     Some(Commands::Rename { .. }) => {
@@ -1190,7 +1216,7 @@ async fn main() {
           args_vector.push("".to_string());
         }
 
-        let mut args = Args::parse_from(args_vector);
+        let mut args = parse_args_from(args_vector);
 
         if only_stdin {
           args.prompt = vec![input];

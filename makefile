@@ -15,7 +15,7 @@ help_width=100
 
 .INTERMEDIATE: usage.txt
 usage.txt: $(source_files)
-	COLUMNS=$(help_width) cargo run -- help > usage.txt
+	CAI_HELP_WIDTH=$(help_width) cargo run -- help > usage.txt
 
 
 .PHONY: update-readme
