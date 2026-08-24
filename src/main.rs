@@ -248,7 +248,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       submit_prompt(
         &None,
         &opts,
-        &format!("{stdin}{}", &args.prompt.join(" ")), //
+        &format!("{stdin}{}", args.prompt.join(" ")), //
       )
       .await
     }
