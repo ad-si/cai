@@ -45,6 +45,45 @@ fn prompt_to_short_name(prompt: &str) -> String {
     .collect()
 }
 
+/// Detect an image's file extension from its magic bytes
+/// (defaults to `png`, which is what OpenAI and Google return)
+fn image_extension(image_bytes: &[u8]) -> &'static str {
+  match image_bytes {
+    [0xff, 0xd8, 0xff, ..] => "jpg",
+    [b'G', b'I', b'F', b'8', ..] => "gif",
+    [b'R', b'I', b'F', b'F', _, _, _, _, b'W', b'E', b'B', b'P', ..] => "webp",
+    _ => "png",
+  }
+}
+
+/// Decode a base64 encoded image and write it to a uniquely named file
+/// derived from the current timestamp and the prompt.
+/// Returns the name of the written file.
+fn save_base64_image(
+  image_base64: &str,
+  prompt: &str,
+) -> Result<String, Box<dyn Error + Send + Sync>> {
+  use base64::{engine::general_purpose, Engine as _};
+  let image_bytes = general_purpose::STANDARD.decode(image_base64)?;
+  let extension = image_extension(&image_bytes);
+
+  // Generate timestamp prefix in format: 2025-08-17t1943
+  let timestamp_prefix = Utc::now().format("%Y-%m-%dt%H%M").to_string();
+  let short_name = prompt_to_short_name(prompt);
+
+  // Find the next available filename
+  let mut counter = 1;
+  let mut filename = format!("{timestamp_prefix}_{short_name}.{extension}");
+  while std::path::Path::new(&filename).exists() {
+    counter += 1;
+    filename = format!("{timestamp_prefix}_{short_name}_{counter}.{extension}");
+  }
+
+  std::fs::write(&filename, image_bytes)?;
+
+  Ok(filename)
+}
+
 /// Format elapsed time for display - show in seconds if > 10 seconds, otherwise in milliseconds
 fn format_elapsed_time(elapsed_millis: u128) -> (String, &'static str) {
   if elapsed_millis > 10_000 {
@@ -1331,41 +1370,17 @@ pub async fn exec_tool(
 
           // Check for base64 format first
           if let Some(image_base64) = image_data["b64_json"].as_str() {
-            use base64::{engine::general_purpose, Engine as _};
-            match general_purpose::STANDARD.decode(image_base64) {
-              Ok(image_bytes) => {
-                // Generate timestamp prefix in format: 2025-08-17t1943
-                let now = Utc::now();
-                let timestamp_prefix = now.format("%Y-%m-%dt%H%M").to_string();
+            // Extract original user prompt from subcommand if available
+            // (for Photo/Image commands, user_input contains system instructions)
+            let original_prompt = match &opts.subcommand {
+              Some(Commands::Photo { prompt }) => prompt.join(" "),
+              Some(Commands::Image { prompt, .. }) => prompt.join(" "),
+              _ => user_input.to_string(),
+            };
 
-                // Extract original user prompt from subcommand if available
-                // (for Photo/Image commands, user_input contains system instructions)
-                let original_prompt = match &opts.subcommand {
-                  Some(Commands::Photo { prompt }) => prompt.join(" "),
-                  Some(Commands::Image { prompt, .. }) => prompt.join(" "),
-                  _ => user_input.to_string(),
-                };
-
-                let short_name = prompt_to_short_name(&original_prompt);
-
-                // Find the next available filename
-                let mut counter = 1;
-                let mut filename =
-                  format!("{timestamp_prefix}_{short_name}.png");
-                while std::path::Path::new(&filename).exists() {
-                  counter += 1;
-                  filename =
-                    format!("{timestamp_prefix}_{short_name}_{counter}.png");
-                }
-
-                match std::fs::write(&filename, image_bytes) {
-                  Ok(_) => println!("Generated image saved to: {filename}"),
-                  Err(e) => println!("Failed to save image {image_count}: {e}"),
-                }
-              }
-              Err(e) => {
-                println!("Failed to decode base64 for image {image_count}: {e}")
-              }
+            match save_base64_image(image_base64, &original_prompt) {
+              Ok(filename) => println!("Generated image saved to: {filename}"),
+              Err(err) => println!("Failed to save image {image_count}: {err}"),
             }
           }
           // Fall back to URL format if base64 not present
@@ -2085,29 +2100,9 @@ pub async fn edit_images(
     for image_data in data {
       image_count += 1;
       if let Some(image_base64) = image_data["b64_json"].as_str() {
-        use base64::{engine::general_purpose, Engine as _};
-        match general_purpose::STANDARD.decode(image_base64) {
-          Ok(image_bytes) => {
-            let now = Utc::now();
-            let timestamp_prefix = now.format("%Y-%m-%dt%H%M").to_string();
-            let short_name = prompt_to_short_name(prompt);
-
-            let mut counter = 1;
-            let mut filename = format!("{timestamp_prefix}_{short_name}.png");
-            while std::path::Path::new(&filename).exists() {
-              counter += 1;
-              filename =
-                format!("{timestamp_prefix}_{short_name}_{counter}.png");
-            }
-
-            match std::fs::write(&filename, image_bytes) {
-              Ok(_) => println!("Edited image saved to: {filename}"),
-              Err(e) => println!("Failed to save image {image_count}: {e}"),
-            }
-          }
-          Err(e) => {
-            println!("Failed to decode base64 for image {image_count}: {e}")
-          }
+        match save_base64_image(image_base64, prompt) {
+          Ok(filename) => println!("Edited image saved to: {filename}"),
+          Err(err) => println!("Failed to save image {image_count}: {err}"),
         }
       } else if let Some(url) = image_data["url"].as_str() {
         println!("Edited image {}: {}", image_count, url);
@@ -3208,6 +3203,14 @@ mod tests {
     )
     .await;
     assert!(result.is_err());
+  }
+
+  #[test]
+  fn test_image_extension() {
+    assert_eq!(image_extension(&[0xff, 0xd8, 0xff, 0xe0]), "jpg");
+    assert_eq!(image_extension(b"GIF89a"), "gif");
+    assert_eq!(image_extension(b"RIFF\0\0\0\0WEBPVP8 "), "webp");
+    assert_eq!(image_extension(&[0x89, b'P', b'N', b'G']), "png");
   }
 
   #[test]
