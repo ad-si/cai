@@ -373,7 +373,7 @@ fn default_req_for_model(
       let resolved_model = types::get_xai_model(model_id);
       let base_url =
         get_base_url(full_config, "xai_base_url", "https://api.x.ai/v1");
-      let url = if resolved_model == "grok-2-image" {
+      let url = if is_xai_image_model(resolved_model) {
         format!("{base_url}/images/generations")
       } else {
         format!("{base_url}/chat/completions")
@@ -803,12 +803,17 @@ fn get_req_body_obj(
     return Value::Object(map);
   }
 
-  // Special handling for xAI grok-2-image model (use images API)
-  if http_req.provider == Provider::XAI && http_req.model == "grok-2-image" {
+  // Special handling for xAI image models (use images API)
+  if http_req.provider == Provider::XAI && is_xai_image_model(&http_req.model) {
     let mut map = Map::new();
     map.insert("model".to_string(), Value::String(http_req.model.clone()));
     map.insert("prompt".to_string(), Value::String(user_input.to_string()));
     map.insert("n".to_string(), Value::Number(1.into()));
+    // Request the image data itself, as the returned URLs expire
+    map.insert(
+      "response_format".to_string(),
+      Value::String("b64_json".to_string()),
+    );
 
     return Value::Object(map);
   }
@@ -924,6 +929,12 @@ async fn exec_request(
   req.send().await
 }
 
+/// xAI image models (Grok Imagine) are served by the images API,
+/// not the chat completions API
+fn is_xai_image_model(model: &str) -> bool {
+  model.starts_with("grok-imagine-image") || model == "grok-2-image"
+}
+
 /// Whether a request returns text (vs binary like images or audio)
 fn is_text_response(http_req: &AiRequest, opts: &ExecOptions) -> bool {
   // OpenAI TTS
@@ -945,8 +956,8 @@ fn is_text_response(http_req: &AiRequest, opts: &ExecOptions) -> bool {
     return false;
   }
 
-  // xAI grok-2-image
-  if http_req.provider == Provider::XAI && http_req.model == "grok-2-image" {
+  // xAI image generation (Grok Imagine)
+  if http_req.provider == Provider::XAI && is_xai_image_model(&http_req.model) {
     return false;
   }
 
@@ -1393,8 +1404,9 @@ pub async fn exec_tool(
       return Ok(());
     }
 
-    // Special handling for xAI grok-2-image model
-    if http_req.provider == Provider::XAI && http_req.model == "grok-2-image" {
+    // Special handling for xAI image models (Grok Imagine)
+    if http_req.provider == Provider::XAI && is_xai_image_model(&http_req.model)
+    {
       let response_json = resp.json::<Value>().await?;
 
       cprintln!(
@@ -1403,11 +1415,21 @@ pub async fn exec_tool(
         time_unit,
       );
 
-      // xAI uses a similar format to DALL-E with data array containing URLs
+      // xAI uses the same format as the OpenAI images API:
+      // a data array with either a URL or base64 encoded image data
       if let Some(data) = response_json["data"].as_array() {
         for (i, image) in data.iter().enumerate() {
-          if let Some(url) = image["url"].as_str() {
-            println!("Generated image {}: {}", i + 1, url);
+          let image_count = i + 1;
+
+          if let Some(image_base64) = image["b64_json"].as_str() {
+            match save_base64_image(image_base64, user_input) {
+              Ok(filename) => {
+                println!("Generated image saved to: {filename}")
+              }
+              Err(err) => println!("Failed to save image {image_count}: {err}"),
+            }
+          } else if let Some(url) = image["url"].as_str() {
+            println!("Generated image {image_count}: {url}");
           }
         }
       }
@@ -3203,6 +3225,20 @@ mod tests {
     )
     .await;
     assert!(result.is_err());
+  }
+
+  #[test]
+  fn test_xai_image_models_use_the_images_api() {
+    for model_id in ["image", "grok-image", "imagine", "image2", "quality"] {
+      assert!(
+        is_xai_image_model(types::get_xai_model(model_id)),
+        "Alias `{model_id}` must resolve to an xAI image model"
+      );
+    }
+
+    assert!(is_xai_image_model("grok-imagine-image-2.0"));
+    assert!(!is_xai_image_model("grok-4"));
+    assert!(!is_xai_image_model("grok-imagine-video"));
   }
 
   #[test]
