@@ -1681,7 +1681,7 @@ async fn ocr_image_to_text(
         "<dim>{file_path}: Extracting text from image with OpenAI …</dim>"
       )
     );
-    let model = Model::Model(Provider::OpenAI, "gpt-5-mini".to_string());
+    let model = Model::Model(Provider::OpenAI, "gpt-5.6-terra".to_string());
     let (_used_model, http_req) =
       get_http_req(&Some(&model), &secrets_path_str, &full_config)?;
 
@@ -1787,7 +1787,7 @@ pub async fn analyze_file_content(
   let secrets_path_str = get_secrets_path_str();
   let full_config = get_full_config(&secrets_path_str)?;
   let (_used_model, http_req) = get_http_req(
-    &Some(&Model::Model(Provider::OpenAI, "gpt-5-mini".to_string())),
+    &Some(&Model::Model(Provider::OpenAI, "gpt-5.6-terra".to_string())),
     &secrets_path_str,
     &full_config,
   )?;

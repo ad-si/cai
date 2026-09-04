@@ -298,7 +298,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
         );
         let model = shortcut_model(
           &cmd,
-          Model::Model(Provider::OpenAI, "gpt-5".to_string()),
+          Model::Model(Provider::OpenAI, "gpt-5.6-sol".to_string()),
         );
         submit_prompt(&Some(&model), &opts, &format!("{stdin}{value_prompt}"))
           .await
@@ -327,7 +327,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
 
         let model = shortcut_model(
           &cmd,
-          Model::Model(Provider::OpenAI, "gpt-5-mini".to_string()),
+          Model::Model(Provider::OpenAI, "gpt-5.6-terra".to_string()),
         );
         submit_prompt(&Some(&model), &opts_svg, &format!("{stdin}{svg_prompt}"))
           .await
@@ -514,7 +514,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
 
         let model = shortcut_model(
           &cmd,
-          Model::Model(Provider::OpenAI, "gpt-5".to_string()),
+          Model::Model(Provider::OpenAI, "gpt-5.6-sol".to_string()),
         );
         submit_prompt(&Some(&model), &opts, &reply_prompt).await
       }
@@ -554,7 +554,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
         }
         let model = shortcut_model(
           &cmd,
-          Model::Model(Provider::OpenAI, "gpt-5".to_string()),
+          Model::Model(Provider::OpenAI, "gpt-5.6-sol".to_string()),
         );
         if let Err(err) =
           cai::rewrite_text(&Some(&model), &opts, &stdin, &prompt.join(" "))
@@ -751,7 +751,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Gpt5 { prompt } => {
         let model = shortcut_model(
           &cmd,
-          Model::Model(Provider::OpenAI, "gpt-5".to_string()),
+          Model::Model(Provider::OpenAI, "gpt-5.6-sol".to_string()),
         );
         submit_prompt(
           &Some(&model),
@@ -981,7 +981,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
           Model::Model(Provider::Groq, "openai/gpt-oss-20b".to_string()),
           Model::Model(Provider::Llamafile, "".to_string()),
           Model::Model(Provider::Ollama, "llama3".to_string()),
-          Model::Model(Provider::OpenAI, "gpt-5-mini".to_string()),
+          Model::Model(Provider::OpenAI, "gpt-5.6-terra".to_string()),
           Model::Model(Provider::XAI, "grok-4-fast".to_string()),
           Model::Model(Provider::Perplexity, "sonar".to_string()),
         ];

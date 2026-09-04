@@ -127,7 +127,7 @@ Commands:
   cerebras      Cerebras [aliases: ce]
   deepseek      DeepSeek [aliases: ds]
   openai        OpenAI [aliases: op]
-  gpt5          - GPT-5 shortcut [aliases: gpt, gp]
+  gpt5          - GPT-5.6 Sol shortcut [aliases: gpt, gp]
   gpt5m         - GPT-5 mini shortcut [aliases: gm]
   gpt5n         - GPT-5 nano shortcut [aliases: gn]
   gpt41         - gpt-4.1 shortcut

@@ -277,7 +277,7 @@ pub enum Commands {
     #[clap(required(true))]
     prompt: Vec<String>,
   },
-  /// - GPT-5 shortcut
+  /// - GPT-5.6 Sol shortcut
   #[clap(name = "gpt5", visible_alias = "gpt", visible_alias = "gp")]
   Gpt5 {
     /// The prompt to send to the AI model

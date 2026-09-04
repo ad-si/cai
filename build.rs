@@ -151,7 +151,7 @@ const OLLAMA_MODEL_MAPPING_SRC: [(&str, &str); 21] = [
 
 const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 55] = [
   // Default models
-  ("gpt", "gpt-5"),
+  ("gpt", "gpt-5.6-sol"),
   ("mini", "gpt-5-mini"),
   ("m", "gpt-5-mini"),
   ("nano", "gpt-5-nano"),
