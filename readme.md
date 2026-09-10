@@ -97,10 +97,10 @@ Commands:
                 as the prompt
   run           Generate a shell command from a prompt and confirm before executing it
   agent         Run an agentic loop with tool use to fulfill a request
-  image         Generate an image using GPT-image-2 [aliases: img]
+  image         Generate an image using GPT-Image-2.5 Flare [aliases: img]
   photo         Generate a photorealistic image that looks like a camera photo
-  imgedit       Edit 1 or more images using GPT-image-2 (pass image files followed by the edit
-                prompt as the last argument) [aliases: imge]
+  imgedit       Edit 1 or more images using GPT-Image-2.5 Sunburst (pass image files followed by the
+                edit prompt as the last argument) [aliases: imge]
   say           Convert text to speech using OpenAI's TTS model [aliases: tts]
   transcribe    Transcribe an audio file using GPT-Transcribe
   ocr           Extract text from an image

@@ -156,7 +156,7 @@ const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 55] = [
   ("m", "gpt-5-mini"),
   ("nano", "gpt-5-nano"),
   ("n", "gpt-5-nano"),
-  ("image", "gpt-image-2"),
+  ("image", "gpt-image-2.5-flare"),
   ("tts", "gpt-4o-mini-tts"),
   ("transcribe", "gpt-transcribe"),
   ("diarize", "gpt-4o-transcribe-diarize"),
@@ -186,12 +186,12 @@ const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 55] = [
   ("gpt5.6terra", "gpt-5.6-terra"),
   ("luna", "gpt-5.6-luna"),
   ("gpt5.6luna", "gpt-5.6-luna"),
-  // GPT Image
-  ("gptimage", "gpt-image-2"),
-  ("gpt-image", "gpt-image-2"),
-  ("gpt-image-2", "gpt-image-2"),
-  ("gpt-image-1.5", "gpt-image-1.5"),
-  ("gpt-image-1-mini", "gpt-image-1-mini"),
+  // GPT Image (Flare = fast generation, Sunburst = precise editing)
+  ("gptimage", "gpt-image-2.5-flare"),
+  ("gpt-image", "gpt-image-2.5-flare"),
+  ("gpt-image-2.5", "gpt-image-2.5-flare"),
+  ("flare", "gpt-image-2.5-flare"),
+  ("sunburst", "gpt-image-2.5-sunburst"),
   // GPT-4
   ("gpt4", "gpt-4.1"),
   ("gpt4mini", "gpt-4.1-mini"),

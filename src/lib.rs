@@ -2047,12 +2047,8 @@ pub async fn edit_images(
   let start = Instant::now();
   let secrets_path_str = get_secrets_path_str();
   let full_config = get_full_config(&secrets_path_str)?;
-  let model_id = if background.is_some() {
-    "gpt-image-1.5"
-  } else {
-    "gpt-image-2"
-  };
-  let model = &Model::Model(Provider::OpenAI, model_id.to_string());
+  let model =
+    &Model::Model(Provider::OpenAI, "gpt-image-2.5-sunburst".to_string());
   let (used_model, http_req) =
     get_http_req(&Some(model), &secrets_path_str, &full_config)?;
 

@@ -66,7 +66,7 @@ pub enum Commands {
     prompt: Vec<String>,
   },
 
-  /// Generate an image using GPT-image-2
+  /// Generate an image using GPT-Image-2.5 Flare
   #[clap(visible_alias = "img")]
   Image {
     /// Background behavior for the generated image
@@ -82,7 +82,7 @@ pub enum Commands {
     prompt: Vec<String>,
   },
 
-  /// Edit 1 or more images using GPT-image-2
+  /// Edit 1 or more images using GPT-Image-2.5 Sunburst
   /// (pass image files followed by the edit prompt as the last argument)
   #[clap(
     name = "imgedit",

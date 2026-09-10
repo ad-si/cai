@@ -597,15 +597,13 @@ async fn exec_with_args(args: Args, stdin: &str) {
         )
         .await
       }
-      Commands::Image { prompt, background } => {
+      Commands::Image { prompt, .. } => {
         let image_prompt = prompt.join(" ").to_string();
-        let model_id = if background.is_some() {
-          "gpt-image-1.5"
-        } else {
-          "gpt-image-2"
-        };
         submit_prompt(
-          &Some(&Model::Model(Provider::OpenAI, model_id.to_string())),
+          &Some(&Model::Model(
+            Provider::OpenAI,
+            "gpt-image-2.5-flare".to_string(),
+          )),
           &opts,
           &format!("{stdin}{image_prompt}"),
         )
@@ -620,7 +618,10 @@ async fn exec_with_args(args: Args, stdin: &str) {
           prompt.join(" ")
         );
         submit_prompt(
-          &Some(&Model::Model(Provider::OpenAI, "gpt-image-2".to_string())),
+          &Some(&Model::Model(
+            Provider::OpenAI,
+            "gpt-image-2.5-flare".to_string(),
+          )),
           &opts,
           &format!("{stdin}{photo_prompt}"),
         )
