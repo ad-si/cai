@@ -9,6 +9,8 @@
   - `cai value capital of Australia`
   - `cai image photo of a banana` (OpenAI image generation)
   - `cai google-image sunset over mountains` (Google Gemini image generation)
+  - `cai google-video a paper plane gliding over a desk` (Google Veo video)
+  - `cai music a calm piano loop` (Google Lyria music generation)
   - `cai ocr page.png`
   - `pbpaste | cai rewrite 'more professional'`
   - Check [usage section](./#usage) for all commands
@@ -102,6 +104,7 @@ Commands:
   imgedit       Edit 1 or more images using GPT-Image-2.5 Sunburst (pass image files followed by the
                 edit prompt as the last argument) [aliases: imge]
   say           Convert text to speech using OpenAI's TTS model [aliases: tts]
+  music         Generate music using Google's Lyria 3.5
   transcribe    Transcribe an audio file using GPT-Transcribe
   ocr           Extract text from an image
   google-ocr    Extract text from an image using Google Gemini with high resolution [aliases: gocr]
@@ -119,9 +122,13 @@ Commands:
                 Perplexity, Ollama, Mistral)
   all           Simultaneously send prompt to each provider's default model
   google        Google [aliases: go]
-  gemini        - Gemini Pro shortcut [aliases: ge]
+  gemini        - Google's default model (Gemini Flash) shortcut [aliases: ge]
   flash         - Gemini Flash shortcut [aliases: gf]
   google-image  - Google Gemini Image shortcut [aliases: gimg]
+  google-video  - Google Veo Video shortcut [aliases: gvid]
+  google-music  - Google Lyria Music shortcut [aliases: gmus]
+  google-say    - Google Gemini Speech shortcut [aliases: gsay]
+  google-embed  - Google Gemini Embedding shortcut [aliases: gemb]
   groq          Groq [aliases: gr]
   llama         - Llama 3 shortcut [aliases: ll]
   cerebras      Cerebras [aliases: ce]

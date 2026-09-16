@@ -105,10 +105,17 @@ pub enum Commands {
     prompt: Vec<String>,
   },
 
+  /// Generate music using Google's Lyria 3.5
+  Music {
+    /// The prompt describing the music to generate
+    prompt: Vec<String>,
+  },
+
   /// Transcribe an audio file using GPT-Transcribe
   Transcribe {
     /// Transcription model
-    /// (e.g. `gpt-transcribe`, `diarize`, `whisper-1`)
+    /// (e.g. `gpt-transcribe`, `diarize`, `whisper-1`,
+    /// `gemini-3.5-transcribe`, `google/transcribe`)
     #[clap(long, short = 'm')]
     model: Option<String>,
 
@@ -193,7 +200,7 @@ pub enum Commands {
 - Groq GPT OSS 20B
 - Cerebras GPT OSS 120B
 - Anthropic Claude Sonnet 5
-- Google Gemini 2.5 Flash
+- Google Gemini 3.8 Flash
 - OpenAI GPT-5 mini
 - Ollama Llama 3
 - Llamafile
@@ -214,7 +221,7 @@ pub enum Commands {
     #[clap(required(true))]
     prompt: Vec<String>,
   },
-  /// - Gemini Pro shortcut
+  /// - Google's default model (Gemini Flash) shortcut
   #[clap(name = "gemini", visible_alias = "ge")]
   Gemini {
     /// The prompt to send to the AI model
@@ -230,6 +237,30 @@ pub enum Commands {
   #[clap(name = "google-image", visible_alias = "gimg")]
   GoogleImage {
     /// The prompt describing the image to generate
+    prompt: Vec<String>,
+  },
+  /// - Google Veo Video shortcut
+  #[clap(name = "google-video", visible_alias = "gvid")]
+  GoogleVideo {
+    /// The prompt describing the video to generate
+    prompt: Vec<String>,
+  },
+  /// - Google Lyria Music shortcut
+  #[clap(name = "google-music", visible_alias = "gmus")]
+  GoogleMusic {
+    /// The prompt describing the music to generate
+    prompt: Vec<String>,
+  },
+  /// - Google Gemini Speech shortcut
+  #[clap(name = "google-say", visible_alias = "gsay")]
+  GoogleSay {
+    /// The text to convert to speech
+    prompt: Vec<String>,
+  },
+  /// - Google Gemini Embedding shortcut
+  #[clap(name = "google-embed", visible_alias = "gemb")]
+  GoogleEmbed {
+    /// The text to convert into an embedding vector
     prompt: Vec<String>,
   },
   /// Groq
@@ -648,6 +679,7 @@ impl Commands {
       Commands::Config { .. } => None,
       Commands::Transcribe { .. } => Some("Transcribe"),
       Commands::Say { .. } => Some("Say"),
+      Commands::Music { .. } => Some("Music"),
       Commands::Image { .. } => Some("Image"),
       Commands::Photo { .. } => Some("Photo"),
       Commands::ImgEdit { .. } => Some("Image Edit"),
@@ -661,6 +693,10 @@ impl Commands {
       Commands::Gemini { .. } => None,
       Commands::GeminiFlash { .. } => None,
       Commands::GoogleImage { .. } => Some("Google Image"),
+      Commands::GoogleVideo { .. } => Some("Google Video"),
+      Commands::GoogleMusic { .. } => Some("Google Music"),
+      Commands::GoogleSay { .. } => Some("Google Speech"),
+      Commands::GoogleEmbed { .. } => Some("Google Embedding"),
       Commands::Groq { .. } => None,
       Commands::Perplexity { .. } => None,
       Commands::Sonar { .. } => None,

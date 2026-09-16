@@ -56,17 +56,14 @@ fn image_extension(image_bytes: &[u8]) -> &'static str {
   }
 }
 
-/// Decode a base64 encoded image and write it to a uniquely named file
+/// Write media bytes to a uniquely named file
 /// derived from the current timestamp and the prompt.
 /// Returns the name of the written file.
-fn save_base64_image(
-  image_base64: &str,
+fn save_media_bytes(
+  bytes: &[u8],
   prompt: &str,
+  extension: &str,
 ) -> Result<String, Box<dyn Error + Send + Sync>> {
-  use base64::{engine::general_purpose, Engine as _};
-  let image_bytes = general_purpose::STANDARD.decode(image_base64)?;
-  let extension = image_extension(&image_bytes);
-
   // Generate timestamp prefix in format: 2025-08-17t1943
   let timestamp_prefix = Utc::now().format("%Y-%m-%dt%H%M").to_string();
   let short_name = prompt_to_short_name(prompt);
@@ -79,9 +76,98 @@ fn save_base64_image(
     filename = format!("{timestamp_prefix}_{short_name}_{counter}.{extension}");
   }
 
-  std::fs::write(&filename, image_bytes)?;
+  std::fs::write(&filename, bytes)?;
 
   Ok(filename)
+}
+
+/// Decode a base64 encoded image and write it to a uniquely named file
+/// derived from the current timestamp and the prompt.
+/// Returns the name of the written file.
+fn save_base64_image(
+  image_base64: &str,
+  prompt: &str,
+) -> Result<String, Box<dyn Error + Send + Sync>> {
+  use base64::{engine::general_purpose, Engine as _};
+  let image_bytes = general_purpose::STANDARD.decode(image_base64)?;
+  let extension = image_extension(&image_bytes);
+
+  save_media_bytes(&image_bytes, prompt, extension)
+}
+
+/// File extension for a media MIME type as returned by Gemini's `inlineData`
+/// (e.g. `audio/mpeg` → `mp3`). Raw PCM (`audio/L16`) is converted to WAV
+/// before being written, hence the `wav` extension.
+fn media_extension_for_mime(mime_type: &str) -> &'static str {
+  match mime_type.split(';').next().unwrap_or_default().trim() {
+    "image/jpeg" => "jpg",
+    "image/gif" => "gif",
+    "image/webp" => "webp",
+    "audio/mpeg" | "audio/mp3" => "mp3",
+    "audio/ogg" => "ogg",
+    "audio/flac" => "flac",
+    "audio/wav" | "audio/x-wav" => "wav",
+    mime if mime.eq_ignore_ascii_case("audio/l16") => "wav",
+    "video/mp4" => "mp4",
+    _ => "png",
+  }
+}
+
+/// Read a numeric MIME parameter, e.g. `24000` from
+/// `audio/L16; rate=24000; channels=1`.
+fn mime_param(mime_type: &str, key: &str) -> Option<u32> {
+  mime_type
+    .split(';')
+    .skip(1)
+    .filter_map(|param| param.split_once('='))
+    .find(|(name, _)| name.trim().eq_ignore_ascii_case(key))
+    .and_then(|(_, value)| value.trim().parse().ok())
+}
+
+/// Wrap raw little-endian 16 bit PCM samples in a RIFF/WAVE container,
+/// so that the audio Gemini's TTS models return is playable as a file.
+fn pcm_to_wav(pcm: &[u8], sample_rate: u32, channels: u16) -> Vec<u8> {
+  let bits_per_sample: u16 = 16;
+  let block_align = channels * bits_per_sample / 8;
+  let byte_rate = sample_rate * block_align as u32;
+
+  let mut wav = Vec::with_capacity(44 + pcm.len());
+  wav.extend_from_slice(b"RIFF");
+  wav.extend_from_slice(&(36 + pcm.len() as u32).to_le_bytes());
+  wav.extend_from_slice(b"WAVEfmt ");
+  wav.extend_from_slice(&16u32.to_le_bytes()); // PCM header size
+  wav.extend_from_slice(&1u16.to_le_bytes()); // Format: uncompressed PCM
+  wav.extend_from_slice(&channels.to_le_bytes());
+  wav.extend_from_slice(&sample_rate.to_le_bytes());
+  wav.extend_from_slice(&byte_rate.to_le_bytes());
+  wav.extend_from_slice(&block_align.to_le_bytes());
+  wav.extend_from_slice(&bits_per_sample.to_le_bytes());
+  wav.extend_from_slice(b"data");
+  wav.extend_from_slice(&(pcm.len() as u32).to_le_bytes());
+  wav.extend_from_slice(pcm);
+  wav
+}
+
+/// Decode one `inlineData` part of a Gemini response and write it to disk.
+/// Returns the name of the written file.
+fn save_gemini_inline_data(
+  mime_type: &str,
+  data_base64: &str,
+  prompt: &str,
+) -> Result<String, Box<dyn Error + Send + Sync>> {
+  use base64::{engine::general_purpose, Engine as _};
+  let bytes = general_purpose::STANDARD.decode(data_base64)?;
+  let extension = media_extension_for_mime(mime_type);
+
+  // The TTS models return headerless PCM, which no player recognizes
+  if mime_type.to_ascii_lowercase().starts_with("audio/l16") {
+    let sample_rate = mime_param(mime_type, "rate").unwrap_or(24_000);
+    let channels = mime_param(mime_type, "channels").unwrap_or(1) as u16;
+    let wav = pcm_to_wav(&bytes, sample_rate, channels);
+    return save_media_bytes(&wav, prompt, extension);
+  }
+
+  save_media_bytes(&bytes, prompt, extension)
 }
 
 /// Format elapsed time for display - show in seconds if > 10 seconds, otherwise in milliseconds
@@ -733,6 +819,28 @@ fn get_req_body_obj(
 
   // Special handling for Google's Gemini API
   if http_req.provider == Provider::Google {
+    let model = &http_req.model;
+
+    // The Interactions API takes the prompt as a plain string
+    if is_google_interactions_model(model) {
+      return json!({ "model": model, "input": user_input });
+    }
+
+    // Veo's video models use the prediction API instead of `generateContent`
+    if is_google_video_model(model) {
+      return json!({
+        "instances": [{ "prompt": user_input }],
+        "parameters": { "aspectRatio": "16:9" },
+      });
+    }
+
+    // Embedding models expect a single `content` object
+    if is_google_embedding_model(model) {
+      return json!({
+        "content": { "parts": [{ "text": user_input }] },
+      });
+    }
+
     let mut contents = Map::new();
     contents.insert("role".to_string(), "user".into());
     contents.insert(
@@ -744,16 +852,34 @@ fn get_req_body_obj(
     );
 
     let mut generation_config = Map::new();
-    generation_config.insert(
-      "maxOutputTokens".to_string(),
-      Value::Number(http_req.max_tokens.into()),
-    );
 
-    // Add image generation specific config for image models
-    if http_req.model.contains("-image") {
+    if is_google_image_model(model) {
+      generation_config.insert(
+        "maxOutputTokens".to_string(),
+        Value::Number(http_req.max_tokens.into()),
+      );
       generation_config.insert(
         "responseModalities".to_string(),
         Value::Array(vec![Value::String("IMAGE".to_string())]),
+      );
+    } else if is_google_audio_model(model) {
+      // No token limit, as it would cut the generated audio short
+      generation_config.insert(
+        "responseModalities".to_string(),
+        Value::Array(vec![Value::String("AUDIO".to_string())]),
+      );
+      if is_google_tts_model(model) {
+        generation_config.insert(
+          "speechConfig".to_string(),
+          json!({
+            "voiceConfig": { "prebuiltVoiceConfig": { "voiceName": "Kore" } },
+          }),
+        );
+      }
+    } else {
+      generation_config.insert(
+        "maxOutputTokens".to_string(),
+        Value::Number(http_req.max_tokens.into()),
       );
     }
 
@@ -913,17 +1039,31 @@ async fn exec_request(
       // generation action to the URL along with the API key as a query
       // parameter. When streaming, use ":streamGenerateContent" with SSE.
       let model = &http_req.model;
-      let url = if is_streaming {
-        format!(
-          "{}/{model}:streamGenerateContent?alt=sse&key={}",
-          http_req.url, http_req.api_key
-        )
+
+      // The Interactions API has its own endpoint
+      // and names the model in the request body instead of the URL
+      if is_google_interactions_model(model) {
+        let url = format!(
+          "{}/interactions?key={}",
+          google_base_url(http_req),
+          http_req.api_key,
+        );
+        return client.post(url).json(&req_body_obj).send().await;
+      }
+
+      let (action, extra_query) = if is_google_video_model(model) {
+        ("predictLongRunning", "")
+      } else if is_google_embedding_model(model) {
+        ("embedContent", "")
+      } else if is_streaming {
+        ("streamGenerateContent", "alt=sse&")
       } else {
-        format!(
-          "{}/{model}:generateContent?key={}",
-          http_req.url, http_req.api_key
-        )
+        ("generateContent", "")
       };
+      let url = format!(
+        "{}/{model}:{action}?{extra_query}key={}",
+        http_req.url, http_req.api_key
+      );
       client.post(url).json(&req_body_obj)
     }
     _ => req_base.bearer_auth(&http_req.api_key),
@@ -931,10 +1071,51 @@ async fn exec_request(
   req.send().await
 }
 
+/// The Gemini API's base URL, derived from the request's `<base>/models` URL
+fn google_base_url(http_req: &AiRequest) -> &str {
+  http_req.url.trim_end_matches("/models")
+}
+
 /// xAI image models (Grok Imagine) are served by the images API,
 /// not the chat completions API
 fn is_xai_image_model(model: &str) -> bool {
   model.starts_with("grok-imagine-image") || model == "grok-2-image"
+}
+
+/// Gemini models that return images (`gemini-*-image`, Nano Banana)
+fn is_google_image_model(model: &str) -> bool {
+  model.contains("-image") || model.starts_with("nano-banana")
+}
+
+/// Veo models generate videos via a long running operation
+fn is_google_video_model(model: &str) -> bool {
+  model.starts_with("veo-")
+}
+
+/// Lyria models generate music
+fn is_google_music_model(model: &str) -> bool {
+  model.starts_with("lyria-")
+}
+
+/// Gemini models that synthesize speech
+fn is_google_tts_model(model: &str) -> bool {
+  model.contains("-tts")
+}
+
+/// Gemini models that are served by the `:embedContent` endpoint
+fn is_google_embedding_model(model: &str) -> bool {
+  model.contains("embedding")
+}
+
+/// The any-to-any Omni models are only served by the Interactions API,
+/// which takes a plain prompt and can answer with any modality
+fn is_google_interactions_model(model: &str) -> bool {
+  model.starts_with("gemini-omni")
+}
+
+/// Whether a Google model returns audio instead of text
+fn is_google_audio_model(model: &str) -> bool {
+  is_google_tts_model(model) || is_google_music_model(model)
 }
 
 /// Whether a request returns text (vs binary like images or audio)
@@ -963,8 +1144,14 @@ fn is_text_response(http_req: &AiRequest, opts: &ExecOptions) -> bool {
     return false;
   }
 
-  // Google Gemini image generation
-  if http_req.provider == Provider::Google && http_req.model.contains("-image")
+  // Google media generation (images, video, music, speech), embeddings,
+  // and the any-to-any Omni models all need their own response handling
+  if http_req.provider == Provider::Google
+    && (is_google_image_model(&http_req.model)
+      || is_google_video_model(&http_req.model)
+      || is_google_audio_model(&http_req.model)
+      || is_google_embedding_model(&http_req.model)
+      || is_google_interactions_model(&http_req.model))
   {
     return false;
   }
@@ -1205,6 +1392,163 @@ async fn parse_text_response(
   })
 }
 
+/// Write one base64 encoded media blob of a Gemini response to disk
+/// and report where it landed.
+fn report_saved_media(
+  mime_type: &str,
+  data_base64: &str,
+  prompt: &str,
+  index: usize,
+) {
+  let media_kind = match mime_type.split('/').next().unwrap_or_default() {
+    "image" => "image",
+    "audio" => "audio",
+    "video" => "video",
+    _ => "file",
+  };
+
+  match save_gemini_inline_data(mime_type, data_base64, prompt) {
+    Ok(filename) => println!("Generated {media_kind} saved to: {filename}"),
+    Err(err) => println!("Failed to save {media_kind} {index}: {err}"),
+  }
+}
+
+/// Print the text parts of a Gemini response (e.g. the lyrics Lyria returns
+/// alongside a song) and write its inline media parts to disk.
+fn save_gemini_media_parts(response_json: &Value, prompt: &str) {
+  let mut media_count = 0;
+
+  for candidate in response_json["candidates"].as_array().into_iter().flatten()
+  {
+    for part in candidate["content"]["parts"]
+      .as_array()
+      .into_iter()
+      .flatten()
+    {
+      if let Some(text) = part["text"].as_str() {
+        println!("{text}\n");
+      }
+
+      if let Some(data_base64) = part["inlineData"]["data"].as_str() {
+        media_count += 1;
+        report_saved_media(
+          part["inlineData"]["mimeType"].as_str().unwrap_or_default(),
+          data_base64,
+          prompt,
+          media_count,
+        );
+      }
+    }
+  }
+}
+
+/// Print the text blocks of an Interactions API response
+/// and write its media blocks to disk.
+fn save_interaction_content(response_json: &Value, prompt: &str) {
+  let mut media_count = 0;
+
+  for step in response_json["steps"].as_array().into_iter().flatten() {
+    // Skip the model's thoughts and tool calls
+    if step["type"].as_str() != Some("model_output") {
+      continue;
+    }
+
+    for block in step["content"].as_array().into_iter().flatten() {
+      match block["text"].as_str() {
+        Some(text) if !text.is_empty() => println!("{text}\n"),
+        _ => {}
+      }
+
+      if let Some(data_base64) = block["data"].as_str() {
+        media_count += 1;
+        report_saved_media(
+          block["mime_type"].as_str().unwrap_or_default(),
+          data_base64,
+          prompt,
+          media_count,
+        );
+      }
+    }
+  }
+}
+
+/// How long to wait for a Veo video generation operation before giving up
+const VIDEO_GENERATION_TIMEOUT: std::time::Duration =
+  std::time::Duration::from_secs(10 * 60);
+
+/// Poll a Veo video generation operation until it's done,
+/// then download every generated sample.
+/// Returns the names of the written files.
+async fn await_video_operation(
+  http_req: &AiRequest,
+  operation_name: &str,
+  prompt: &str,
+) -> Result<Vec<String>, Box<dyn Error + Send + Sync>> {
+  // Operation names are relative to the API's base URL
+  // (`models/veo-…/operations/…`)
+  let base_url = google_base_url(http_req);
+  let poll_url =
+    format!("{base_url}/{operation_name}?key={}", http_req.api_key);
+  let client = reqwest::Client::new();
+  let deadline = Instant::now() + VIDEO_GENERATION_TIMEOUT;
+
+  eprintln!("{}", cformat!("<dim>Generating video …</dim>"));
+
+  let operation = loop {
+    let operation = client.get(&poll_url).send().await?.json::<Value>().await?;
+
+    if let Some(error) = operation.get("error") {
+      Err(serde_json::to_string_pretty(error)?)?;
+    }
+    if operation["done"].as_bool().unwrap_or(false) {
+      break operation;
+    }
+    if Instant::now() >= deadline {
+      Err(format!(
+        "Video generation timed out after {} minutes. \
+        Check the operation at {base_url}/{operation_name}",
+        VIDEO_GENERATION_TIMEOUT.as_secs() / 60,
+      ))?;
+    }
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+  };
+
+  let mut filenames = vec![];
+
+  for sample in operation["response"]["generateVideoResponse"]
+    ["generatedSamples"]
+    .as_array()
+    .into_iter()
+    .flatten()
+  {
+    // The video is served from the Files API and needs the API key as well
+    if let Some(uri) = sample["video"]["uri"].as_str() {
+      let separator = if uri.contains('?') { "&" } else { "?" };
+      let video_bytes = client
+        .get(format!("{uri}{separator}key={}", http_req.api_key))
+        .send()
+        .await?
+        .bytes()
+        .await?;
+      filenames.push(save_media_bytes(&video_bytes, prompt, "mp4")?);
+    }
+    // Smaller videos can be returned inline instead
+    else if let Some(data_base64) =
+      sample["video"]["bytesBase64Encoded"].as_str()
+    {
+      let video_bytes =
+        base64::engine::general_purpose::STANDARD.decode(data_base64)?;
+      filenames.push(save_media_bytes(&video_bytes, prompt, "mp4")?);
+    }
+  }
+
+  if filenames.is_empty() {
+    Err(serde_json::to_string_pretty(&operation)?)?;
+  }
+
+  Ok(filenames)
+}
+
 pub async fn exec_tool(
   optional_model: &Option<&Model>,
   opts: &ExecOptions,
@@ -1439,11 +1783,41 @@ pub async fn exec_tool(
       return Ok(());
     }
 
-    // Special handling for Google Gemini image generation
+    // Special handling for Google's media and embedding models
     if http_req.provider == Provider::Google
-      && http_req.model.contains("-image")
+      && !is_text_response(&http_req, opts)
     {
       let response_json = resp.json::<Value>().await?;
+
+      // Name generated files after the prompt the user actually typed
+      // (`user_input` can carry additional instructions)
+      let media_prompt = match &opts.subcommand {
+        Some(
+          Commands::Music { prompt }
+          | Commands::GoogleImage { prompt }
+          | Commands::GoogleVideo { prompt }
+          | Commands::GoogleMusic { prompt }
+          | Commands::GoogleSay { prompt },
+        ) => prompt.join(" "),
+        _ => user_input.to_string(),
+      };
+
+      if is_google_embedding_model(&http_req.model) {
+        let embedding = &response_json["embedding"]["values"];
+        if opts.is_raw {
+          println!("{embedding}");
+        } else {
+          let dimensions = embedding.as_array().map_or(0, |vec| vec.len());
+          cprintln!(
+            "<bold>{subcommand}{used_model} | \
+            {dimensions} dimensions | ⏱️ {} {}</bold>\n",
+            elapsed_time,
+            time_unit,
+          );
+          println!("{embedding}");
+        }
+        return Ok(());
+      }
 
       cprintln!(
         "<bold>{subcommand}{used_model} | ⏱️ {} {}</bold>\n",
@@ -1451,63 +1825,29 @@ pub async fn exec_tool(
         time_unit,
       );
 
-      // Google Gemini returns images in the response as inline data
-      if let Some(candidates) = response_json["candidates"].as_array() {
-        for candidate in candidates {
-          if let Some(parts) = candidate["content"]["parts"].as_array() {
-            let mut image_count = 0;
-            for part in parts {
-              if let Some(inline_data) = part["inlineData"].as_object() {
-                if let Some(data_base64) = inline_data["data"].as_str() {
-                  image_count += 1;
-                  use base64::{engine::general_purpose, Engine as _};
-                  match general_purpose::STANDARD.decode(data_base64) {
-                    Ok(image_bytes) => {
-                      // Generate timestamp prefix in format: 2025-08-17t1943
-                      let now = Utc::now();
-                      let timestamp_prefix =
-                        now.format("%Y-%m-%dt%H%M").to_string();
-
-                      // Extract original user prompt from subcommand if available
-                      let original_prompt = match &opts.subcommand {
-                        Some(Commands::GoogleImage { prompt }) => {
-                          prompt.join(" ")
-                        }
-                        _ => user_input.to_string(),
-                      };
-
-                      let short_name = prompt_to_short_name(&original_prompt);
-
-                      // Find a unique filename with timestamp prefix
-                      let mut filename =
-                        format!("{timestamp_prefix}_{short_name}.png");
-                      let mut counter = 1;
-                      while std::path::Path::new(&filename).exists() {
-                        filename = format!(
-                          "{timestamp_prefix}_{short_name}_{counter}.png"
-                        );
-                        counter += 1;
-                      }
-
-                      match std::fs::write(&filename, image_bytes) {
-                        Ok(_) => {
-                          println!("Generated image saved to: {filename}")
-                        }
-                        Err(e) => {
-                          println!("Failed to save image {image_count}: {e}")
-                        }
-                      }
-                    }
-                    Err(e) => println!(
-                      "Failed to decode base64 for image {image_count}: {e}"
-                    ),
-                  }
-                }
-              }
-            }
-          }
+      // Veo only returns the name of a long running operation
+      if is_google_video_model(&http_req.model) {
+        let operation_name =
+          response_json["name"].as_str().ok_or_else(|| {
+            serde_json::to_string_pretty(&response_json).unwrap_or_default()
+          })?;
+        for filename in
+          await_video_operation(&http_req, operation_name, &media_prompt)
+            .await?
+        {
+          println!("Generated video saved to: {filename}");
         }
+        return Ok(());
       }
+
+      // The Omni models answer with their own response shape
+      if is_google_interactions_model(&http_req.model) {
+        save_interaction_content(&response_json, &media_prompt);
+        return Ok(());
+      }
+
+      // Images, music, and speech are returned inline
+      save_gemini_media_parts(&response_json, &media_prompt);
 
       return Ok(());
     }
@@ -1615,6 +1955,9 @@ pub struct FileAnalysis {
 const OCR_PROMPT: &str = "Extract and return all text from this image. \
   Just the text and no explanation!";
 
+/// Gemini model used to extract text from images at high media resolution
+const GOOGLE_OCR_MODEL: &str = "gemini-3.1-pro-preview";
+
 /// Extract all text from an image via OCR with a vision model
 /// and return it as a string.
 async fn ocr_image_to_text(
@@ -1637,8 +1980,7 @@ async fn ocr_image_to_text(
         Extracting text from image with Google Gemini …</dim>"
       )
     );
-    let model =
-      Model::Model(Provider::Google, "gemini-3-pro-preview".to_string());
+    let model = Model::Model(Provider::Google, GOOGLE_OCR_MODEL.to_string());
     let (_used_model, http_req) =
       get_http_req(&Some(&model), &secrets_path_str, &full_config)?;
 
@@ -1862,8 +2204,7 @@ pub async fn google_ocr_file(
 
   let mime_type = get_image_mime_type(file_path);
 
-  let model_id = "gemini-3-pro-preview";
-  let model = &Model::Model(Provider::Google, model_id.to_string());
+  let model = &Model::Model(Provider::Google, GOOGLE_OCR_MODEL.to_string());
 
   // Build the request JSON according to the Google Gemini API format
   // The mediaResolution should be specified at the generationConfig level
@@ -1904,11 +2245,106 @@ fn get_audio_mime_type(file_path: &str) -> &'static str {
   }
 }
 
-/// Transcribe an audio file via OpenAI's `/audio/transcriptions` endpoint.
+/// Resolve the model of the `transcribe` command.
+/// Gemini models (and anything prefixed with `google/`) are served by Google's
+/// API, every other transcription model by OpenAI's.
+pub fn transcription_model(model_id: &str) -> Model {
+  match model_id.strip_prefix("google/") {
+    Some(google_model_id) => {
+      Model::Model(Provider::Google, google_model_id.to_string())
+    }
+    None if model_id.starts_with("gemini") => {
+      Model::Model(Provider::Google, model_id.to_string())
+    }
+    None => Model::Model(Provider::OpenAI, model_id.to_string()),
+  }
+}
+
+/// Transcribe an audio file with a Gemini model, which takes the audio inline
+/// in a `generateContent` request instead of a multipart file upload.
+///
+/// Gemini has no dedicated language or keyword parameters,
+/// so those hints become part of the prompt.
+async fn transcribe_via_gemini(
+  opts: &ExecOptions,
+  http_req: &AiRequest,
+  languages: &[String],
+  keywords: &[String],
+  file_path: &str,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+  if http_req.model.ends_with("-live") {
+    Err(format!(
+      "`{}` is only available in realtime sessions. \
+      Use `gemini-3.5-transcribe` to transcribe audio files.",
+      http_req.model,
+    ))?
+  }
+
+  let file_content = std::fs::read(file_path)?;
+  let base64_content =
+    base64::engine::general_purpose::STANDARD.encode(&file_content);
+
+  let mut prompt = "Transcribe this audio. \
+    Just the transcript and no explanation!"
+    .to_string();
+  if !languages.is_empty() {
+    prompt += &format!("\nThe audio is spoken in: {}.", languages.join(", "));
+  }
+  if !keywords.is_empty() {
+    prompt += &format!("\nExpect these terms: {}.", keywords.join(", "));
+  }
+
+  let req_body_obj = json!({
+    "contents": [{
+      "parts": [
+        { "text": prompt },
+        {
+          "inlineData": {
+            "mimeType": get_audio_mime_type(file_path),
+            "data": base64_content,
+          }
+        }
+      ]
+    }]
+  });
+
+  let resp = exec_request(http_req, &req_body_obj, false).await?;
+  let status = resp.status();
+  let resp_json = resp.json::<Value>().await?;
+
+  if !status.is_success() {
+    Err(serde_json::to_string_pretty(&resp_json).unwrap())?;
+  }
+
+  // The dedicated transcription models return `audioTranscription` parts,
+  // the general purpose ones plain text parts
+  let text = resp_json["candidates"][0]["content"]["parts"]
+    .as_array()
+    .into_iter()
+    .flatten()
+    .filter_map(|part| {
+      part["audioTranscription"]["text"]
+        .as_str()
+        .or_else(|| part["text"].as_str())
+    })
+    .collect::<Vec<&str>>()
+    .join("");
+
+  if opts.is_raw {
+    println!("{text}");
+  } else {
+    highlight::text_via_bat(&format!("{text}\n"));
+  }
+
+  Ok(())
+}
+
+/// Transcribe an audio file via OpenAI's `/audio/transcriptions` endpoint
+/// or, for Gemini models, via Google's `generateContent` endpoint.
 ///
 /// `languages` and `keywords` are only supported by `gpt-transcribe`.
-/// For the other models the first language is sent as the legacy `language`
-/// parameter and the keywords are ignored.
+/// For the other OpenAI models the first language is sent as the legacy
+/// `language` parameter and the keywords are ignored.
 pub async fn transcribe_audio_file(
   opts: &ExecOptions,
   model: &Model,
@@ -1920,6 +2356,13 @@ pub async fn transcribe_audio_file(
   let full_config = get_full_config(&secrets_path_str)?;
   let (_used_model, http_req) =
     get_http_req(&Some(model), &secrets_path_str, &full_config)?;
+
+  if http_req.provider == Provider::Google {
+    return transcribe_via_gemini(
+      opts, &http_req, languages, keywords, file_path,
+    )
+    .await;
+  }
 
   let model_id = http_req.model.clone();
   if model_id == "gpt-live-transcribe" {
@@ -3237,6 +3680,173 @@ mod tests {
     assert!(is_xai_image_model("grok-imagine-image-2.0"));
     assert!(!is_xai_image_model("grok-4"));
     assert!(!is_xai_image_model("grok-imagine-video"));
+  }
+
+  #[test]
+  fn test_google_model_modalities() {
+    let cases = [
+      // (alias, image, video, music, tts, embedding, interactions)
+      ("image", true, false, false, false, false, false),
+      ("banana", true, false, false, false, false, false),
+      ("pro-image", true, false, false, false, false, false),
+      ("veo", false, true, false, false, false, false),
+      ("video", false, true, false, false, false, false),
+      ("music", false, false, true, false, false, false),
+      ("lyria-clip", false, false, true, false, false, false),
+      ("tts", false, false, false, true, false, false),
+      ("embed", false, false, false, false, true, false),
+      ("omni", false, false, false, false, false, true),
+      ("gemini", false, false, false, false, false, false),
+      ("gemma", false, false, false, false, false, false),
+      ("transcribe", false, false, false, false, false, false),
+    ];
+
+    for (alias, image, video, music, tts, embedding, interactions) in cases {
+      let model = types::get_google_model(alias);
+      assert_eq!(is_google_image_model(model), image, "image: `{alias}`");
+      assert_eq!(is_google_video_model(model), video, "video: `{alias}`");
+      assert_eq!(is_google_music_model(model), music, "music: `{alias}`");
+      assert_eq!(is_google_tts_model(model), tts, "tts: `{alias}`");
+      assert_eq!(
+        is_google_embedding_model(model),
+        embedding,
+        "embedding: `{alias}`"
+      );
+      assert_eq!(
+        is_google_interactions_model(model),
+        interactions,
+        "interactions: `{alias}`"
+      );
+    }
+  }
+
+  #[test]
+  fn test_google_media_models_bypass_text_handling() {
+    let opts = ExecOptions::default();
+
+    for alias in ["image", "banana", "veo", "music", "tts", "embed", "omni"] {
+      let http_req = AiRequest {
+        provider: Provider::Google,
+        model: types::get_google_model(alias).to_string(),
+        ..Default::default()
+      };
+      assert!(
+        !is_text_response(&http_req, &opts),
+        "Alias `{alias}` must not be handled as a text response"
+      );
+    }
+
+    for alias in ["gemini", "pro", "lite", "gemma", "transcribe"] {
+      let http_req = AiRequest {
+        provider: Provider::Google,
+        model: types::get_google_model(alias).to_string(),
+        ..Default::default()
+      };
+      assert!(
+        is_text_response(&http_req, &opts),
+        "Alias `{alias}` must be handled as a text response"
+      );
+    }
+  }
+
+  #[test]
+  fn test_google_req_bodies_per_modality() {
+    let opts = ExecOptions::default();
+    let body_for = |alias: &str| {
+      let http_req = AiRequest {
+        provider: Provider::Google,
+        model: types::get_google_model(alias).to_string(),
+        max_tokens: 100,
+        ..Default::default()
+      };
+      get_req_body_obj(&opts, &http_req, "test")
+    };
+
+    // Veo uses the prediction API's instances/parameters shape
+    assert_eq!(body_for("veo")["instances"][0]["prompt"], "test");
+
+    // Embeddings take a single content object
+    assert_eq!(body_for("embed")["content"]["parts"][0]["text"], "test");
+
+    // Omni takes the prompt as a plain string
+    assert_eq!(body_for("omni")["input"], "test");
+    assert_eq!(body_for("omni")["model"], "gemini-omni-1.1-flash");
+
+    // Image and audio models request their modality explicitly
+    let image_config = &body_for("image")["generationConfig"];
+    assert_eq!(image_config["responseModalities"][0], "IMAGE");
+    assert_eq!(image_config["maxOutputTokens"], 100);
+
+    let music_config = &body_for("music")["generationConfig"];
+    assert_eq!(music_config["responseModalities"][0], "AUDIO");
+    // A token limit would cut the generated audio short
+    assert!(music_config["maxOutputTokens"].is_null());
+
+    let tts_config = &body_for("tts")["generationConfig"];
+    assert_eq!(tts_config["responseModalities"][0], "AUDIO");
+    assert!(!tts_config["speechConfig"]["voiceConfig"].is_null());
+
+    // Text models are unaffected
+    let text_body = body_for("gemini");
+    assert_eq!(text_body["contents"][0]["parts"][0]["text"], "test");
+    assert_eq!(text_body["generationConfig"]["maxOutputTokens"], 100);
+  }
+
+  #[test]
+  fn test_transcription_model_provider() {
+    // Gemini models are served by Google
+    assert_eq!(
+      transcription_model("gemini-3.5-transcribe"),
+      Model::Model(Provider::Google, "gemini-3.5-transcribe".to_string())
+    );
+    // The `google/` prefix also reaches Google's aliases
+    assert_eq!(
+      transcription_model("google/transcribe"),
+      Model::Model(Provider::Google, "transcribe".to_string())
+    );
+    // Everything else stays with OpenAI
+    assert_eq!(
+      transcription_model("diarize"),
+      Model::Model(Provider::OpenAI, "diarize".to_string())
+    );
+  }
+
+  #[test]
+  fn test_media_extension_for_mime() {
+    assert_eq!(media_extension_for_mime("image/jpeg"), "jpg");
+    assert_eq!(media_extension_for_mime("audio/mpeg"), "mp3");
+    assert_eq!(media_extension_for_mime("video/mp4"), "mp4");
+    // Raw PCM is wrapped in a WAV container before it's written
+    assert_eq!(
+      media_extension_for_mime("audio/L16; rate=24000; channels=1"),
+      "wav"
+    );
+    assert_eq!(media_extension_for_mime("image/png"), "png");
+  }
+
+  #[test]
+  fn test_mime_param() {
+    let mime = "audio/L16; rate=24000; channels=1";
+    assert_eq!(mime_param(mime, "rate"), Some(24_000));
+    assert_eq!(mime_param(mime, "channels"), Some(1));
+    assert_eq!(mime_param(mime, "codec"), None);
+    assert_eq!(mime_param("audio/mpeg", "rate"), None);
+  }
+
+  #[test]
+  fn test_pcm_to_wav() {
+    let pcm = [0x01, 0x00, 0xff, 0x7f];
+    let wav = pcm_to_wav(&pcm, 24_000, 1);
+
+    assert_eq!(&wav[0..4], b"RIFF");
+    assert_eq!(&wav[8..12], b"WAVE");
+    // Byte rate: 24000 Hz × 1 channel × 2 bytes per sample
+    assert_eq!(
+      u32::from_le_bytes([wav[28], wav[29], wav[30], wav[31]]),
+      48_000
+    );
+    assert_eq!(&wav[36..40], b"data");
+    assert_eq!(&wav[44..], &pcm);
   }
 
   #[test]

@@ -5,8 +5,8 @@ use cai::{
   analyze_file_content, create_commits, edit_images, exec_tool,
   extract_text_from_file, generate_changelog, google_ocr_file,
   is_deepseek_model, prompt_with_lang_cntxt, run_shell_command, shortcut_model,
-  shortcut_model_override, submit_prompt, transcribe_audio_file, Commands,
-  ExecOptions, Model, Provider,
+  shortcut_model_override, submit_prompt, transcribe_audio_file,
+  transcription_model, Commands, ExecOptions, Model, Provider,
 };
 use chrono::NaiveDateTime;
 use clap::crate_description;
@@ -571,9 +571,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
         file,
       } => {
         let model = match model {
-          Some(model_id) => {
-            Model::Model(Provider::OpenAI, model_id.to_string())
-          }
+          Some(model_id) => transcription_model(model_id),
           None => shortcut_model(
             &cmd,
             Model::Model(Provider::OpenAI, "gpt-transcribe".to_string()),
@@ -592,6 +590,14 @@ async fn exec_with_args(args: Args, stdin: &str) {
             Provider::OpenAI,
             "gpt-4o-mini-tts".to_string(),
           )),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
+      Commands::Music { prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(Provider::Google, "lyria-3.5".to_string())),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
@@ -666,7 +672,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Gemini { prompt } => {
         let model = shortcut_model(
           &cmd,
-          Model::Model(Provider::Google, "gemini-2.5-flash".to_string()),
+          Model::Model(Provider::Google, "gemini-3.8-flash".to_string()),
         );
         submit_prompt(
           &Some(&model),
@@ -678,7 +684,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::GeminiFlash { prompt } => {
         let model = shortcut_model(
           &cmd,
-          Model::Model(Provider::Google, "gemini-2.5-flash".to_string()),
+          Model::Model(Provider::Google, "gemini-3.8-flash".to_string()),
         );
         submit_prompt(
           &Some(&model),
@@ -691,7 +697,48 @@ async fn exec_with_args(args: Args, stdin: &str) {
         submit_prompt(
           &Some(&Model::Model(
             Provider::Google,
-            "gemini-2.5-flash-image".to_string(),
+            "gemini-3.1-flash-image".to_string(),
+          )),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
+      Commands::GoogleVideo { prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(
+            Provider::Google,
+            "veo-3.1-generate-preview".to_string(),
+          )),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
+      Commands::GoogleMusic { prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(Provider::Google, "lyria-3.5".to_string())),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
+      Commands::GoogleSay { prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(
+            Provider::Google,
+            "gemini-3.1-flash-tts-preview".to_string(),
+          )),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
+      Commands::GoogleEmbed { prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(
+            Provider::Google,
+            "gemini-embedding-2".to_string(),
           )),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),

@@ -2,30 +2,55 @@ use std::env;
 use std::fs;
 use std::path::Path;
 
-const GOOGLE_MODEL_MAPPING_SRC: [(&str, &str); 18] = [
+const GOOGLE_MODEL_MAPPING_SRC: [(&str, &str); 38] = [
   // Default models
-  ("gemini-flash", "gemini-2.5-flash"),
-  ("gemini", "gemini-2.5-flash"),
-  ("g", "gemini-2.5-flash"),
-  ("flash", "gemini-2.5-flash"),
-  ("f", "gemini-2.5-flash"),
-  ("gemini-pro", "gemini-2.5-pro"),
-  ("pro", "gemini-2.5-pro"),
-  ("gemini-flash-lite", "gemini-2.0-flash-lite"),
-  ("flash-lite", "gemini-2.0-flash-lite"),
-  ("lite", "gemini-2.0-flash-lite"),
-  // Image generation model
-  ("gemini-image", "gemini-2.5-flash-image"),
-  ("image", "gemini-2.5-flash-image"),
-  ("img", "gemini-2.5-flash-image"),
-  // Version 3 models
-  ("gemini-3-pro", "gemini-3-pro-preview"),
-  ("gemini-3-pro-image", "gemini-3-pro-image-preview"),
-  // Version 2.5 models
-  ("gemini-2.5-flash", "gemini-2.5-flash"),
-  ("gemini-2.5-pro", "gemini-2.5-pro"),
-  // Version 2 models
-  ("gemini-2-flash", "gemini-2.0-flash"),
+  ("gemini-flash", "gemini-3.8-flash"),
+  ("gemini", "gemini-3.8-flash"),
+  ("g", "gemini-3.8-flash"),
+  ("flash", "gemini-3.8-flash"),
+  ("f", "gemini-3.8-flash"),
+  ("gemini-pro", "gemini-3.1-pro-preview"),
+  ("pro", "gemini-3.1-pro-preview"),
+  ("gemini-flash-lite", "gemini-3.5-flash-lite"),
+  ("flash-lite", "gemini-3.5-flash-lite"),
+  ("lite", "gemini-3.5-flash-lite"),
+  // Image generation models
+  ("gemini-image", "gemini-3.1-flash-image"),
+  ("image", "gemini-3.1-flash-image"),
+  ("img", "gemini-3.1-flash-image"),
+  ("image-lite", "gemini-3.1-flash-lite-image"),
+  ("pro-image", "gemini-3-pro-image"),
+  ("nano-banana", "nano-banana-pro-preview"),
+  ("banana", "nano-banana-pro-preview"),
+  // Video generation models (Veo)
+  ("veo", "veo-3.1-generate-preview"),
+  ("video", "veo-3.1-generate-preview"),
+  ("veo-fast", "veo-3.1-fast-generate-preview"),
+  ("veo-lite", "veo-3.1-lite-generate-preview"),
+  // Music generation models (Lyria)
+  ("lyria", "lyria-3.5"),
+  ("music", "lyria-3.5"),
+  ("lyria-pro", "lyria-3-pro-preview"),
+  ("lyria-clip", "lyria-3-clip-preview"),
+  ("clip", "lyria-3-clip-preview"),
+  // Speech models
+  ("tts", "gemini-3.1-flash-tts-preview"),
+  ("say", "gemini-3.1-flash-tts-preview"),
+  ("transcribe", "gemini-3.5-transcribe"),
+  // Embedding models
+  ("embed", "gemini-embedding-2"),
+  ("embedding", "gemini-embedding-2"),
+  // Any-to-any model
+  ("omni", "gemini-omni-1.1-flash"),
+  // Open models (Gemma)
+  ("gemma", "gemma-4-31b-it"),
+  ("gemma-4", "gemma-4-31b-it"),
+  ("gemma-moe", "gemma-4-26b-a4b-it"),
+  // Robotics model
+  ("robotics", "gemini-robotics-er-2-preview"),
+  // Version 3 family shortcuts
+  ("gemini-3-pro", "gemini-3.1-pro-preview"),
+  ("gemini-3-flash", "gemini-3.8-flash"),
 ];
 
 const ANTHROPIC_MODEL_MAPPING_SRC: [(&str, &str); 27] = [
