@@ -2,11 +2,11 @@ use std::io::stdin;
 use std::io::{read_to_string, IsTerminal};
 
 use cai::{
-  analyze_file_content, create_commits, edit_images, exec_tool,
-  extract_text_from_file, generate_changelog, google_ocr_file,
+  analyze_file_content, ask_jev, ask_jev_many, create_commits, edit_images,
+  exec_tool, extract_text_from_file, generate_changelog, google_ocr_file,
   is_deepseek_model, prompt_with_lang_cntxt, run_shell_command, shortcut_model,
   shortcut_model_override, submit_prompt, transcribe_audio_file,
-  transcription_model, Commands, ExecOptions, Model, Provider,
+  transcription_model, Commands, ExecOptions, JevQuestion, Model, Provider,
 };
 use chrono::NaiveDateTime;
 use clap::crate_description;
@@ -517,6 +517,32 @@ async fn exec_with_args(args: Args, stdin: &str) {
           Model::Model(Provider::OpenAI, "gpt-5.6-sol".to_string()),
         );
         submit_prompt(&Some(&model), &opts, &reply_prompt).await
+      }
+      Commands::Noul { model, prompt }
+      | Commands::Choice { model, prompt, .. }
+      | Commands::Score { model, prompt, .. } => {
+        let question = match &cmd {
+          Commands::Choice { options, .. } => {
+            JevQuestion::Choice(options.clone())
+          }
+          Commands::Score { levels, .. } => JevQuestion::Score(levels.clone()),
+          _ => JevQuestion::Noul,
+        };
+        if let Err(err) =
+          ask_jev(&opts, model, stdin.trim(), &prompt.join(" "), &question)
+            .await
+        {
+          eprintln!("Error asking TypeSafe: {err}");
+          std::process::exit(1);
+        }
+      }
+      Commands::Jev { model, questions } => {
+        if let Err(err) =
+          ask_jev_many(&opts, model, stdin.trim(), &questions.0).await
+        {
+          eprintln!("Error asking TypeSafe: {err}");
+          std::process::exit(1);
+        }
       }
       Commands::Run { prompt } => {
         if prompt.is_empty() {

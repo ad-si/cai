@@ -51,6 +51,103 @@ pub enum Commands {
     prompt: Vec<String>,
   },
 
+  /// Ask TypeSafe's Jev a yes/no question about text passed via standard input
+  /// and get the probability that the answer is yes
+  #[clap(after_help = color_print::cformat!(
+"<bold,underline>Example:</bold,underline>
+  echo 'My payouts have been failing for 3 days!' \\
+    | <b>cai noul</b> Does this message express urgency
+"))]
+  Noul {
+    /// The TypeSafe model to use
+    #[clap(long, short = 'm', default_value = crate::DEFAULT_JEV_MODEL)]
+    model: String,
+    /// The yes/no question to evaluate
+    #[clap(required = true)]
+    prompt: Vec<String>,
+  },
+
+  /// Let TypeSafe's Jev pick one of several options
+  /// for text passed via standard input
+  #[clap(after_help = color_print::cformat!(
+"<bold,underline>Example:</bold,underline>
+  echo 'My payouts have been failing for 3 days!' \\
+    | <b>cai choice</b> \\
+      -o 'billing=Payment or subscription issues' \\
+      -o 'technical=Bugs or integration problems' \\
+      -o sales \\
+      Which team should handle this
+"))]
+  Choice {
+    /// The TypeSafe model to use
+    #[clap(long, short = 'm', default_value = crate::DEFAULT_JEV_MODEL)]
+    model: String,
+    /// An option to choose from, optionally with a description
+    /// (can be passed multiple times)
+    #[clap(
+      long = "option",
+      short = 'o',
+      required = true,
+      value_name = "NAME[=DESCRIPTION]"
+    )]
+    options: Vec<String>,
+    /// What to decide
+    #[clap(required = true)]
+    prompt: Vec<String>,
+  },
+
+  /// Let TypeSafe's Jev rate text passed via standard input
+  /// along ordered levels
+  #[clap(after_help = color_print::cformat!(
+"<bold,underline>Example:</bold,underline>
+  echo 'My payouts have been failing for 3 days!' \\
+    | <b>cai score</b> -l Calm -l Frustrated -l 'Very angry' \\
+      How frustrated is the customer
+"))]
+  Score {
+    /// The TypeSafe model to use
+    #[clap(long, short = 'm', default_value = crate::DEFAULT_JEV_MODEL)]
+    model: String,
+    /// A level description, from lowest to highest
+    /// (pass at least 2 and at most 10)
+    #[clap(long = "level", short = 'l', required = true)]
+    levels: Vec<String>,
+    /// What to rate
+    #[clap(required = true)]
+    prompt: Vec<String>,
+  },
+
+  /// Ask TypeSafe's Jev several questions at once
+  /// about text passed via standard input
+  #[clap(
+    override_usage = "cai jev [OPTIONS] \
+      [--noul <[NAME=]QUESTION>] \
+      [--choice <[NAME=]QUESTION> -o <OPTION>...] \
+      [--score <[NAME=]QUESTION> -l <LEVEL>...] ...",
+    after_help = color_print::cformat!(
+"Each `-o/--option` and `-l/--level` belongs to the preceding \
+`--choice` or `--score` question.
+Unnamed questions are named q1, q2, … by their position.
+
+<bold,underline>Example:</bold,underline>
+  pbpaste | <b>cai jev</b> \\
+    --noul is_human_escalation='Does the customer ask to talk to a human?' \\
+    --noul is_repeat_contact='Has the customer contacted support about this before?' \\
+    --choice department='Which team should handle this?' \\
+      -o 'billing=Payment or subscription issues' \\
+      -o 'technical=Bugs or integration problems' \\
+      -o sales \\
+    --score frustration='How frustrated is the customer?' \\
+      -l Calm -l Frustrated -l 'Very angry'
+"))]
+  Jev {
+    /// The TypeSafe model to use
+    #[clap(long, short = 'm', default_value = crate::DEFAULT_JEV_MODEL)]
+    model: String,
+    #[clap(flatten)]
+    questions: crate::JevQuestions,
+  },
+
   /// Generate a shell command from a prompt and confirm before executing it
   Run {
     /// Description of what the shell command should do
@@ -187,7 +284,7 @@ pub enum Commands {
 
   /// List all models offered by every supported provider
   /// (OpenAI, Anthropic, Gemini, Groq, Cerebras, DeepSeek, xAI,
-  /// Perplexity, Ollama, Mistral)
+  /// Perplexity, Ollama, Mistral, TypeSafe)
   #[clap(verbatim_doc_comment)]
   Models {},
 
@@ -673,6 +770,10 @@ impl Commands {
       Commands::Changelog { .. } => Some("Changelog"),
       Commands::Commit { .. } => Some("Commit"),
       Commands::Reply { .. } => Some("Reply"),
+      Commands::Noul { .. } => Some("Noul"),
+      Commands::Choice { .. } => Some("Choice"),
+      Commands::Score { .. } => Some("Score"),
+      Commands::Jev { .. } => Some("Jev"),
       Commands::Run { .. } => Some("Run"),
       Commands::Agent { .. } => Some("Agent"),
       Commands::Rewrite { .. } => Some("Rewrite"),

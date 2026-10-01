@@ -13,6 +13,7 @@
   - `cai music a calm piano loop` (Google Lyria music generation)
   - `cai ocr page.png`
   - `pbpaste | cai rewrite 'more professional'`
+  - `pbpaste | cai noul is this urgent` (TypeSafe Jev yes/no probability)
   - Check [usage section](./#usage) for all commands
 - Build with Rust 🦀 for supreme performance and speed! 🏎️
 - Support for models by
@@ -23,6 +24,7 @@
   - [Cerebras]
   - [Deepseek]
   - [xAI]
+  - [TypeSafe]
   - Local LLMs via [Ollama] and [Llamafile]
 - Prompt several models at once. 🤼
     ![Demo of cai's all command](screenshots/2024-04-13t1627_all.png)
@@ -36,6 +38,7 @@
 [Llamafile]: https://github.com/Mozilla-Ocho/llamafile
 [Ollama]: https://ollama.com
 [OpenAI]: https://platform.openai.com/docs/models
+[TypeSafe]: https://docs.typesafe.ai/models
 [xAI]: https://x.ai/api#pricing
 
 
@@ -63,6 +66,7 @@ Cai supports the following APIs:
 - **OpenAI** - [Create new API key](https://platform.openai.com/api-keys).
 - **Anthropic** -
     [Create new API key](https://console.anthropic.com/settings/keys).
+- **TypeSafe** - [Create new API key](https://console.typesafe.ai/keys).
 - **Llamafile** - Local [Llamafile] server running at http://localhost:8080.
 - **Ollama** - Local [Ollama] server running at http://localhost:11434.
 
@@ -97,6 +101,11 @@ Commands:
   rewrite       Fix spelling, grammar, and wording issues in text passed via standard input
   reply         Reply to a conversation passed via standard input. Add additional reply instructions
                 as the prompt
+  noul          Ask TypeSafe's Jev a yes/no question about text passed via standard input and get
+                the probability that the answer is yes
+  choice        Let TypeSafe's Jev pick one of several options for text passed via standard input
+  score         Let TypeSafe's Jev rate text passed via standard input along ordered levels
+  jev           Ask TypeSafe's Jev several questions at once about text passed via standard input
   run           Generate a shell command from a prompt and confirm before executing it
   agent         Run an agentic loop with tool use to fulfill a request
   image         Generate an image using GPT-Image-2.5 Flare [aliases: img]
@@ -119,7 +128,7 @@ Commands:
                 📚 MODELS                                                    
   models        List all models offered by every supported provider
                 (OpenAI, Anthropic, Gemini, Groq, Cerebras, DeepSeek, xAI,
-                Perplexity, Ollama, Mistral)
+                Perplexity, Ollama, Mistral, TypeSafe)
   all           Simultaneously send prompt to each provider's default model
   google        Google [aliases: go]
   gemini        - Google's default model (Gemini Flash) shortcut [aliases: ge]

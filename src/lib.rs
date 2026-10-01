@@ -1,6 +1,7 @@
 pub mod agent;
 mod highlight;
 mod types;
+mod typesafe;
 
 use base64::Engine;
 use std::collections::HashMap;
@@ -20,6 +21,9 @@ use serde_derive::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 pub use types::is_deepseek_model;
 pub use types::Commands;
+pub use typesafe::{
+  ask_jev, ask_jev_many, JevQuestion, JevQuestions, DEFAULT_JEV_MODEL,
+};
 use xdg::BaseDirectories;
 
 /// Filler words to exclude from generated filenames
@@ -682,6 +686,10 @@ pub fn get_full_config(
     .set_default(
       "perplexity_api_key", //
       env::var("PERPLEXITY_API_KEY").unwrap_or_default(),
+    )?
+    .set_default(
+      "typesafe_api_key", //
+      env::var("TYPESAFE_API_KEY").unwrap_or_default(),
     )?
     .add_source(config::File::with_name(secrets_path_str))
     .add_source(config::File::with_name(&config_path_str).required(false))
@@ -3555,6 +3563,14 @@ pub async fn list_models() -> Result<(), Box<dyn Error + Send + Sync>> {
     "{}/models",
     get_base_url(&full_config, "xai_base_url", "https://api.x.ai/v1")
   );
+  let typesafe_url = format!(
+    "{}/models",
+    get_base_url(
+      &full_config,
+      "typesafe_base_url",
+      "https://api.typesafe.ai/v1"
+    )
+  );
   // Perplexity's chat completions live at `{base}/chat/completions` with
   // the default base lacking `/v1`, but the models endpoint sits under
   // `/v1/models`, so it's hardcoded here.
@@ -3616,6 +3632,12 @@ pub async fn list_models() -> Result<(), Box<dyn Error + Send + Sync>> {
       "Mistral",
       "https://api.mistral.ai/v1/models".to_string(),
       get_models_key(&full_config, "mistral_api_key", "MISTRAL_API_KEY"),
+      ModelsAuth::Bearer,
+    ),
+    (
+      "TypeSafe",
+      typesafe_url,
+      get_models_key(&full_config, "typesafe_api_key", "TYPESAFE_API_KEY"),
       ModelsAuth::Bearer,
     ),
   ];
