@@ -20,7 +20,7 @@ usage.txt: $(source_files)
 
 .PHONY: update-readme
 update-readme: usage.txt
-	sd --flags s \
+	sd --across --flags s \
 		'cai help.+\`\`\`' \
 		"cai help\n$$(cat $<)\n\`\`\`" \
 		readme.md
