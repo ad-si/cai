@@ -3,10 +3,12 @@ use std::io::{read_to_string, IsTerminal};
 
 use cai::{
   analyze_file_content, ask_jev, ask_jev_many, create_commits, edit_images,
-  exec_tool, extract_text_from_file, generate_changelog, google_ocr_file,
-  is_deepseek_model, prompt_with_lang_cntxt, run_shell_command, shortcut_model,
-  shortcut_model_override, submit_prompt, transcribe_audio_file,
-  transcription_model, Commands, ExecOptions, JevQuestion, Model, Provider,
+  exec_tool, extract_text_from_file, generate_changelog, is_deepseek_model,
+  prompt_with_lang_cntxt, run_shell_command, shortcut_model,
+  shortcut_model_override, submit_prompt, task_model, transcribe_audio_file,
+  Commands, ExecOptions, JevQuestion, Model, Provider, EMBEDDING_MODELS,
+  IMAGE_MODELS, MUSIC_MODELS, OCR_MODELS, SPEECH_MODELS, TRANSCRIPTION_MODELS,
+  VIDEO_MODELS,
 };
 use chrono::NaiveDateTime;
 use clap::crate_description;
@@ -192,6 +194,17 @@ struct Args {
   /// The prompt to send to the AI model
   #[clap(allow_hyphen_values = true)]
   prompt: Vec<String>,
+}
+
+/// Resolve a command's `-m/--model` option or exit with the error
+fn resolve_task_model(
+  model: &Option<String>,
+  models: &[(Provider, &str)],
+) -> Model {
+  task_model(model.as_deref(), models).unwrap_or_else(|err| {
+    eprintln!("{}", cformat!("<red>ERROR: {err}</red>"));
+    std::process::exit(1);
+  })
 }
 
 fn capitalize_str(str: &str) -> String {
@@ -441,15 +454,15 @@ async fn exec_with_args(args: Args, stdin: &str) {
           }
         }
       }
-      Commands::Ocr { file } => {
-        if let Err(err) = extract_text_from_file(&opts, file).await {
+      Commands::Ocr { model, file } => {
+        // Without a model, the OCR model is picked based on the file type
+        let model = model
+          .as_ref()
+          .map(|_| resolve_task_model(model, OCR_MODELS));
+        if let Err(err) =
+          extract_text_from_file(&opts, model.as_ref(), file).await
+        {
           eprintln!("Error extracting text: {err}");
-          std::process::exit(1);
-        }
-      }
-      Commands::GoogleOcr { file } => {
-        if let Err(err) = google_ocr_file(&opts, file).await {
-          eprintln!("Error extracting text with Google OCR: {err}");
           std::process::exit(1);
         }
       }
@@ -597,10 +610,10 @@ async fn exec_with_args(args: Args, stdin: &str) {
         file,
       } => {
         let model = match model {
-          Some(model_id) => transcription_model(model_id),
+          Some(_) => resolve_task_model(model, TRANSCRIPTION_MODELS),
           None => shortcut_model(
             &cmd,
-            Model::Model(Provider::OpenAI, "gpt-transcribe".to_string()),
+            resolve_task_model(&None, TRANSCRIPTION_MODELS),
           ),
         };
         if let Err(err) =
@@ -610,34 +623,43 @@ async fn exec_with_args(args: Args, stdin: &str) {
           std::process::exit(1);
         }
       }
-      Commands::Say { prompt } => {
+      Commands::Say { model, prompt } => {
         submit_prompt(
-          &Some(&Model::Model(
-            Provider::OpenAI,
-            "gpt-4o-mini-tts".to_string(),
-          )),
+          &Some(&resolve_task_model(model, SPEECH_MODELS)),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
-      Commands::Music { prompt } => {
+      Commands::Music { model, prompt } => {
         submit_prompt(
-          &Some(&Model::Model(Provider::Google, "lyria-3.5".to_string())),
+          &Some(&resolve_task_model(model, MUSIC_MODELS)),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
-      Commands::Image { prompt, .. } => {
-        let image_prompt = prompt.join(" ").to_string();
+      Commands::Video { model, prompt } => {
         submit_prompt(
-          &Some(&Model::Model(
-            Provider::OpenAI,
-            "gpt-image-2.5-flare".to_string(),
-          )),
+          &Some(&resolve_task_model(model, VIDEO_MODELS)),
           &opts,
-          &format!("{stdin}{image_prompt}"),
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
+      Commands::Embed { model, prompt } => {
+        submit_prompt(
+          &Some(&resolve_task_model(model, EMBEDDING_MODELS)),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
+      Commands::Image { model, prompt, .. } => {
+        submit_prompt(
+          &Some(&resolve_task_model(model, IMAGE_MODELS)),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
         )
         .await
       }
@@ -714,58 +736,6 @@ async fn exec_with_args(args: Args, stdin: &str) {
         );
         submit_prompt(
           &Some(&model),
-          &opts,
-          &format!("{stdin}{}", prompt.join(" ")),
-        )
-        .await
-      }
-      Commands::GoogleImage { prompt } => {
-        submit_prompt(
-          &Some(&Model::Model(
-            Provider::Google,
-            "gemini-3.1-flash-image".to_string(),
-          )),
-          &opts,
-          &format!("{stdin}{}", prompt.join(" ")),
-        )
-        .await
-      }
-      Commands::GoogleVideo { prompt } => {
-        submit_prompt(
-          &Some(&Model::Model(
-            Provider::Google,
-            "veo-3.1-generate-preview".to_string(),
-          )),
-          &opts,
-          &format!("{stdin}{}", prompt.join(" ")),
-        )
-        .await
-      }
-      Commands::GoogleMusic { prompt } => {
-        submit_prompt(
-          &Some(&Model::Model(Provider::Google, "lyria-3.5".to_string())),
-          &opts,
-          &format!("{stdin}{}", prompt.join(" ")),
-        )
-        .await
-      }
-      Commands::GoogleSay { prompt } => {
-        submit_prompt(
-          &Some(&Model::Model(
-            Provider::Google,
-            "gemini-3.1-flash-tts-preview".to_string(),
-          )),
-          &opts,
-          &format!("{stdin}{}", prompt.join(" ")),
-        )
-        .await
-      }
-      Commands::GoogleEmbed { prompt } => {
-        submit_prompt(
-          &Some(&Model::Model(
-            Provider::Google,
-            "gemini-embedding-2".to_string(),
-          )),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )

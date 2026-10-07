@@ -8,10 +8,11 @@
 - High level commands for great usability
   - `cai value capital of Australia`
   - `cai image photo of a banana` (OpenAI image generation)
-  - `cai google-image sunset over mountains` (Google Gemini image generation)
-  - `cai google-video a paper plane gliding over a desk` (Google Veo video)
+  - `cai image -m google sunset over mountains` (Google Gemini image generation)
+  - `cai video a paper plane gliding over a desk` (Google Veo video)
   - `cai music a calm piano loop` (Google Lyria music generation)
   - `cai ocr page.png`
+  - `cai ocr -m mistral scan.pdf` (Mistral OCR)
   - `pbpaste | cai rewrite 'more professional'`
   - `pbpaste | cai noul is this urgent` (TypeSafe Jev yes/no probability)
   - Check [usage section](./#usage) for all commands
@@ -119,115 +120,113 @@ User friendly CLI tool for AI tasks
 Usage: cai [OPTIONS] [PROMPT]... [COMMAND]
 
 Commands:
-  fast          Shortcut for `cerebras gpt-oss-120b`
-  smart         Shortcut for `anthropic claude-fable-5`
-  local         Shortcut for `ollama llama3.2`
-  value         Return only the value/answer without explanations
-  short         Answer the prompt in a short, compact, and focused manner
-  rewrite       Fix spelling, grammar, and wording issues in text passed via standard input
-  reply         Reply to a conversation passed via standard input. Add additional reply instructions
-                as the prompt
-  noul          Ask TypeSafe's Jev a yes/no question about text passed via standard input and get
-                the probability that the answer is yes
-  choice        Let TypeSafe's Jev pick one of several options for text passed via standard input
-  score         Let TypeSafe's Jev rate text passed via standard input along ordered levels
-  jev           Ask TypeSafe's Jev several questions at once about text passed via standard input
-  run           Generate a shell command from a prompt and confirm before executing it
-  agent         Run an agentic loop with tool use to fulfill a request
-  image         Generate an image using GPT-Image-2.5 Flare [aliases: img]
-  photo         Generate a photorealistic image that looks like a camera photo
-  imgedit       Edit 1 or more images using GPT-Image-2.5 Sunburst (pass image files followed by the
-                edit prompt as the last argument) [aliases: imge]
-  say           Convert text to speech using OpenAI's TTS model [aliases: tts]
-  music         Generate music using Google's Lyria 3.5
-  transcribe    Transcribe an audio file using GPT-Transcribe
-  ocr           Extract text from an image
-  google-ocr    Extract text from an image using Google Gemini with high resolution [aliases: gocr]
-  rename        Analyze and rename files to timestamp + title (e.g. 2025-08-19t2041_invoice_car.pdf)
-  changelog     Generate a changelog starting from a given commit
-  commit        Commit modified files with AI-generated commit messages and group related changes
-                into separate commits
-  svg           Generate an SVG graphic from a textual description
-  edit          Open your editor to write the prompt
-  config        Print the configuration settings loaded from the config file
-                
-                📚 MODELS                                                    
-  models        List all models offered by every supported provider
-                (OpenAI, Anthropic, Gemini, Groq, Cerebras, DeepSeek, xAI,
-                Perplexity, Ollama, Mistral, TypeSafe)
-  all           Simultaneously send prompt to each provider's default model
-  google        Google [aliases: go]
-  gemini        - Google's default model (Gemini Flash) shortcut [aliases: ge]
-  flash         - Gemini Flash shortcut [aliases: gf]
-  google-image  - Google Gemini Image shortcut [aliases: gimg]
-  google-video  - Google Veo Video shortcut [aliases: gvid]
-  google-music  - Google Lyria Music shortcut [aliases: gmus]
-  google-say    - Google Gemini Speech shortcut [aliases: gsay]
-  google-embed  - Google Gemini Embedding shortcut [aliases: gemb]
-  groq          Groq [aliases: gr]
-  llama         - Llama 3 shortcut [aliases: ll]
-  cerebras      Cerebras [aliases: ce]
-  deepseek      DeepSeek [aliases: ds]
-  openai        OpenAI [aliases: op]
-  gpt5          - GPT-5.6 Sol shortcut [aliases: gpt, gp]
-  gpt5m         - GPT-5 mini shortcut [aliases: gm]
-  gpt5n         - GPT-5 nano shortcut [aliases: gn]
-  gpt41         - gpt-4.1 shortcut
-  gpt41m        - gpt-4.1-mini shortcut
-  anthropic     Anthropic [aliases: an]
-  fable         - Claude Fable [aliases: fa]
-  opus          - Claude Opus [aliases: claude, cl]
-  sonnet        - Claude Sonnet [aliases: so]
-  haiku         - Claude Haiku [aliases: ha]
-  xai           xAI
-  grok          - Grok
-  perplexity    Perplexity [aliases: pe]
-  son           - Sonar
-  sonpro        - Sonar Pro [aliases: sp]
-  sonreas       - Sonar Reasoning [aliases: sr]
-  sonreaspro    - Sonar Reasoning Pro [aliases: srp]
-  sondeep       - Sonar Deep Research [aliases: sdr]
-  llamafile     Llamafile server hosted at http://localhost:8080 [aliases: lf]
-  ollama        Ollama server hosted at http://localhost:11434 [aliases: ol]
-                
-                💻 CODING                                                    
-  bash          Use Bash development as the prompt context
-  c             Use C development as the prompt context
-  cpp           Use C++ development as the prompt context
-  cs            Use C# development as the prompt context
-  docker        Use Docker development as the prompt context
-  elm           Use Elm development as the prompt context
-  fish          Use Fish development as the prompt context
-  fs            Use F# development as the prompt context
-  gd            Use Godot and GDScript development as the prompt context
-  git           Use Git development as the prompt context
-  gl            Use Gleam development as the prompt context
-  golang        Use Go development as the prompt context
-  hs            Use Haskell development as the prompt context
-  java          Use Java development as the prompt context
-  js            Use JavaScript development as the prompt context
-  kt            Use Kotlin development as the prompt context
-  ly            Use LilyPond development as the prompt context
-  lua           Use Lua development as the prompt context
-  nix           Use Nix development as the prompt context
-  oc            Use OCaml development as the prompt context
-  php           Use PHP development as the prompt context
-  pg            Use Postgres development as the prompt context
-  ps            Use PureScript development as the prompt context
-  py            Use Python development as the prompt context
-  rb            Use Ruby development as the prompt context
-  rs            Use Rust development as the prompt context
-  sql           Use SQLite development as the prompt context
-  sw            Use Swift development as the prompt context
-  ts            Use TypeScript development as the prompt context
-  ty            Use Typst development as the prompt context
-  wl            Use Wolfram Language and Mathematica development as the prompt context
-  zig           Use Zig development as the prompt context
-  jq            Use jq development as the prompt context
-                
-                🗄️ DATABASE                                                 
-  query         Query a SQLite database using natural language
-  help          Print this message or the help of the given subcommand(s)
+  fast        Shortcut for `cerebras gpt-oss-120b`
+  smart       Shortcut for `anthropic claude-fable-5`
+  local       Shortcut for `ollama llama3.2`
+  value       Return only the value/answer without explanations
+  short       Answer the prompt in a short, compact, and focused manner
+  rewrite     Fix spelling, grammar, and wording issues in text passed via standard input
+  reply       Reply to a conversation passed via standard input. Add additional reply instructions
+              as the prompt
+  noul        Ask TypeSafe's Jev a yes/no question about text passed via standard input and get the
+              probability that the answer is yes
+  choice      Let TypeSafe's Jev pick one of several options for text passed via standard input
+  score       Let TypeSafe's Jev rate text passed via standard input along ordered levels
+  jev         Ask TypeSafe's Jev several questions at once about text passed via standard input
+  run         Generate a shell command from a prompt and confirm before executing it
+  agent       Run an agentic loop with tool use to fulfill a request
+  image       Generate an image (default: OpenAI GPT-Image-2.5 Flare) [aliases: img]
+  photo       Generate a photorealistic image that looks like a camera photo
+  imgedit     Edit 1 or more images using GPT-Image-2.5 Sunburst (pass image files followed by the
+              edit prompt as the last argument) [aliases: imge]
+  say         Convert text to speech (default: OpenAI GPT-4o mini TTS) [aliases: tts]
+  music       Generate music (default: Google Lyria 3.5)
+  video       Generate a video (default: Google Veo 3.1)
+  embed       Convert text into an embedding vector (default: Google Gemini Embedding 2)
+  transcribe  Transcribe an audio file (default: OpenAI GPT-Transcribe)
+  ocr         Extract text from an image or PDF (default: OpenAI GPT-5.6 Terra, Google Gemini for
+              HEIC images, Mistral OCR for PDFs)
+  rename      Analyze and rename files to timestamp + title (e.g. 2025-08-19t2041_invoice_car.pdf)
+  changelog   Generate a changelog starting from a given commit
+  commit      Commit modified files with AI-generated commit messages and group related changes into
+              separate commits
+  svg         Generate an SVG graphic from a textual description
+  edit        Open your editor to write the prompt
+  config      Print the configuration settings loaded from the config file
+              
+              📚 MODELS                                                    
+  models      List all models offered by every supported provider
+              (OpenAI, Anthropic, Gemini, Groq, Cerebras, DeepSeek, xAI,
+              Perplexity, Ollama, Mistral, TypeSafe)
+  all         Simultaneously send prompt to each provider's default model
+  google      Google [aliases: go]
+  gemini      - Google's default model (Gemini Flash) shortcut [aliases: ge]
+  flash       - Gemini Flash shortcut [aliases: gf]
+  groq        Groq [aliases: gr]
+  llama       - Llama 3 shortcut [aliases: ll]
+  cerebras    Cerebras [aliases: ce]
+  deepseek    DeepSeek [aliases: ds]
+  openai      OpenAI [aliases: op]
+  gpt5        - GPT-5.6 Sol shortcut [aliases: gpt, gp]
+  gpt5m       - GPT-5 mini shortcut [aliases: gm]
+  gpt5n       - GPT-5 nano shortcut [aliases: gn]
+  gpt41       - gpt-4.1 shortcut
+  gpt41m      - gpt-4.1-mini shortcut
+  anthropic   Anthropic [aliases: an]
+  fable       - Claude Fable [aliases: fa]
+  opus        - Claude Opus [aliases: claude, cl]
+  sonnet      - Claude Sonnet [aliases: so]
+  haiku       - Claude Haiku [aliases: ha]
+  xai         xAI
+  grok        - Grok
+  perplexity  Perplexity [aliases: pe]
+  son         - Sonar
+  sonpro      - Sonar Pro [aliases: sp]
+  sonreas     - Sonar Reasoning [aliases: sr]
+  sonreaspro  - Sonar Reasoning Pro [aliases: srp]
+  sondeep     - Sonar Deep Research [aliases: sdr]
+  mistral     Mistral [aliases: mi]
+  llamafile   Llamafile server hosted at http://localhost:8080 [aliases: lf]
+  ollama      Ollama server hosted at http://localhost:11434 [aliases: ol]
+              
+              💻 CODING                                                    
+  bash        Use Bash development as the prompt context
+  c           Use C development as the prompt context
+  cpp         Use C++ development as the prompt context
+  cs          Use C# development as the prompt context
+  docker      Use Docker development as the prompt context
+  elm         Use Elm development as the prompt context
+  fish        Use Fish development as the prompt context
+  fs          Use F# development as the prompt context
+  gd          Use Godot and GDScript development as the prompt context
+  git         Use Git development as the prompt context
+  gl          Use Gleam development as the prompt context
+  golang      Use Go development as the prompt context
+  hs          Use Haskell development as the prompt context
+  java        Use Java development as the prompt context
+  js          Use JavaScript development as the prompt context
+  kt          Use Kotlin development as the prompt context
+  ly          Use LilyPond development as the prompt context
+  lua         Use Lua development as the prompt context
+  nix         Use Nix development as the prompt context
+  oc          Use OCaml development as the prompt context
+  php         Use PHP development as the prompt context
+  pg          Use Postgres development as the prompt context
+  ps          Use PureScript development as the prompt context
+  py          Use Python development as the prompt context
+  rb          Use Ruby development as the prompt context
+  rs          Use Rust development as the prompt context
+  sql         Use SQLite development as the prompt context
+  sw          Use Swift development as the prompt context
+  ts          Use TypeScript development as the prompt context
+  ty          Use Typst development as the prompt context
+  wl          Use Wolfram Language and Mathematica development as the prompt context
+  zig         Use Zig development as the prompt context
+  jq          Use jq development as the prompt context
+              
+              🗄️ DATABASE                                                 
+  query       Query a SQLite database using natural language
+  help        Print this message or the help of the given subcommand(s)
 
 Arguments:
   [PROMPT]...  The prompt to send to the AI model

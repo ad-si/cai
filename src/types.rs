@@ -163,9 +163,13 @@ Unnamed questions are named q1, q2, … by their position.
     prompt: Vec<String>,
   },
 
-  /// Generate an image using GPT-Image-2.5 Flare
+  /// Generate an image (default: OpenAI GPT-Image-2.5 Flare)
   #[clap(visible_alias = "img")]
   Image {
+    /// Image model: a provider for its default model
+    /// (`openai`, `google`, `xai`), a model id, or `<provider>/<model>`
+    #[clap(long, short = 'm')]
+    model: Option<String>,
     /// Background behavior for the generated image
     #[clap(long, value_parser = ["transparent", "opaque", "auto"])]
     background: Option<String>,
@@ -195,34 +199,65 @@ Unnamed questions are named q1, q2, … by their position.
     args: Vec<String>,
   },
 
-  /// Convert text to speech using OpenAI's TTS model
+  /// Convert text to speech (default: OpenAI GPT-4o mini TTS)
   #[clap(visible_alias = "tts")]
   Say {
+    /// Speech model: a provider for its default model
+    /// (`openai`, `google`, `mistral`), a model id, or `<provider>/<model>`
+    #[clap(long, short = 'm')]
+    model: Option<String>,
     /// The text to convert to speech
     prompt: Vec<String>,
   },
 
-  /// Generate music using Google's Lyria 3.5
+  /// Generate music (default: Google Lyria 3.5)
   Music {
+    /// Music model: a provider for its default model
+    /// (`google`), a model id, or `<provider>/<model>`
+    #[clap(long, short = 'm')]
+    model: Option<String>,
     /// The prompt describing the music to generate
     prompt: Vec<String>,
   },
 
-  /// Transcribe an audio file using GPT-Transcribe
+  /// Generate a video (default: Google Veo 3.1)
+  Video {
+    /// Video model: a provider for its default model
+    /// (`google`), a model id, or `<provider>/<model>`
+    #[clap(long, short = 'm')]
+    model: Option<String>,
+    /// The prompt describing the video to generate
+    prompt: Vec<String>,
+  },
+
+  /// Convert text into an embedding vector
+  /// (default: Google Gemini Embedding 2)
+  Embed {
+    /// Embedding model: a provider for its default model
+    /// (`google`), a model id, or `<provider>/<model>`
+    #[clap(long, short = 'm')]
+    model: Option<String>,
+    /// The text to convert into an embedding vector
+    prompt: Vec<String>,
+  },
+
+  /// Transcribe an audio file (default: OpenAI GPT-Transcribe)
   Transcribe {
-    /// Transcription model
-    /// (e.g. `gpt-transcribe`, `diarize`, `whisper-1`,
-    /// `gemini-3.5-transcribe`, `google/transcribe`)
+    /// Transcription model: a provider for its default model
+    /// (`openai`, `google`, `mistral`), a model id, or `<provider>/<model>`
+    /// (e.g. `diarize`, `whisper-1`, `google/transcribe`,
+    /// `voxtral-mini-latest`)
     #[clap(long, short = 'm')]
     model: Option<String>,
 
     /// Possible language of the audio in ISO-639-1 format, e.g. `en`
-    /// (can be passed multiple times for `gpt-transcribe`)
+    /// (can be passed multiple times for `gpt-transcribe` and Gemini models)
     #[clap(long = "language", short = 'l')]
     languages: Vec<String>,
 
     /// Word or phrase to guide the transcription, e.g. a proper noun
-    /// (can be passed multiple times, only used by `gpt-transcribe`)
+    /// (can be passed multiple times,
+    /// not used by OpenAI models other than `gpt-transcribe`)
     #[clap(long = "keyword", short = 'k')]
     keywords: Vec<String>,
 
@@ -230,15 +265,13 @@ Unnamed questions are named q1, q2, … by their position.
     file: String,
   },
 
-  /// Extract text from an image
+  /// Extract text from an image or PDF (default: OpenAI GPT-5.6 Terra,
+  /// Google Gemini for HEIC images, Mistral OCR for PDFs)
   Ocr {
-    /// The file to extract text from
-    file: String,
-  },
-
-  /// Extract text from an image using Google Gemini with high resolution
-  #[clap(visible_alias = "gocr")]
-  GoogleOcr {
+    /// OCR model: a provider for its default model
+    /// (`openai`, `google`, `mistral`), a model id, or `<provider>/<model>`
+    #[clap(long, short = 'm')]
+    model: Option<String>,
     /// The file to extract text from
     file: String,
   },
@@ -328,36 +361,6 @@ Unnamed questions are named q1, q2, … by their position.
   #[clap(name = "flash", visible_alias = "gf")]
   GeminiFlash {
     /// The prompt to send to the AI model
-    prompt: Vec<String>,
-  },
-  /// - Google Gemini Image shortcut
-  #[clap(name = "google-image", visible_alias = "gimg")]
-  GoogleImage {
-    /// The prompt describing the image to generate
-    prompt: Vec<String>,
-  },
-  /// - Google Veo Video shortcut
-  #[clap(name = "google-video", visible_alias = "gvid")]
-  GoogleVideo {
-    /// The prompt describing the video to generate
-    prompt: Vec<String>,
-  },
-  /// - Google Lyria Music shortcut
-  #[clap(name = "google-music", visible_alias = "gmus")]
-  GoogleMusic {
-    /// The prompt describing the music to generate
-    prompt: Vec<String>,
-  },
-  /// - Google Gemini Speech shortcut
-  #[clap(name = "google-say", visible_alias = "gsay")]
-  GoogleSay {
-    /// The text to convert to speech
-    prompt: Vec<String>,
-  },
-  /// - Google Gemini Embedding shortcut
-  #[clap(name = "google-embed", visible_alias = "gemb")]
-  GoogleEmbed {
-    /// The text to convert into an embedding vector
     prompt: Vec<String>,
   },
   /// Groq
@@ -776,7 +779,6 @@ impl Commands {
       Commands::Short { .. } => Some("Short"),
       Commands::Svg { .. } => Some("SVG"),
       Commands::Ocr { .. } => Some("OCR"),
-      Commands::GoogleOcr { .. } => Some("Google OCR"),
       Commands::Rename { .. } => Some("Rename"),
       Commands::Changelog { .. } => Some("Changelog"),
       Commands::Commit { .. } => Some("Commit"),
@@ -792,6 +794,8 @@ impl Commands {
       Commands::Transcribe { .. } => Some("Transcribe"),
       Commands::Say { .. } => Some("Say"),
       Commands::Music { .. } => Some("Music"),
+      Commands::Video { .. } => Some("Video"),
+      Commands::Embed { .. } => Some("Embedding"),
       Commands::Image { .. } => Some("Image"),
       Commands::Photo { .. } => Some("Photo"),
       Commands::ImgEdit { .. } => Some("Image Edit"),
@@ -804,11 +808,6 @@ impl Commands {
       Commands::Google { .. } => None,
       Commands::Gemini { .. } => None,
       Commands::GeminiFlash { .. } => None,
-      Commands::GoogleImage { .. } => Some("Google Image"),
-      Commands::GoogleVideo { .. } => Some("Google Video"),
-      Commands::GoogleMusic { .. } => Some("Google Music"),
-      Commands::GoogleSay { .. } => Some("Google Speech"),
-      Commands::GoogleEmbed { .. } => Some("Google Embedding"),
       Commands::Groq { .. } => None,
       Commands::Perplexity { .. } => None,
       Commands::Sonar { .. } => None,

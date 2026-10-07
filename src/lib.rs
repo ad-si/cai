@@ -2017,11 +2017,10 @@ pub async fn exec_tool(
       // (`user_input` can carry additional instructions)
       let media_prompt = match &opts.subcommand {
         Some(
-          Commands::Music { prompt }
-          | Commands::GoogleImage { prompt }
-          | Commands::GoogleVideo { prompt }
-          | Commands::GoogleMusic { prompt }
-          | Commands::GoogleSay { prompt },
+          Commands::Music { prompt, .. }
+          | Commands::Image { prompt, .. }
+          | Commands::Video { prompt, .. }
+          | Commands::Say { prompt, .. },
         ) => prompt.join(" "),
         _ => user_input.to_string(),
       };
@@ -2352,28 +2351,57 @@ const OCR_PROMPT: &str = "Extract and return all text from this image. \
 /// Gemini model used to extract text from images at high media resolution
 const GOOGLE_OCR_MODEL: &str = "gemini-3.1-pro-preview";
 
-/// Extract all text from an image via OCR with a vision model
+/// Model used to extract text from images by default
+const OPENAI_OCR_MODEL: &str = "gpt-5.6-terra";
+
+/// Extract all text from an image (or a PDF with Mistral OCR)
 /// and return the label of the used model along with the text.
+/// Without a `model`, OpenAI is used, Google Gemini for HEIC/HEIF images,
+/// and Mistral OCR for PDFs.
 async fn ocr_image_to_text(
   file_path: &str,
+  model: Option<&Model>,
 ) -> Result<(String, String), Box<dyn Error + Send + Sync>> {
   let mime_type = get_image_mime_type(file_path);
+  let is_pdf = file_path.to_lowercase().ends_with(".pdf");
+
+  // OpenAI's vision API doesn't accept HEIC/HEIF, but Google Gemini does
+  let model = match model {
+    Some(model) => model.clone(),
+    None if is_pdf => {
+      Model::Model(Provider::Mistral, MISTRAL_OCR_MODEL.to_string())
+    }
+    None if mime_type == "image/heic" || mime_type == "image/heif" => {
+      Model::Model(Provider::Google, GOOGLE_OCR_MODEL.to_string())
+    }
+    None => Model::Model(Provider::OpenAI, OPENAI_OCR_MODEL.to_string()),
+  };
 
   let secrets_path_str = get_secrets_path_str();
   let full_config = get_full_config(&secrets_path_str)?;
+  let (used_model, http_req) =
+    get_http_req(&Some(&model), &secrets_path_str, &full_config)?;
+  let is_mistral_ocr = http_req.provider == Provider::Mistral
+    && is_mistral_ocr_model(&http_req.model);
 
-  // OpenAI's vision API doesn't accept HEIC/HEIF, but Google Gemini does
-  if mime_type == "image/heic" || mime_type == "image/heif" {
-    eprintln!(
-      "{}",
-      cformat!(
-        "<dim>{file_path}: \
-        Extracting text from image with Google Gemini …</dim>"
-      )
-    );
-    let model = Model::Model(Provider::Google, GOOGLE_OCR_MODEL.to_string());
-    let (used_model, http_req) =
-      get_http_req(&Some(&model), &secrets_path_str, &full_config)?;
+  if is_pdf && !is_mistral_ocr {
+    Err("PDFs are only supported by Mistral OCR")?
+  }
+
+  eprintln!(
+    "{}",
+    cformat!(
+      "<dim>{file_path}: Extracting text with {} …</dim>",
+      http_req.provider
+    )
+  );
+
+  if is_mistral_ocr {
+    let text = mistral_ocr(&http_req, &full_config, file_path).await?;
+    return Ok((used_model, text));
+  }
+
+  if http_req.provider == Provider::Google {
     let base64_content = base64::engine::general_purpose::STANDARD
       .encode(std::fs::read(file_path)?);
 
@@ -2402,34 +2430,24 @@ async fn ocr_image_to_text(
         .as_str()
         .unwrap_or_default()
         .to_string();
-      Ok((used_model, text))
+      return Ok((used_model, text));
     } else {
       let json_val = resp.json::<Value>().await?;
       let json_str = serde_json::to_string_pretty(&json_val).unwrap();
-      Err(json_str.into())
+      return Err(json_str.into());
     }
-  } else {
-    eprintln!(
-      "{}",
-      cformat!(
-        "<dim>{file_path}: Extracting text from image with OpenAI …</dim>"
-      )
-    );
-    let model = Model::Model(Provider::OpenAI, "gpt-5.6-terra".to_string());
-    let (_used_model, http_req) =
-      get_http_req(&Some(&model), &secrets_path_str, &full_config)?;
-
-    complete_prompt(
-      &http_req,
-      &ExecOptions::default(),
-      OCR_PROMPT,
-      &[Image {
-        path: file_path,
-        mime_type,
-      }],
-    )
-    .await
   }
+
+  complete_prompt(
+    &http_req,
+    &ExecOptions::default(),
+    OCR_PROMPT,
+    &[Image {
+      path: file_path,
+      mime_type,
+    }],
+  )
+  .await
 }
 
 fn is_image_file(file_path: &str) -> bool {
@@ -2451,7 +2469,7 @@ pub async fn analyze_file_content(
     pdf_extract::extract_text(file_path)
       .map_err(|e| format!("Failed to extract PDF text: {e}"))?
   } else if is_image_file(file_path) {
-    let (_used_model, ocr_text) = ocr_image_to_text(file_path).await?;
+    let (_used_model, ocr_text) = ocr_image_to_text(file_path, None).await?;
     if ocr_text.trim().is_empty() {
       // No text in the image -> let callers use their non-text fallback
       return Err(Box::new(std::io::Error::new(
@@ -2522,10 +2540,11 @@ pub async fn analyze_file_content(
 
 pub async fn extract_text_from_file(
   opts: &ExecOptions,
+  model: Option<&Model>,
   file_path: &str,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
   let start = Instant::now();
-  let (used_model, text) = ocr_image_to_text(file_path).await?;
+  let (used_model, text) = ocr_image_to_text(file_path, model).await?;
   let subcommand = subcommand_prefix(opts);
   print_text_answer(
     opts,
@@ -2537,40 +2556,62 @@ pub async fn extract_text_from_file(
   Ok(())
 }
 
-pub async fn google_ocr_file(
-  opts: &ExecOptions,
+/// Mistral model used to extract text from images and PDFs
+const MISTRAL_OCR_MODEL: &str = "mistral-ocr-latest";
+
+/// Mistral OCR models are served by the OCR API,
+/// not the chat completions API
+fn is_mistral_ocr_model(model: &str) -> bool {
+  model.contains("ocr")
+}
+
+/// Extract the text of an image or a PDF via Mistral's OCR API,
+/// which returns the content of each page as Markdown.
+async fn mistral_ocr(
+  http_req: &AiRequest,
+  full_config: &HashMap<String, String>,
   file_path: &str,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-  let file_content = std::fs::read(file_path)?;
+) -> Result<String, Box<dyn Error + Send + Sync>> {
   let base64_content =
-    base64::engine::general_purpose::STANDARD.encode(&file_content);
+    base64::engine::general_purpose::STANDARD.encode(std::fs::read(file_path)?);
+  let document = if file_path.to_lowercase().ends_with(".pdf") {
+    json!({
+      "type": "document_url",
+      "document_url": format!("data:application/pdf;base64,{base64_content}"),
+    })
+  } else {
+    let mime_type = get_image_mime_type(file_path);
+    json!({
+      "type": "image_url",
+      "image_url": format!("data:{mime_type};base64,{base64_content}"),
+    })
+  };
 
-  let mime_type = get_image_mime_type(file_path);
+  let base_url =
+    get_base_url(full_config, "mistral_base_url", "https://api.mistral.ai/v1");
+  let resp = reqwest::Client::new()
+    .post(format!("{base_url}/ocr"))
+    .bearer_auth(&http_req.api_key)
+    .json(&json!({ "model": http_req.model, "document": document }))
+    .send()
+    .await?;
+  let status = resp.status();
+  let resp_json = resp.json::<Value>().await?;
 
-  let model = &Model::Model(Provider::Google, GOOGLE_OCR_MODEL.to_string());
+  if !status.is_success() {
+    Err(serde_json::to_string_pretty(&resp_json).unwrap())?;
+  }
 
-  // Build the request JSON according to the Google Gemini API format
-  // The mediaResolution should be specified at the generationConfig level
-  let prompt = json!({
-    "contents": [{
-      "parts": [
-        { "text": "Extract and return all text from this image.
-            Just the text and no explanation!" },
-        {
-          "inlineData": {
-            "mimeType": mime_type,
-            "data": base64_content
-          }
-        }
-      ]
-    }],
-    "generationConfig": {
-      "mediaResolution": "media_resolution_high"
-    }
-  })
-  .to_string();
-
-  exec_tool(&Some(model), opts, &prompt).await
+  Ok(
+    resp_json["pages"]
+      .as_array()
+      .into_iter()
+      .flatten()
+      .filter_map(|page| page["markdown"].as_str())
+      .map(str::trim)
+      .collect::<Vec<&str>>()
+      .join("\n\n"),
+  )
 }
 
 /// Guess the MIME type of an audio file from its file extension.
@@ -2588,19 +2629,173 @@ fn get_audio_mime_type(file_path: &str) -> &'static str {
   }
 }
 
-/// Resolve the model of the `transcribe` command.
-/// Gemini models (and anything prefixed with `google/`) are served by Google's
-/// API, every other transcription model by OpenAI's.
-pub fn transcription_model(model_id: &str) -> Model {
-  match model_id.strip_prefix("google/") {
-    Some(google_model_id) => {
-      Model::Model(Provider::Google, google_model_id.to_string())
-    }
-    None if model_id.starts_with("gemini") => {
-      Model::Model(Provider::Google, model_id.to_string())
-    }
-    None => Model::Model(Provider::OpenAI, model_id.to_string()),
+/// Models of the commands that take a `-m/--model` option, per provider.
+/// The first entry is the command's default.
+pub const OCR_MODELS: &[(Provider, &str)] = &[
+  (Provider::OpenAI, OPENAI_OCR_MODEL),
+  (Provider::Google, GOOGLE_OCR_MODEL),
+  (Provider::Mistral, MISTRAL_OCR_MODEL),
+];
+pub const TRANSCRIPTION_MODELS: &[(Provider, &str)] = &[
+  (Provider::OpenAI, "gpt-transcribe"),
+  (Provider::Google, "gemini-3.5-transcribe"),
+  (Provider::Mistral, "voxtral-mini-latest"),
+];
+pub const SPEECH_MODELS: &[(Provider, &str)] = &[
+  (Provider::OpenAI, "gpt-4o-mini-tts"),
+  (Provider::Google, "gemini-3.1-flash-tts-preview"),
+  (Provider::Mistral, "voxtral-mini-tts-latest"),
+];
+pub const IMAGE_MODELS: &[(Provider, &str)] = &[
+  (Provider::OpenAI, "gpt-image-2.5-flare"),
+  (Provider::Google, "gemini-3.1-flash-image"),
+  (Provider::XAI, "grok-imagine-image-2.0"),
+];
+pub const VIDEO_MODELS: &[(Provider, &str)] =
+  &[(Provider::Google, "veo-3.1-generate-preview")];
+pub const MUSIC_MODELS: &[(Provider, &str)] =
+  &[(Provider::Google, "lyria-3.5")];
+pub const EMBEDDING_MODELS: &[(Provider, &str)] =
+  &[(Provider::Google, "gemini-embedding-2")];
+
+/// The provider serving a model, inferred from the model's name
+fn provider_of_model_id(model_id: &str) -> Option<Provider> {
+  let has_prefix =
+    |prefixes: &[&str]| prefixes.iter().any(|p| model_id.starts_with(p));
+
+  if has_prefix(&["gemini", "gemma", "veo-", "lyria-", "imagen", "nano-banana"])
+  {
+    Some(Provider::Google)
+  } else if has_prefix(&["voxtral", "mistral-", "ministral", "codestral"]) {
+    Some(Provider::Mistral)
+  } else if has_prefix(&["grok"]) {
+    Some(Provider::XAI)
+  } else if has_prefix(&["claude"]) {
+    Some(Provider::Anthropic)
+  } else if has_prefix(&["gpt", "dall-e", "whisper", "tts-"]) {
+    Some(Provider::OpenAI)
+  } else {
+    None
   }
+}
+
+/// Resolve the `-m/--model` option of a command with per provider `models`.
+///
+/// Accepts a provider name for its default model of the command (`google`),
+/// a model of a provider (`google/transcribe`), or a model id whose provider
+/// is inferred from its name (`voxtral-mini-latest`).
+/// Model ids of an unknown provider go to the command's default provider.
+pub fn task_model(
+  model_arg: Option<&str>,
+  models: &[(Provider, &str)],
+) -> Result<Model, String> {
+  let to_model = |(provider, model_id): &(Provider, &str)| {
+    Model::Model(*provider, model_id.to_string())
+  };
+  let Some(model_arg) = model_arg.map(str::trim) else {
+    return Ok(to_model(&models[0]));
+  };
+
+  if let Some(provider) = provider_from_name(model_arg) {
+    return models
+      .iter()
+      .find(|(model_provider, _)| *model_provider == provider)
+      .map(to_model)
+      .ok_or_else(|| {
+        let providers = models
+          .iter()
+          .map(|(provider, _)| {
+            format!("`{}`", provider.to_string().to_lowercase())
+          })
+          .collect::<Vec<String>>()
+          .join(", ");
+        format!("{provider} isn't supported. Use one of: {providers}")
+      });
+  }
+
+  if let Some((provider_name, model_id)) = model_arg.split_once('/') {
+    if let Some(provider) = provider_from_name(provider_name) {
+      return Ok(Model::Model(provider, model_id.to_string()));
+    }
+  }
+
+  let provider = provider_of_model_id(model_arg).unwrap_or(models[0].0);
+  Ok(Model::Model(provider, model_arg.to_string()))
+}
+
+/// Transcribe an audio file via Mistral's `/audio/transcriptions` endpoint.
+///
+/// Mistral accepts a single language and up to 100 `context_bias` terms,
+/// which must not contain whitespace, so multi-word keywords are joined
+/// with underscores.
+async fn transcribe_via_mistral(
+  opts: &ExecOptions,
+  http_req: &AiRequest,
+  full_config: &HashMap<String, String>,
+  languages: &[String],
+  keywords: &[String],
+  file_path: &str,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+  if http_req.model.contains("realtime") {
+    Err(format!(
+      "`{}` is only available in realtime sessions. \
+      Use `voxtral-mini-latest` to transcribe audio files.",
+      http_req.model,
+    ))?
+  }
+
+  let file = std::fs::read(file_path)?;
+  let file_name = std::path::Path::new(file_path)
+    .file_name()
+    .and_then(|name| name.to_str())
+    .unwrap_or(file_path)
+    .to_string();
+  let part = reqwest::multipart::Part::bytes(file)
+    .file_name(file_name)
+    .mime_str(get_audio_mime_type(file_path))?;
+
+  let mut form = reqwest::multipart::Form::new()
+    .text("model", http_req.model.clone())
+    .part("file", part);
+
+  if let Some(language) = languages.first() {
+    if languages.len() > 1 {
+      eprintln!(
+        "⚠️  `{}` supports only one language. \
+        Using '{language}' and ignoring the remaining ones.",
+        http_req.model,
+      );
+    }
+    form = form.text("language", language.clone());
+  }
+  for keyword in keywords {
+    let term = keyword.split_whitespace().collect::<Vec<&str>>().join("_");
+    form = form.text("context_bias", term);
+  }
+
+  let base_url =
+    get_base_url(full_config, "mistral_base_url", "https://api.mistral.ai/v1");
+  let resp = reqwest::Client::new()
+    .post(format!("{base_url}/audio/transcriptions"))
+    .bearer_auth(&http_req.api_key)
+    .multipart(form)
+    .send()
+    .await?;
+  let status = resp.status();
+  let resp_json = resp.json::<Value>().await?;
+
+  if !status.is_success() {
+    Err(serde_json::to_string_pretty(&resp_json).unwrap())?;
+  }
+
+  let text = resp_json["text"].as_str().unwrap_or_default();
+  if opts.is_raw {
+    println!("{text}");
+  } else {
+    highlight::text_via_bat(&format!("{text}\n"));
+  }
+
+  Ok(())
 }
 
 /// Transcribe an audio file with a Gemini model, which takes the audio inline
@@ -2682,11 +2877,12 @@ async fn transcribe_via_gemini(
   Ok(())
 }
 
-/// Transcribe an audio file via OpenAI's `/audio/transcriptions` endpoint
-/// or, for Gemini models, via Google's `generateContent` endpoint.
+/// Transcribe an audio file via OpenAI's `/audio/transcriptions` endpoint,
+/// for Gemini models via Google's `generateContent` endpoint,
+/// and for Voxtral models via Mistral's `/audio/transcriptions` endpoint.
 ///
-/// `languages` and `keywords` are only supported by `gpt-transcribe`.
-/// For the other OpenAI models the first language is sent as the legacy
+/// Among the OpenAI models, `languages` and `keywords` are only supported by
+/// `gpt-transcribe`. For the other OpenAI models the first language is sent as the legacy
 /// `language` parameter and the keywords are ignored.
 pub async fn transcribe_audio_file(
   opts: &ExecOptions,
@@ -2704,6 +2900,17 @@ pub async fn transcribe_audio_file(
   if http_req.provider == Provider::Google {
     return transcribe_via_gemini(
       opts, &http_req, languages, keywords, file_path,
+    )
+    .await;
+  }
+  if http_req.provider == Provider::Mistral {
+    return transcribe_via_mistral(
+      opts,
+      &http_req,
+      &full_config,
+      languages,
+      keywords,
+      file_path,
     )
     .await;
   }
@@ -4155,21 +4362,48 @@ mod tests {
   }
 
   #[test]
-  fn test_transcription_model_provider() {
-    // Gemini models are served by Google
+  fn test_task_model() {
+    let model = |provider, model_id: &str| {
+      Ok(Model::Model(provider, model_id.to_string()))
+    };
+    // Without a model, the first entry is the default
     assert_eq!(
-      transcription_model("gemini-3.5-transcribe"),
-      Model::Model(Provider::Google, "gemini-3.5-transcribe".to_string())
+      task_model(None, TRANSCRIPTION_MODELS),
+      model(Provider::OpenAI, "gpt-transcribe")
     );
-    // The `google/` prefix also reaches Google's aliases
+    // A provider name selects the provider's default model
     assert_eq!(
-      transcription_model("google/transcribe"),
-      Model::Model(Provider::Google, "transcribe".to_string())
+      task_model(Some("mistral"), SPEECH_MODELS),
+      model(Provider::Mistral, "voxtral-mini-tts-latest")
     );
-    // Everything else stays with OpenAI
     assert_eq!(
-      transcription_model("diarize"),
-      Model::Model(Provider::OpenAI, "diarize".to_string())
+      task_model(Some("Google"), OCR_MODELS),
+      model(Provider::Google, GOOGLE_OCR_MODEL)
+    );
+    // A provider without a model for the command is rejected
+    assert!(task_model(Some("mistral"), IMAGE_MODELS).is_err());
+    // `<provider>/<model>` reaches the provider's aliases
+    assert_eq!(
+      task_model(Some("google/transcribe"), TRANSCRIPTION_MODELS),
+      model(Provider::Google, "transcribe")
+    );
+    // The provider of a model id is inferred from its name
+    assert_eq!(
+      task_model(Some("gemini-3.5-transcribe"), TRANSCRIPTION_MODELS),
+      model(Provider::Google, "gemini-3.5-transcribe")
+    );
+    assert_eq!(
+      task_model(Some("voxtral-mini-2602"), TRANSCRIPTION_MODELS),
+      model(Provider::Mistral, "voxtral-mini-2602")
+    );
+    assert_eq!(
+      task_model(Some("grok-imagine-image"), IMAGE_MODELS),
+      model(Provider::XAI, "grok-imagine-image")
+    );
+    // Anything else goes to the command's default provider
+    assert_eq!(
+      task_model(Some("diarize"), TRANSCRIPTION_MODELS),
+      model(Provider::OpenAI, "diarize")
     );
   }
 
