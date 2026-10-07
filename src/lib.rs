@@ -626,7 +626,7 @@ fn provider_from_name(name: &str) -> Option<Provider> {
 }
 
 /// Parse a model override string of the form `<provider> <model_id>`
-/// (e.g. `anthropic claude-opus-4-8`). A bare provider name with no model id
+/// (e.g. `anthropic claude-opus-5-5`). A bare provider name with no model id
 /// is also accepted (e.g. `llamafile`).
 fn parse_model_override(value: &str) -> Option<Model> {
   let value = value.trim();
@@ -681,7 +681,7 @@ fn configured_shortcut_model(
       eprintln!(
         "⚠️  Invalid model override for `shortcut_models.{key}`: '{raw}'. \
         Expected format '<provider> <model>', \
-        e.g. 'anthropic claude-opus-4-8'. Using default."
+        e.g. 'anthropic claude-opus-5-5'. Using default."
       );
       None
     }
@@ -2824,7 +2824,7 @@ pub async fn prompt_with_lang_cntxt(
 
   let model = shortcut_model(
     cmd,
-    Model::Model(Provider::Anthropic, "claude-haiku-4-5".to_string()),
+    Model::Model(Provider::Anthropic, "claude-sonnet-5-5".to_string()),
   );
 
   if let Err(err) = exec_tool(

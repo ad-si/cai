@@ -53,27 +53,30 @@ const GOOGLE_MODEL_MAPPING_SRC: [(&str, &str); 38] = [
   ("gemini-3-flash", "gemini-3.8-flash"),
 ];
 
-const ANTHROPIC_MODEL_MAPPING_SRC: [(&str, &str); 27] = [
+const ANTHROPIC_MODEL_MAPPING_SRC: [(&str, &str); 29] = [
   // Default models
   // Fable (most powerful)
   ("claude-fable", "claude-fable-5"),
   ("fable", "claude-fable-5"),
   ("fa", "claude-fable-5"),
   // Opus
-  ("claude-opus", "claude-opus-4-8"),
-  ("opus", "claude-opus-4-8"),
-  ("op", "claude-opus-4-8"),
-  ("o", "claude-opus-4-8"),
+  ("claude-opus", "claude-opus-5-5"),
+  ("opus", "claude-opus-5-5"),
+  ("op", "claude-opus-5-5"),
+  ("o", "claude-opus-5-5"),
   // Sonnet
-  ("claude-sonnet", "claude-sonnet-5"),
-  ("sonnet", "claude-sonnet-5"),
-  ("so", "claude-sonnet-5"),
-  ("s", "claude-sonnet-5"),
+  ("claude-sonnet", "claude-sonnet-5-5"),
+  ("sonnet", "claude-sonnet-5-5"),
+  ("so", "claude-sonnet-5-5"),
+  ("s", "claude-sonnet-5-5"),
   // Haiku
   ("claude-haiku", "claude-haiku-4-5"),
   ("haiku", "claude-haiku-4-5"),
   ("ha", "claude-haiku-4-5"),
   ("h", "claude-haiku-4-5"),
+  // Version 5.5 models
+  ("opus-5-5", "claude-opus-5-5"),
+  ("sonnet-5-5", "claude-sonnet-5-5"),
   // Version 5 models
   ("fable-5", "claude-fable-5"),
   ("sonnet-5", "claude-sonnet-5"),
