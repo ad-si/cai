@@ -531,6 +531,17 @@ for all supported model ids):"
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
+  /// Mistral
+  #[clap(visible_alias = "mi")]
+  Mistral {
+    #[clap(help = mistral_models_pretty!(
+      "Following aliases are available
+(Check out https://docs.mistral.ai/getting-started/models for all supported model ids):"
+    ))]
+    model: String,
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
   /// Llamafile server hosted at http://localhost:8080
   #[clap(visible_alias = "lf")]
   Llamafile {
@@ -805,6 +816,7 @@ impl Commands {
       Commands::SonarReasoning { .. } => None,
       Commands::SonarReasoningPro { .. } => None,
       Commands::SonarDeepResearch { .. } => None,
+      Commands::Mistral { .. } => None,
       Commands::Cerebras { .. } => None,
       Commands::Deepseek { .. } => None,
       Commands::Llama3 { .. } => None,

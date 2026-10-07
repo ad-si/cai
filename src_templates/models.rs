@@ -221,13 +221,11 @@ macro_rules! perplexity_models_pretty {
 //////////////////////////////////// MISTRAL ///////////////////////////////////
 
 // Pretty-printed string representation of the hashmap
-#[allow(dead_code)]
 pub const MISTRAL_MODEL_MAPPING: &[(&str, &str)] = &[
   // This will be replaced by build.rs:
   // {mistral_model_hashmap}
 ];
 
-#[allow(dead_code)]
 pub fn get_mistral_model(model_id: &str) -> &str {
   MISTRAL_MODEL_MAPPING
     .iter()
@@ -235,7 +233,6 @@ pub fn get_mistral_model(model_id: &str) -> &str {
     .map_or(model_id, |(_, value)| *value)
 }
 
-#[allow(unused_macros)]
 macro_rules! mistral_models_pretty {
   ($prefix: expr) => {
     // This will be replaced by build.rs

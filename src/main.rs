@@ -1042,6 +1042,14 @@ async fn exec_with_args(args: Args, stdin: &str) {
         )
         .await
       }
+      Commands::Mistral { model, prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(Provider::Mistral, model.to_string())),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
       Commands::All { prompt } => {
         // Streaming output from many models in parallel would interleave;
         // run each one to completion and print as a block.
@@ -1058,6 +1066,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
           Model::Model(Provider::OpenAI, "gpt-5.6-terra".to_string()),
           Model::Model(Provider::XAI, "grok-4-fast".to_string()),
           Model::Model(Provider::Perplexity, "sonar".to_string()),
+          Model::Model(Provider::Mistral, "mistral-large-4".to_string()),
         ];
 
         let mut handles = vec![];

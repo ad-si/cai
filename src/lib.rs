@@ -233,6 +233,7 @@ pub enum Provider {
   Ollama,
   XAI,
   Perplexity,
+  Mistral,
 }
 
 impl std::fmt::Display for Provider {
@@ -248,6 +249,7 @@ impl std::fmt::Display for Provider {
       Provider::OpenAI => write!(f, "OpenAI"),
       Provider::XAI => write!(f, "xAI"),
       Provider::Perplexity => write!(f, "Perplexity"),
+      Provider::Mistral => write!(f, "Mistral"),
     }
   }
 }
@@ -518,6 +520,25 @@ fn default_req_for_model(
         ..Default::default()
       }
     }
+    Provider::Mistral => {
+      let base_url = get_base_url(
+        full_config,
+        "mistral_base_url",
+        "https://api.mistral.ai/v1",
+      );
+      let resolved_model = types::get_mistral_model(model_id);
+      let url = if is_mistral_tts_model(resolved_model) {
+        format!("{base_url}/audio/speech")
+      } else {
+        format!("{base_url}/chat/completions")
+      };
+      AiRequest {
+        provider: *provider,
+        url,
+        model: resolved_model.to_string(),
+        ..Default::default()
+      }
+    }
   }
 }
 
@@ -556,6 +577,7 @@ fn get_api_request(
       Provider::OpenAI => full_config.get("openai_api_key"),
       Provider::XAI => full_config.get("xai_api_key"),
       Provider::Perplexity => full_config.get("perplexity_api_key"),
+      Provider::Mistral => full_config.get("mistral_api_key"),
     }
   }
   .filter(|api_key| !api_key.is_empty())
@@ -603,6 +625,7 @@ fn get_used_model(model: &Model) -> String {
       Provider::OpenAI => types::get_openai_model(model_id),
       Provider::XAI => types::get_xai_model(model_id),
       Provider::Perplexity => types::get_perplexity_model(model_id),
+      Provider::Mistral => types::get_mistral_model(model_id),
     };
     cformat!("<bold>🧠 {} {}</bold>", provider, full_model_id)
   }
@@ -621,6 +644,7 @@ fn provider_from_name(name: &str) -> Option<Provider> {
     "ollama" => Some(Provider::Ollama),
     "xai" => Some(Provider::XAI),
     "perplexity" => Some(Provider::Perplexity),
+    "mistral" => Some(Provider::Mistral),
     _ => None,
   }
 }
@@ -739,6 +763,10 @@ pub fn get_full_config(
     .set_default(
       "perplexity_api_key", //
       env::var("PERPLEXITY_API_KEY").unwrap_or_default(),
+    )?
+    .set_default(
+      "mistral_api_key", //
+      env::var("MISTRAL_API_KEY").unwrap_or_default(),
     )?
     .set_default(
       "typesafe_api_key", //
@@ -976,6 +1004,17 @@ fn get_req_body_obj(
     return Value::Object(map);
   }
 
+  if http_req.provider == Provider::Mistral
+    && is_mistral_tts_model(&http_req.model)
+  {
+    return json!({
+      "model": http_req.model,
+      "input": user_input,
+      "voice_id": MISTRAL_TTS_VOICE,
+      "response_format": "mp3",
+    });
+  }
+
   // Special handling for OpenAI image generation models (gpt-image and DALL-E)
   let is_image_generation = matches!(&opts.subcommand, Some(Commands::Openai { model, .. }) if model == "image")
     || matches!(&opts.subcommand, Some(Commands::Image { .. }));
@@ -1040,7 +1079,10 @@ fn get_req_body_obj(
 
   if opts.is_json {
     match http_req.provider {
-      Provider::OpenAI | Provider::Groq | Provider::Ollama => {
+      Provider::OpenAI
+      | Provider::Groq
+      | Provider::Ollama
+      | Provider::Mistral => {
         map.insert(
           "response_format".to_string(),
           Value::Object(Map::from_iter([(
@@ -1061,7 +1103,7 @@ fn get_req_body_obj(
 
   if opts.json_schema.is_some() {
     match http_req.provider {
-      Provider::OpenAI | Provider::Ollama => {
+      Provider::OpenAI | Provider::Ollama | Provider::Mistral => {
         let mut json_schema = Map::new();
         json_schema.insert("type".to_string(), "json_schema".into());
         json_schema.insert(
@@ -1189,6 +1231,15 @@ fn is_google_audio_model(model: &str) -> bool {
   is_google_tts_model(model) || is_google_music_model(model)
 }
 
+/// Voxtral TTS models are served by the speech API,
+/// not the chat completions API
+fn is_mistral_tts_model(model: &str) -> bool {
+  model.contains("-tts")
+}
+
+/// Preset voice of Mistral's TTS models (see `GET /v1/audio/voices`)
+const MISTRAL_TTS_VOICE: &str = "en_paul_neutral";
+
 /// Whether a request returns text (vs binary like images or audio)
 fn is_text_response(http_req: &AiRequest, opts: &ExecOptions) -> bool {
   // OpenAI TTS
@@ -1212,6 +1263,13 @@ fn is_text_response(http_req: &AiRequest, opts: &ExecOptions) -> bool {
 
   // xAI image generation (Grok Imagine)
   if http_req.provider == Provider::XAI && is_xai_image_model(&http_req.model) {
+    return false;
+  }
+
+  // Mistral speech synthesis (Voxtral TTS)
+  if http_req.provider == Provider::Mistral
+    && is_mistral_tts_model(&http_req.model)
+  {
     return false;
   }
 
@@ -1384,6 +1442,9 @@ async fn stream_text_response(
             ["text"]
             .as_str()
             .map(str::to_string),
+          Provider::Mistral => {
+            mistral_content_text(&json["choices"][0]["delta"]["content"])
+          }
           _ => json["choices"][0]["delta"]["content"]
             .as_str()
             .map(str::to_string),
@@ -1454,6 +1515,11 @@ async fn parse_text_response(
         .to_string();
       (text, None)
     }
+    Provider::Mistral => {
+      let response_json = resp.json::<Value>().await?;
+      let content = &response_json["choices"][0]["message"]["content"];
+      (mistral_content_text(content).unwrap_or_default(), None)
+    }
     _ => {
       let ai_response = resp.json::<AiResponse>().await?;
       let msg = ai_response.choices[0].message.content.clone();
@@ -1461,6 +1527,23 @@ async fn parse_text_response(
       (msg, search_results)
     }
   })
+}
+
+/// The answer text of a Mistral message `content`.
+/// Reasoning models like Mistral Large 4 return a list of chunks instead of
+/// a string, where the reasoning is a `thinking` chunk that's left out.
+fn mistral_content_text(content: &Value) -> Option<String> {
+  match content {
+    Value::String(text) => Some(text.clone()),
+    Value::Array(chunks) => Some(
+      chunks
+        .iter()
+        .filter(|chunk| chunk["type"] == "text")
+        .filter_map(|chunk| chunk["text"].as_str())
+        .collect(),
+    ),
+    _ => None,
+  }
 }
 
 /// Write one base64 encoded media blob of a Gemini response to disk
@@ -1897,6 +1980,30 @@ pub async fn exec_tool(
         }
       }
 
+      return Ok(());
+    }
+
+    // Mistral's speech API returns the audio base64 encoded in a JSON object
+    if http_req.provider == Provider::Mistral
+      && is_mistral_tts_model(&http_req.model)
+    {
+      let response_json = resp.json::<Value>().await?;
+      let audio_data =
+        response_json["audio_data"].as_str().ok_or_else(|| {
+          serde_json::to_string_pretty(&response_json).unwrap_or_default()
+        })?;
+
+      cprintln!(
+        "<bold>{subcommand}{used_model} | ⏱️ {} {}</bold>\n",
+        elapsed_time,
+        time_unit,
+      );
+
+      let speech_prompt = match &opts.subcommand {
+        Some(Commands::Say { prompt, .. }) => prompt.join(" "),
+        _ => user_input.to_string(),
+      };
+      report_saved_media("audio/mpeg", audio_data, &speech_prompt, 1);
       return Ok(());
     }
 
@@ -4217,6 +4324,33 @@ mod tests {
     // Unknown provider is rejected
     assert_eq!(parse_model_override("acme some-model"), None);
     assert_eq!(parse_model_override("not-a-provider"), None);
+  }
+
+  #[test]
+  fn test_mistral_content_text() {
+    assert_eq!(mistral_content_text(&json!("Hi")), Some("Hi".to_string()));
+    // Reasoning models wrap the answer in chunks next to their thinking
+    assert_eq!(
+      mistral_content_text(&json!([
+        {
+          "type": "thinking",
+          "thinking": [{ "type": "text", "text": "Greet back" }],
+          "closed": true,
+        },
+        { "type": "text", "text": "Hello " },
+        { "type": "text", "text": "there" },
+      ])),
+      Some("Hello there".to_string())
+    );
+    // A thinking delta of a stream carries no answer text
+    assert_eq!(
+      mistral_content_text(&json!([{
+        "type": "thinking",
+        "thinking": [{ "type": "text", "text": "Hmm" }],
+      }])),
+      Some(String::new())
+    );
+    assert_eq!(mistral_content_text(&Value::Null), None);
   }
 
   #[test]

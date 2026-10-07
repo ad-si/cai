@@ -66,6 +66,7 @@ Cai supports the following APIs:
 - **OpenAI** - [Create new API key](https://platform.openai.com/api-keys).
 - **Anthropic** -
     [Create new API key](https://console.anthropic.com/settings/keys).
+- **Mistral** - [Create new API key](https://console.mistral.ai/api-keys).
 - **TypeSafe** - [Create new API key](https://console.typesafe.ai/keys).
 - **Llamafile** - Local [Llamafile] server running at http://localhost:8080.
 - **Ollama** - Local [Ollama] server running at http://localhost:11434.
@@ -272,7 +273,7 @@ Examples:
 
 The provider must be one of:
 `anthropic`, `cerebras`, `deepseek`, `google`, `groq`,
-`openai`, `llamafile`, `ollama`, `xai`, `perplexity`.
+`openai`, `llamafile`, `ollama`, `xai`, `perplexity`, `mistral`.
 
 The key for a shortcut is its subcommand name
 (e.g. `gpt5m`, `sonpro`).

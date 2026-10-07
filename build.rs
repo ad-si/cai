@@ -268,32 +268,29 @@ const XAI_MODEL_MAPPING_SRC: [(&str, &str); 14] = [
   ("quality", "grok-imagine-image-quality"),
 ];
 
-const MISTRAL_MODEL_MAPPING_SRC: [(&str, &str); 20] = [
+const MISTRAL_MODEL_MAPPING_SRC: [(&str, &str); 17] = [
   // Default models
-  ("mistral", "mistral-large-latest"),
-  ("m", "mistral-large-latest"),
-  ("large", "mistral-large-latest"),
-  ("l", "mistral-large-latest"),
+  ("mistral", "mistral-large-4"),
+  ("m", "mistral-large-4"),
+  ("large", "mistral-large-4"),
+  ("l", "mistral-large-4"),
+  ("large4", "mistral-large-4"),
+  ("large3", "mistral-large-2512"),
   ("medium", "mistral-medium-latest"),
   ("small", "mistral-small-latest"),
-  ("tiny", "mistral-tiny-latest"),
   // Code models
   ("codestral", "codestral-latest"),
   ("code", "codestral-latest"),
-  ("devstral", "devstral-latest"),
   // Ministral
   ("ministral", "ministral-8b-latest"),
   ("ministral-3b", "ministral-3b-latest"),
   ("ministral-8b", "ministral-8b-latest"),
   ("ministral-14b", "ministral-14b-latest"),
-  // Reasoning
-  ("magistral", "magistral-medium-latest"),
   // Specialty
-  ("embed", "mistral-embed"),
-  ("ocr", "mistral-ocr-latest"),
-  ("pixtral", "pixtral-large-latest"),
   ("voxtral", "voxtral-small-latest"),
-  ("nemo", "open-mistral-nemo"),
+  ("leanstral", "labs-leanstral-1-5"),
+  // Hosted third-party models
+  ("glm", "zai-glm-latest"),
 ];
 
 const PERPLEXITY_MODEL_MAPPING_SRC: [(&str, &str); 8] = [
