@@ -2,7 +2,7 @@ use std::env;
 use std::fs;
 use std::path::Path;
 
-const GOOGLE_MODEL_MAPPING_SRC: [(&str, &str); 38] = [
+const GOOGLE_MODEL_MAPPING_SRC: [(&str, &str); 35] = [
   // Default models
   ("gemini-flash", "gemini-3.8-flash"),
   ("gemini", "gemini-3.8-flash"),
@@ -22,11 +22,6 @@ const GOOGLE_MODEL_MAPPING_SRC: [(&str, &str); 38] = [
   ("pro-image", "gemini-3-pro-image"),
   ("nano-banana", "nano-banana-pro-preview"),
   ("banana", "nano-banana-pro-preview"),
-  // Video generation models (Veo)
-  ("veo", "veo-3.1-generate-preview"),
-  ("video", "veo-3.1-generate-preview"),
-  ("veo-fast", "veo-3.1-fast-generate-preview"),
-  ("veo-lite", "veo-3.1-lite-generate-preview"),
   // Music generation models (Lyria)
   ("lyria", "lyria-3.5"),
   ("music", "lyria-3.5"),
@@ -40,8 +35,9 @@ const GOOGLE_MODEL_MAPPING_SRC: [(&str, &str); 38] = [
   // Embedding models
   ("embed", "gemini-embedding-2"),
   ("embedding", "gemini-embedding-2"),
-  // Any-to-any model
+  // Any-to-any model (also generates videos)
   ("omni", "gemini-omni-1.1-flash"),
+  ("video", "gemini-omni-1.1-flash"),
   // Open models (Gemma)
   ("gemma", "gemma-4-31b-it"),
   ("gemma-4", "gemma-4-31b-it"),

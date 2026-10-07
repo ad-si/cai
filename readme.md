@@ -9,7 +9,7 @@
   - `cai value capital of Australia`
   - `cai image photo of a banana` (OpenAI image generation)
   - `cai image -m google sunset over mountains` (Google Gemini image generation)
-  - `cai video a paper plane gliding over a desk` (Google Veo video)
+  - `cai video a paper plane gliding over a desk` (Google Gemini Omni video)
   - `cai music a calm piano loop` (Google Lyria music generation)
   - `cai ocr page.png`
   - `cai ocr -m mistral scan.pdf` (Mistral OCR)
@@ -141,7 +141,7 @@ Commands:
               edit prompt as the last argument) [aliases: imge]
   say         Convert text to speech (default: OpenAI GPT-4o mini TTS) [aliases: tts]
   music       Generate music (default: Google Lyria 3.5)
-  video       Generate a video (default: Google Veo 3.1)
+  video       Generate a video (default: Google Gemini Omni 1.1 Flash)
   embed       Convert text into an embedding vector (default: Google Gemini Embedding 2)
   transcribe  Transcribe an audio file (default: OpenAI GPT-Transcribe)
   ocr         Extract text from an image or PDF (default: OpenAI GPT-5.6 Terra, Google Gemini for

@@ -925,14 +925,6 @@ fn get_req_body_obj(
       return json!({ "model": model, "input": user_input });
     }
 
-    // Veo's video models use the prediction API instead of `generateContent`
-    if is_google_video_model(model) {
-      return json!({
-        "instances": [{ "prompt": user_input }],
-        "parameters": { "aspectRatio": "16:9" },
-      });
-    }
-
     // Embedding models expect a single `content` object
     if is_google_embedding_model(model) {
       return json!({
@@ -1164,9 +1156,7 @@ async fn exec_request(
         return client.post(url).json(&req_body_obj).send().await;
       }
 
-      let (action, extra_query) = if is_google_video_model(model) {
-        ("predictLongRunning", "")
-      } else if is_google_embedding_model(model) {
+      let (action, extra_query) = if is_google_embedding_model(model) {
         ("embedContent", "")
       } else if is_streaming {
         ("streamGenerateContent", "alt=sse&")
@@ -1198,11 +1188,6 @@ fn is_xai_image_model(model: &str) -> bool {
 /// Gemini models that return images (`gemini-*-image`, Nano Banana)
 fn is_google_image_model(model: &str) -> bool {
   model.contains("-image") || model.starts_with("nano-banana")
-}
-
-/// Veo models generate videos via a long running operation
-fn is_google_video_model(model: &str) -> bool {
-  model.starts_with("veo-")
 }
 
 /// Lyria models generate music
@@ -1273,11 +1258,11 @@ fn is_text_response(http_req: &AiRequest, opts: &ExecOptions) -> bool {
     return false;
   }
 
-  // Google media generation (images, video, music, speech), embeddings,
-  // and the any-to-any Omni models all need their own response handling
+  // Google media generation (images, music, speech), embeddings,
+  // and the any-to-any Omni models (incl. video)
+  // all need their own response handling
   if http_req.provider == Provider::Google
     && (is_google_image_model(&http_req.model)
-      || is_google_video_model(&http_req.model)
       || is_google_audio_model(&http_req.model)
       || is_google_embedding_model(&http_req.model)
       || is_google_interactions_model(&http_req.model))
@@ -1626,83 +1611,6 @@ fn save_interaction_content(response_json: &Value, prompt: &str) {
   }
 }
 
-/// How long to wait for a Veo video generation operation before giving up
-const VIDEO_GENERATION_TIMEOUT: std::time::Duration =
-  std::time::Duration::from_secs(10 * 60);
-
-/// Poll a Veo video generation operation until it's done,
-/// then download every generated sample.
-/// Returns the names of the written files.
-async fn await_video_operation(
-  http_req: &AiRequest,
-  operation_name: &str,
-  prompt: &str,
-) -> Result<Vec<String>, Box<dyn Error + Send + Sync>> {
-  // Operation names are relative to the API's base URL
-  // (`models/veo-…/operations/…`)
-  let base_url = google_base_url(http_req);
-  let poll_url =
-    format!("{base_url}/{operation_name}?key={}", http_req.api_key);
-  let client = reqwest::Client::new();
-  let deadline = Instant::now() + VIDEO_GENERATION_TIMEOUT;
-
-  eprintln!("{}", cformat!("<dim>Generating video …</dim>"));
-
-  let operation = loop {
-    let operation = client.get(&poll_url).send().await?.json::<Value>().await?;
-
-    if let Some(error) = operation.get("error") {
-      Err(serde_json::to_string_pretty(error)?)?;
-    }
-    if operation["done"].as_bool().unwrap_or(false) {
-      break operation;
-    }
-    if Instant::now() >= deadline {
-      Err(format!(
-        "Video generation timed out after {} minutes. \
-        Check the operation at {base_url}/{operation_name}",
-        VIDEO_GENERATION_TIMEOUT.as_secs() / 60,
-      ))?;
-    }
-    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-  };
-
-  let mut filenames = vec![];
-
-  for sample in operation["response"]["generateVideoResponse"]
-    ["generatedSamples"]
-    .as_array()
-    .into_iter()
-    .flatten()
-  {
-    // The video is served from the Files API and needs the API key as well
-    if let Some(uri) = sample["video"]["uri"].as_str() {
-      let separator = if uri.contains('?') { "&" } else { "?" };
-      let video_bytes = client
-        .get(format!("{uri}{separator}key={}", http_req.api_key))
-        .send()
-        .await?
-        .bytes()
-        .await?;
-      filenames.push(save_media_bytes(&video_bytes, prompt, "mp4")?);
-    }
-    // Smaller videos can be returned inline instead
-    else if let Some(data_base64) =
-      sample["video"]["bytesBase64Encoded"].as_str()
-    {
-      let video_bytes =
-        base64::engine::general_purpose::STANDARD.decode(data_base64)?;
-      filenames.push(save_media_bytes(&video_bytes, prompt, "mp4")?);
-    }
-  }
-
-  if filenames.is_empty() {
-    Err(serde_json::to_string_pretty(&operation)?)?;
-  }
-
-  Ok(filenames)
-}
-
 pub async fn exec_tool(
   optional_model: &Option<&Model>,
   opts: &ExecOptions,
@@ -2047,21 +1955,6 @@ pub async fn exec_tool(
         elapsed_time,
         time_unit,
       );
-
-      // Veo only returns the name of a long running operation
-      if is_google_video_model(&http_req.model) {
-        let operation_name =
-          response_json["name"].as_str().ok_or_else(|| {
-            serde_json::to_string_pretty(&response_json).unwrap_or_default()
-          })?;
-        for filename in
-          await_video_operation(&http_req, operation_name, &media_prompt)
-            .await?
-        {
-          println!("Generated video saved to: {filename}");
-        }
-        return Ok(());
-      }
 
       // The Omni models answer with their own response shape
       if is_google_interactions_model(&http_req.model) {
@@ -2652,7 +2545,7 @@ pub const IMAGE_MODELS: &[(Provider, &str)] = &[
   (Provider::XAI, "grok-imagine-image-2.0"),
 ];
 pub const VIDEO_MODELS: &[(Provider, &str)] =
-  &[(Provider::Google, "veo-3.1-generate-preview")];
+  &[(Provider::Google, "gemini-omni-1.1-flash")];
 pub const MUSIC_MODELS: &[(Provider, &str)] =
   &[(Provider::Google, "lyria-3.5")];
 pub const EMBEDDING_MODELS: &[(Provider, &str)] =
@@ -2663,8 +2556,7 @@ fn provider_of_model_id(model_id: &str) -> Option<Provider> {
   let has_prefix =
     |prefixes: &[&str]| prefixes.iter().any(|p| model_id.starts_with(p));
 
-  if has_prefix(&["gemini", "gemma", "veo-", "lyria-", "imagen", "nano-banana"])
-  {
+  if has_prefix(&["gemini", "gemma", "lyria-", "imagen", "nano-banana"]) {
     Some(Provider::Google)
   } else if has_prefix(&["voxtral", "mistral-", "ministral", "codestral"]) {
     Some(Provider::Mistral)
@@ -4254,26 +4146,24 @@ mod tests {
   #[test]
   fn test_google_model_modalities() {
     let cases = [
-      // (alias, image, video, music, tts, embedding, interactions)
-      ("image", true, false, false, false, false, false),
-      ("banana", true, false, false, false, false, false),
-      ("pro-image", true, false, false, false, false, false),
-      ("veo", false, true, false, false, false, false),
-      ("video", false, true, false, false, false, false),
-      ("music", false, false, true, false, false, false),
-      ("lyria-clip", false, false, true, false, false, false),
-      ("tts", false, false, false, true, false, false),
-      ("embed", false, false, false, false, true, false),
-      ("omni", false, false, false, false, false, true),
-      ("gemini", false, false, false, false, false, false),
-      ("gemma", false, false, false, false, false, false),
-      ("transcribe", false, false, false, false, false, false),
+      // (alias, image, music, tts, embedding, interactions)
+      ("image", true, false, false, false, false),
+      ("banana", true, false, false, false, false),
+      ("pro-image", true, false, false, false, false),
+      ("video", false, false, false, false, true),
+      ("music", false, true, false, false, false),
+      ("lyria-clip", false, true, false, false, false),
+      ("tts", false, false, true, false, false),
+      ("embed", false, false, false, true, false),
+      ("omni", false, false, false, false, true),
+      ("gemini", false, false, false, false, false),
+      ("gemma", false, false, false, false, false),
+      ("transcribe", false, false, false, false, false),
     ];
 
-    for (alias, image, video, music, tts, embedding, interactions) in cases {
+    for (alias, image, music, tts, embedding, interactions) in cases {
       let model = types::get_google_model(alias);
       assert_eq!(is_google_image_model(model), image, "image: `{alias}`");
-      assert_eq!(is_google_video_model(model), video, "video: `{alias}`");
       assert_eq!(is_google_music_model(model), music, "music: `{alias}`");
       assert_eq!(is_google_tts_model(model), tts, "tts: `{alias}`");
       assert_eq!(
@@ -4293,7 +4183,7 @@ mod tests {
   fn test_google_media_models_bypass_text_handling() {
     let opts = ExecOptions::default();
 
-    for alias in ["image", "banana", "veo", "music", "tts", "embed", "omni"] {
+    for alias in ["image", "banana", "video", "music", "tts", "embed", "omni"] {
       let http_req = AiRequest {
         provider: Provider::Google,
         model: types::get_google_model(alias).to_string(),
@@ -4330,9 +4220,6 @@ mod tests {
       };
       get_req_body_obj(&opts, &http_req, "test")
     };
-
-    // Veo uses the prediction API's instances/parameters shape
-    assert_eq!(body_for("veo")["instances"][0]["prompt"], "test");
 
     // Embeddings take a single content object
     assert_eq!(body_for("embed")["content"]["parts"][0]["text"], "test");

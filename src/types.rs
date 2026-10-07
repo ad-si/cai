@@ -220,7 +220,7 @@ Unnamed questions are named q1, q2, … by their position.
     prompt: Vec<String>,
   },
 
-  /// Generate a video (default: Google Veo 3.1)
+  /// Generate a video (default: Google Gemini Omni 1.1 Flash)
   Video {
     /// Video model: a provider for its default model
     /// (`google`), a model id, or `<provider>/<model>`
