@@ -1,4 +1,5 @@
 pub mod agent;
+mod cli_backend;
 mod highlight;
 mod types;
 mod typesafe;
@@ -12,6 +13,7 @@ use std::str;
 use std::time::Instant;
 
 use chrono::Utc;
+use cli_backend::{Backend, CliError, Image};
 use color_print::{cformat, cprintln};
 use config::Config;
 use futures::future::join_all;
@@ -283,6 +285,7 @@ struct AiRequest {
   prompt: String,
   max_tokens: u32,
   api_key: String,
+  backend: Backend,
 }
 
 impl Default for AiRequest {
@@ -294,7 +297,34 @@ impl Default for AiRequest {
       prompt: Default::default(),
       max_tokens: 4096,
       api_key: Default::default(),
+      backend: Default::default(),
     }
+  }
+}
+
+impl AiRequest {
+  /// Send the request to the provider's API instead of a subscription CLI,
+  /// because the CLI can't serve `feature`.
+  /// Fails if no API key is configured.
+  fn require_api(mut self, feature: &str) -> Result<AiRequest, String> {
+    if self.backend == Backend::Api {
+      return Ok(self);
+    }
+    if self.api_key.is_empty() {
+      return Err(self.backend.unsupported_msg(self.provider, feature));
+    }
+    // To stderr, so that piping the answer stays unaffected.
+    eprintln!(
+      "{}",
+      cformat!(
+        "<dim>{feature} isn't supported via {}. \
+        Using the {} API instead …</dim>",
+        self.backend,
+        self.provider,
+      )
+    );
+    self.backend = Backend::Api;
+    Ok(self)
   }
 }
 
@@ -512,8 +542,9 @@ fn get_api_request(
 ) -> Result<AiRequest, String> {
   let dummy_key = "DUMMY_KEY".to_string();
   let Model::Model(provider, _) = model;
+  let backend = cli_backend::configured_backend(full_config, *provider)?;
 
-  {
+  let api_key = {
     match provider {
       Provider::Anthropic => full_config.get("anthropic_api_key"),
       Provider::Cerebras => full_config.get("cerebras_api_key"),
@@ -527,19 +558,32 @@ fn get_api_request(
       Provider::Perplexity => full_config.get("perplexity_api_key"),
     }
   }
-  .and_then(|api_key| {
-    if api_key.is_empty() {
-      None
-    } else {
-      Some(api_key.to_string())
-    }
+  .filter(|api_key| !api_key.is_empty())
+  .cloned();
+
+  // A subscription CLI needs no API key.
+  // If one is set anyway, it serves the requests the CLI can't handle.
+  let api_key = match (api_key, backend) {
+    (Some(api_key), _) => api_key,
+    (None, Backend::Api) => return Err(get_key_setup_msg(secrets_path_str)),
+    (None, _) => String::new(),
+  };
+
+  Ok(AiRequest {
+    api_key,
+    backend,
+    ..default_req_for_model(model, full_config)
   })
-  .map(|api_key| api_key.to_string())
-  .ok_or(get_key_setup_msg(secrets_path_str))
-  .map(|api_key| AiRequest {
-    api_key: api_key.clone(),
-    ..(default_req_for_model(model, full_config)).clone()
-  })
+}
+
+/// Bold label of the model a request is sent to
+/// (e.g. `🧠 OpenAI gpt-5.6-sol via Codex`)
+fn model_label(req: &AiRequest) -> String {
+  let label = get_used_model(&Model::Model(req.provider, req.model.clone()));
+  match req.backend {
+    Backend::Api => label,
+    backend => label + &cformat!("<bold> via {backend}</bold>"),
+  }
 }
 
 fn get_used_model(model: &Model) -> String {
@@ -617,8 +661,17 @@ fn cached_config() -> &'static HashMap<String, String> {
 /// Returns `None` when the shortcut isn't overridable, no override is set, or
 /// the override value is malformed (a warning is printed in the latter case).
 pub fn shortcut_model_override(cmd: &Commands) -> Option<Model> {
+  configured_shortcut_model(cached_config(), cmd)
+}
+
+/// Look up a per-shortcut model override in `full_config`
+/// (see [`shortcut_model_override`]).
+fn configured_shortcut_model(
+  full_config: &HashMap<String, String>,
+  cmd: &Commands,
+) -> Option<Model> {
   let key = cmd.config_key()?;
-  let raw = cached_config().get(&format!("shortcut_models.{key}"))?;
+  let raw = full_config.get(&format!("shortcut_models.{key}"))?;
   if raw.trim().is_empty() {
     return None;
   }
@@ -737,26 +790,42 @@ fn flatten_config_value(
 }
 
 /// Models tried, in order, when the user didn't specify one.
-/// Starts with the `fast` shortcut's model (overridable via
-/// `shortcut_models.fast`), then walks the built-in defaults.
-fn default_model_chain() -> Vec<Model> {
-  let cerebras = Model::Model(Provider::Cerebras, "gpt-oss-120b".to_owned());
-  let fast_model = shortcut_model(
-    &Commands::Fast { prompt: vec![] },
-    cerebras.clone(), //
-  );
-  let mut chain = vec![fast_model];
+/// Starts with the `fast` shortcut's model if it's overridden via
+/// `shortcut_models.fast`, then the configured subscriptions
+/// (see `<provider>_via`), which come at no extra cost,
+/// and finally the built-in API defaults.
+fn default_model_chain(full_config: &HashMap<String, String>) -> Vec<Model> {
+  let is_subscription = |provider| {
+    cli_backend::configured_backend(full_config, provider)
+      .is_ok_and(|backend| backend != Backend::Api)
+  };
+  let sonnet =
+    Model::Model(Provider::Anthropic, "claude-sonnet-5-5".to_string());
+  let mut candidates: Vec<Model> =
+    configured_shortcut_model(full_config, &Commands::Fast { prompt: vec![] })
+      .into_iter()
+      .collect();
 
-  for model in [
-    cerebras,
-    Model::Model(Provider::OpenAI, "gpt-5-mini".to_string()),
-    Model::Model(Provider::Anthropic, "claude-haiku-4-5".to_string()),
-  ] {
+  if is_subscription(Provider::Anthropic) {
+    candidates.push(sonnet.clone());
+  }
+  if is_subscription(Provider::OpenAI) {
+    candidates.push(Model::Model(Provider::OpenAI, "gpt-5.6-luna".to_string()));
+  }
+
+  candidates.push(Model::Model(Provider::Cerebras, "gpt-oss-120b".to_owned()));
+  // Codex doesn't offer gpt-5-mini, so it would be billed to the API key
+  if !is_subscription(Provider::OpenAI) {
+    candidates.push(Model::Model(Provider::OpenAI, "gpt-5-mini".to_string()));
+  }
+  candidates.push(sonnet);
+
+  let mut chain = vec![];
+  for model in candidates {
     if !chain.contains(&model) {
       chain.push(model);
     }
   }
-
   chain
 }
 
@@ -771,23 +840,17 @@ fn get_http_req_chain(
   full_config: &HashMap<String, String>,
 ) -> Result<Vec<(String, AiRequest)>, std::string::String> {
   match optional_model {
-    Some(model) => {
-      let used_model = get_used_model(model);
-      get_api_request(full_config, secrets_path_str, model)
-        .map(|req| vec![(used_model, req)])
-    }
+    Some(model) => get_api_request(full_config, secrets_path_str, model)
+      .map(|req| vec![(model_label(&req), req)]),
     None => {
-      let candidates: Vec<(String, AiRequest)> = default_model_chain()
-        .iter()
-        .filter_map(|model| {
-          get_api_request(full_config, secrets_path_str, model).ok()
-        })
-        .map(|req| {
-          let used_model =
-            get_used_model(&Model::Model(req.provider, req.model.clone()));
-          (used_model, req)
-        })
-        .collect();
+      let candidates: Vec<(String, AiRequest)> =
+        default_model_chain(full_config)
+          .iter()
+          .filter_map(|model| {
+            get_api_request(full_config, secrets_path_str, model).ok()
+          })
+          .map(|req| (model_label(&req), req))
+          .collect();
 
       if candidates.is_empty() {
         Err(get_key_setup_msg(secrets_path_str))
@@ -1579,12 +1642,71 @@ pub async fn exec_tool(
   // With an explicit model the chain holds one entry and this is a no-op.
   let chain_labels: Vec<String> = req_chain
     .iter()
-    .map(|(_, req)| format!("{} {}", req.provider, req.model))
+    .map(|(_, req)| match req.backend {
+      Backend::Api => format!("{} {}", req.provider, req.model),
+      backend => format!("{} {} via {backend}", req.provider, req.model),
+    })
     .collect();
   let last_index = req_chain.len() - 1;
   let mut attempt = None;
 
-  for (index, (used_model, http_req)) in req_chain.into_iter().enumerate() {
+  let subcommand = subcommand_prefix(opts);
+
+  for (index, (mut used_model, mut http_req)) in
+    req_chain.into_iter().enumerate()
+  {
+    // Requests the subscription CLI can't serve go to the API, if possible
+    if http_req.backend != Backend::Api {
+      let api_feature =
+        match cli_unsupported_feature(&http_req, opts, user_input) {
+          Some(feature) => feature.to_string(),
+          None => match cli_backend::complete(
+            http_req.backend,
+            &http_req.model,
+            user_input,
+            &[],
+            cli_json_schema(opts),
+          )
+          .await
+          {
+            Ok(answer) => {
+              print_text_answer(
+                opts,
+                &format!("{subcommand}{used_model}"),
+                start,
+                &answer,
+                None,
+              );
+              return Ok(());
+            }
+            Err(CliError::UnsupportedModel(_)) => {
+              format!("`{}`", http_req.model)
+            }
+            Err(CliError::Failed(msg)) if index < last_index => {
+              warn_fallback(
+                &chain_labels[index],
+                &msg,
+                &chain_labels[index + 1],
+              );
+              continue;
+            }
+            Err(CliError::Failed(msg)) => Err(msg)?,
+          },
+        };
+
+      match http_req.require_api(&api_feature) {
+        Ok(api_req) => {
+          used_model = model_label(&api_req);
+          http_req = api_req;
+        }
+        Err(msg) if index < last_index => {
+          warn_fallback(&chain_labels[index], &msg, &chain_labels[index + 1]);
+          continue;
+        }
+        Err(msg) => return Err(msg.into()),
+      }
+    }
+
     let should_stream = opts.is_streaming && is_text_response(&http_req, opts);
 
     let mut req_body_obj = get_req_body_obj(opts, &http_req, user_input);
@@ -1601,16 +1723,10 @@ pub async fn exec_tool(
     if index < last_index && is_provider_unavailable(resp.status()) {
       let status = resp.status();
       let reason = status.canonical_reason().unwrap_or("Error");
-      // To stderr, so that piping the answer stays unaffected.
-      eprintln!(
-        "{}",
-        cformat!(
-          "<yellow>⚠️  {} is unavailable ({} {}). Falling back to {} …</yellow>",
-          chain_labels[index],
-          status.as_u16(),
-          reason,
-          chain_labels[index + 1],
-        )
+      warn_fallback(
+        &chain_labels[index],
+        &format!("{} {reason}", status.as_u16()),
+        &chain_labels[index + 1],
       );
       continue;
     }
@@ -1621,13 +1737,6 @@ pub async fn exec_tool(
 
   let (used_model, http_req, should_stream, resp) =
     attempt.expect("request chain is never empty");
-
-  let subcommand = opts
-    .subcommand
-    .as_ref()
-    .and_then(|x| x.to_string_pretty())
-    .map(|subcom| format!("➡️ {subcom} | "))
-    .unwrap_or_default();
 
   if !&resp.status().is_success() {
     let elapsed_millis = start.elapsed().as_millis();
@@ -1863,40 +1972,210 @@ pub async fn exec_tool(
     let (msg, search_results) =
       parse_text_response(resp, http_req.provider).await?;
 
-    if opts.is_raw {
-      println!("{msg}");
-    } else {
-      cprintln!(
-        "<bold>{subcommand}{used_model} | ⏱️ {} {}</bold>\n",
-        elapsed_time,
-        time_unit,
-      );
-      highlight::text_via_bat(&msg);
+    print_text_answer(
+      opts,
+      &format!("{subcommand}{used_model}"),
+      start,
+      &msg,
+      search_results,
+    );
+  }
+  Ok(())
+}
 
-      // Display search results for Perplexity models
-      if let Some(results) = search_results {
-        if !results.is_empty() {
-          println!("\n\n## Search Results\n");
-          for (i, result) in results.iter().enumerate() {
-            let index = i + 1;
-            println!(
-              "[{index}] {title} ({url})",
-              title = result.title,
-              url = result.url
-            );
-            if let Some(date) = &result.date {
-              println!("    Date: {date}");
-            }
-            if let Some(last_updated) = &result.last_updated {
-              println!("    Updated: {last_updated}");
-            }
-          }
+/// Warn that a model of the default chain is unavailable
+/// and that the next one is tried instead.
+fn warn_fallback(label: &str, reason: &str, next_label: &str) {
+  // To stderr, so that piping the answer stays unaffected.
+  eprintln!(
+    "{}",
+    cformat!(
+      "<yellow>⚠️  {} is unavailable ({}). Falling back to {} …</yellow>",
+      label,
+      reason,
+      next_label,
+    )
+  );
+}
+
+/// Print a complete (i.e. not streamed) text answer with its metadata
+fn print_text_answer(
+  opts: &ExecOptions,
+  header: &str,
+  start: Instant,
+  msg: &str,
+  search_results: Option<Vec<SearchResult>>,
+) {
+  if opts.is_raw {
+    println!("{msg}");
+    return;
+  }
+
+  let (elapsed_time, time_unit) =
+    format_elapsed_time(start.elapsed().as_millis());
+  cprintln!(
+    "<bold>{header} | ⏱️ {} {}</bold>\n",
+    elapsed_time,
+    time_unit
+  );
+  highlight::text_via_bat(msg);
+
+  // Display search results for Perplexity models
+  if let Some(results) = search_results {
+    if !results.is_empty() {
+      println!("\n\n## Search Results\n");
+      for (i, result) in results.iter().enumerate() {
+        let index = i + 1;
+        println!(
+          "[{index}] {title} ({url})",
+          title = result.title,
+          url = result.url
+        );
+        if let Some(date) = &result.date {
+          println!("    Date: {date}");
+        }
+        if let Some(last_updated) = &result.last_updated {
+          println!("    Updated: {last_updated}");
         }
       }
-
-      println!("\n");
     }
   }
+
+  println!("\n");
+}
+
+/// Why a request can't be sent via a subscription CLI, if it can't
+fn cli_unsupported_feature(
+  http_req: &AiRequest,
+  opts: &ExecOptions,
+  user_input: &str,
+) -> Option<&'static str> {
+  if !is_text_response(http_req, opts) {
+    Some("Media generation")
+  }
+  // A JSON object is sent as the raw request body (see `get_req_body_obj`)
+  else if serde_json::from_str::<Value>(user_input)
+    .is_ok_and(|v| v.is_object())
+  {
+    Some("A raw request body")
+  } else if opts.is_json && opts.json_schema.is_none() {
+    Some("JSON mode without a JSON schema")
+  } else {
+    None
+  }
+}
+
+/// The bare JSON schema of the requested output for a subscription CLI
+/// (`opts.json_schema` wraps it in OpenAI's `json_schema` response format)
+fn cli_json_schema(opts: &ExecOptions) -> Option<&Value> {
+  opts
+    .json_schema
+    .as_ref()
+    .map(|wrapper| wrapper.get("schema").unwrap_or(wrapper))
+}
+
+/// Header prefix naming the executed subcommand (e.g. `➡️ OCR | `)
+fn subcommand_prefix(opts: &ExecOptions) -> String {
+  opts
+    .subcommand
+    .as_ref()
+    .and_then(|x| x.to_string_pretty())
+    .map(|subcom| format!("➡️ {subcom} | "))
+    .unwrap_or_default()
+}
+
+/// Send `prompt` to the model of `http_req` and return its whole answer
+/// without printing it.
+async fn complete_text(
+  http_req: &AiRequest,
+  opts: &ExecOptions,
+  prompt: &str,
+) -> Result<String, Box<dyn Error + Send + Sync>> {
+  let (_model_label, answer) =
+    complete_prompt(http_req, opts, prompt, &[]).await?;
+  Ok(answer)
+}
+
+/// Send `prompt` and `images` to the model of `http_req`
+/// and return the label of the model that answered along with its answer.
+async fn complete_prompt(
+  http_req: &AiRequest,
+  opts: &ExecOptions,
+  prompt: &str,
+  images: &[Image<'_>],
+) -> Result<(String, String), Box<dyn Error + Send + Sync>> {
+  let mut http_req = match cli_unsupported_feature(http_req, opts, prompt) {
+    Some(feature) => http_req.clone().require_api(feature)?,
+    None => http_req.clone(),
+  };
+
+  if http_req.backend != Backend::Api {
+    match cli_backend::complete(
+      http_req.backend,
+      &http_req.model,
+      prompt,
+      images,
+      cli_json_schema(opts),
+    )
+    .await
+    {
+      Ok(answer) => return Ok((model_label(&http_req), answer)),
+      Err(CliError::UnsupportedModel(_)) => {
+        let model = format!("`{}`", http_req.model);
+        http_req = http_req.require_api(&model)?;
+      }
+      Err(CliError::Failed(msg)) => Err(msg)?,
+    }
+  }
+
+  let mut req_body_obj = get_req_body_obj(opts, &http_req, prompt);
+  attach_images(&mut req_body_obj, http_req.provider, images)?;
+  let resp = exec_request(&http_req, &req_body_obj, false).await?;
+
+  if !resp.status().is_success() {
+    let resp_json = resp.json::<Value>().await?;
+    return Err(serde_json::to_string_pretty(&resp_json)?.into());
+  }
+
+  let (msg, _search_results) =
+    parse_text_response(resp, http_req.provider).await?;
+  Ok((model_label(&http_req), msg))
+}
+
+/// Attach `images` to the user message of a chat request body
+fn attach_images(
+  req_body_obj: &mut Value,
+  provider: Provider,
+  images: &[Image<'_>],
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+  if images.is_empty() {
+    return Ok(());
+  }
+  let Some(message) = req_body_obj.pointer_mut("/messages/0") else {
+    Err(format!("Attaching images isn't supported for {provider}"))?
+  };
+
+  let mut content = vec![json!({ "type": "text", "text": message["content"] })];
+  for image in images {
+    let data = base64::engine::general_purpose::STANDARD
+      .encode(std::fs::read(image.path)?);
+    content.push(match provider {
+      Provider::Anthropic => json!({
+        "type": "image",
+        "source": {
+          "type": "base64",
+          "media_type": image.mime_type,
+          "data": data,
+        },
+      }),
+      _ => json!({
+        "type": "image_url",
+        "image_url": { "url": format!("data:{};base64,{data}", image.mime_type) },
+      }),
+    });
+  }
+  message["content"] = Value::Array(content);
+
   Ok(())
 }
 
@@ -1967,13 +2246,10 @@ const OCR_PROMPT: &str = "Extract and return all text from this image. \
 const GOOGLE_OCR_MODEL: &str = "gemini-3.1-pro-preview";
 
 /// Extract all text from an image via OCR with a vision model
-/// and return it as a string.
+/// and return the label of the used model along with the text.
 async fn ocr_image_to_text(
   file_path: &str,
-) -> Result<String, Box<dyn Error + Send + Sync>> {
-  let file_content = std::fs::read(file_path)?;
-  let base64_content =
-    base64::engine::general_purpose::STANDARD.encode(&file_content);
+) -> Result<(String, String), Box<dyn Error + Send + Sync>> {
   let mime_type = get_image_mime_type(file_path);
 
   let secrets_path_str = get_secrets_path_str();
@@ -1989,8 +2265,10 @@ async fn ocr_image_to_text(
       )
     );
     let model = Model::Model(Provider::Google, GOOGLE_OCR_MODEL.to_string());
-    let (_used_model, http_req) =
+    let (used_model, http_req) =
       get_http_req(&Some(&model), &secrets_path_str, &full_config)?;
+    let base64_content = base64::engine::general_purpose::STANDARD
+      .encode(std::fs::read(file_path)?);
 
     let req_body_obj = json!({
       "contents": [{
@@ -2013,12 +2291,11 @@ async fn ocr_image_to_text(
 
     if resp.status().is_success() {
       let json_val = resp.json::<Value>().await?;
-      Ok(
-        json_val["candidates"][0]["content"]["parts"][0]["text"]
-          .as_str()
-          .unwrap_or_default()
-          .to_string(),
-      )
+      let text = json_val["candidates"][0]["content"]["parts"][0]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+      Ok((used_model, text))
     } else {
       let json_val = resp.json::<Value>().await?;
       let json_str = serde_json::to_string_pretty(&json_val).unwrap();
@@ -2035,36 +2312,16 @@ async fn ocr_image_to_text(
     let (_used_model, http_req) =
       get_http_req(&Some(&model), &secrets_path_str, &full_config)?;
 
-    let req_body_obj = json!({
-      "model": http_req.model,
-      "max_completion_tokens": http_req.max_tokens,
-      "messages": [{
-        "role": "user",
-        "content": [
-          {
-            "type": "text",
-            "text": OCR_PROMPT
-          },
-          {
-            "type": "image_url",
-            "image_url": {
-              "url": format!("data:{mime_type};base64,{base64_content}")
-            }
-          }
-        ]
-      }]
-    });
-
-    let resp = exec_request(&http_req, &req_body_obj, false).await?;
-
-    if resp.status().is_success() {
-      let ai_response = resp.json::<AiResponse>().await?;
-      Ok(ai_response.choices[0].message.content.clone())
-    } else {
-      let json_val = resp.json::<Value>().await?;
-      let json_str = serde_json::to_string_pretty(&json_val).unwrap();
-      Err(json_str.into())
-    }
+    complete_prompt(
+      &http_req,
+      &ExecOptions::default(),
+      OCR_PROMPT,
+      &[Image {
+        path: file_path,
+        mime_type,
+      }],
+    )
+    .await
   }
 }
 
@@ -2087,7 +2344,7 @@ pub async fn analyze_file_content(
     pdf_extract::extract_text(file_path)
       .map_err(|e| format!("Failed to extract PDF text: {e}"))?
   } else if is_image_file(file_path) {
-    let ocr_text = ocr_image_to_text(file_path).await?;
+    let (_used_model, ocr_text) = ocr_image_to_text(file_path).await?;
     if ocr_text.trim().is_empty() {
       // No text in the image -> let callers use their non-text fallback
       return Err(Box::new(std::io::Error::new(
@@ -2145,61 +2402,32 @@ pub async fn analyze_file_content(
     "{}",
     cformat!("<dim>{file_path}: Generating description and timestamp …</dim>")
   );
-  let req_body_obj = get_req_body_obj(&opts, &http_req, &prompt);
-  let resp = exec_request(&http_req, &req_body_obj, false).await?;
-
-  if resp.status().is_success() {
-    let ai_response = resp.json::<AiResponse>().await?;
-    let content = ai_response.choices[0].message.content.clone();
-    let analysis: FileAnalysis =
-      serde_json::from_str(&content).map_err(|e| {
-        format!(
-          "Failed to parse LLM response as JSON\n
-            Response: {content}\n
-            Error: {e}\n",
-        )
-      })?;
-    Ok(analysis)
-  } else {
-    let json_val = resp.json::<Value>().await?;
-    let json_str = serde_json::to_string_pretty(&json_val).unwrap();
-    Err(json_str.into())
-  }
+  let content = complete_text(&http_req, &opts, &prompt).await?;
+  let analysis: FileAnalysis = serde_json::from_str(&content).map_err(|e| {
+    format!(
+      "Failed to parse LLM response as JSON\n
+        Response: {content}\n
+        Error: {e}\n",
+    )
+  })?;
+  Ok(analysis)
 }
 
 pub async fn extract_text_from_file(
   opts: &ExecOptions,
   file_path: &str,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-  let file_content = std::fs::read(file_path)?;
-  let base64_content =
-    base64::engine::general_purpose::STANDARD.encode(&file_content);
-  let model_id = "gpt-5";
-  let model = &Model::Model(Provider::OpenAI, model_id.to_string());
-  let secrets_path_str = get_secrets_path_str();
-  let full_config = get_full_config(&secrets_path_str)?;
-  let prompt = json!({
-    "model": format!("{model_id}"),
-    "max_tokens": default_req_for_model(model, &full_config).max_tokens,
-    "messages": [{
-      "role": "user",
-      "content": [
-        {
-          "type": "text",
-          "text": "Extract and return all text from this image."
-        },
-        {
-          "type": "image_url",
-          "image_url": {
-            "url": format!("data:image/jpeg;base64,{base64_content}")
-          }
-        }
-      ]
-    }]
-  })
-  .to_string();
-
-  exec_tool(&Some(model), opts, &prompt).await
+  let start = Instant::now();
+  let (used_model, text) = ocr_image_to_text(file_path).await?;
+  let subcommand = subcommand_prefix(opts);
+  print_text_answer(
+    opts,
+    &format!("{subcommand}{used_model}"),
+    start,
+    &text,
+    None,
+  );
+  Ok(())
 }
 
 pub async fn google_ocr_file(
@@ -2364,6 +2592,7 @@ pub async fn transcribe_audio_file(
   let full_config = get_full_config(&secrets_path_str)?;
   let (_used_model, http_req) =
     get_http_req(&Some(model), &secrets_path_str, &full_config)?;
+  let http_req = http_req.require_api("Transcription")?;
 
   if http_req.provider == Provider::Google {
     return transcribe_via_gemini(
@@ -2500,8 +2729,10 @@ pub async fn edit_images(
   let full_config = get_full_config(&secrets_path_str)?;
   let model =
     &Model::Model(Provider::OpenAI, "gpt-image-2.5-sunburst".to_string());
-  let (used_model, http_req) =
+  let (_used_model, http_req) =
     get_http_req(&Some(model), &secrets_path_str, &full_config)?;
+  let http_req = http_req.require_api("Image editing")?;
+  let used_model = model_label(&http_req);
 
   let mut form = reqwest::multipart::Form::new()
     .text("model", http_req.model.clone())
@@ -2540,12 +2771,7 @@ pub async fn edit_images(
 
   let elapsed_millis = start.elapsed().as_millis();
   let (elapsed_time, time_unit) = format_elapsed_time(elapsed_millis);
-  let subcommand = opts
-    .subcommand
-    .as_ref()
-    .and_then(|x| x.to_string_pretty())
-    .map(|subcom| format!("➡️ {subcom} | "))
-    .unwrap_or_default();
+  let subcommand = subcommand_prefix(opts);
 
   let status = resp.status();
   let response_json = resp.json::<Value>().await?;
@@ -2694,17 +2920,9 @@ pub async fn rewrite_text(
   raw_opts.is_raw = true;
   raw_opts.is_streaming = false;
 
-  let req_body_obj = get_req_body_obj(&raw_opts, &http_req, &prompt);
-  let resp = exec_request(&http_req, &req_body_obj, false).await?;
-
-  if !resp.status().is_success() {
-    let resp_json = resp.json::<Value>().await?;
-    let resp_formatted = serde_json::to_string_pretty(&resp_json).unwrap();
-    return Err(format!("Failed to rewrite the text: {resp_formatted}").into());
-  }
-
-  let (msg, _search_results) =
-    parse_text_response(resp, http_req.provider).await?;
+  let msg = complete_text(&http_req, &raw_opts, &prompt)
+    .await
+    .map_err(|err| format!("Failed to rewrite the text: {err}"))?;
 
   println!("{}", strip_wrapping_code_fence(&msg, text));
 
@@ -2731,17 +2949,10 @@ async fn generate_command(
   raw_opts: &ExecOptions,
   prompt: &str,
 ) -> Result<String, Box<dyn Error + Send + Sync>> {
-  let req_body_obj = get_req_body_obj(raw_opts, http_req, prompt);
-  let resp = exec_request(http_req, &req_body_obj, false).await?;
-
-  if !resp.status().is_success() {
-    let resp_json = resp.json::<Value>().await?;
-    let resp_formatted = serde_json::to_string_pretty(&resp_json).unwrap();
-    return Err(format!("Failed to generate command: {resp_formatted}").into());
-  }
-
-  let ai_response = resp.json::<AiResponse>().await?;
-  let command = strip_code_fences(&ai_response.choices[0].message.content);
+  let answer = complete_text(http_req, raw_opts, prompt)
+    .await
+    .map_err(|err| format!("Failed to generate command: {err}"))?;
+  let command = strip_code_fences(&answer);
 
   if command.is_empty() {
     return Err("LLM returned an empty command.".into());
@@ -3141,21 +3352,9 @@ pub async fn create_commits(
   let full_config = get_full_config(&secrets_path_str)?;
   let (_used_model, http_req) =
     get_http_req(&Some(&model), &secrets_path_str, &full_config)?;
-  let req_body_obj =
-    get_req_body_obj(&analysis_opts, &http_req, &analysis_prompt);
-  let response = exec_request(&http_req, &req_body_obj, false).await?;
-
-  // Parse the response using the standard AiResponse struct
-  let ai_response = response
-    .json::<AiResponse>()
+  let content = &complete_text(&http_req, &analysis_opts, &analysis_prompt)
     .await
-    .map_err(|e| format!("Failed to decode API response: {}", e))?;
-
-  if ai_response.choices.is_empty() {
-    return Err("API returned no choices".into());
-  }
-
-  let content = &ai_response.choices[0].message.content;
+    .map_err(|err| format!("Failed to analyze the changes: {err}"))?;
 
   #[derive(Deserialize)]
   struct CommitGroup {
@@ -3320,19 +3519,10 @@ pub async fn query_database(
   let mut raw_opts = opts.clone();
   raw_opts.is_raw = true;
 
-  let req_body_obj = get_req_body_obj(&raw_opts, &http_req, &sql_prompt);
-  let resp = exec_request(&http_req, &req_body_obj, false).await?;
-
-  if !resp.status().is_success() {
-    let resp_json = resp.json::<Value>().await?;
-    let resp_formatted = serde_json::to_string_pretty(&resp_json).unwrap();
-    return Err(format!("Failed to generate SQL: {}", resp_formatted).into());
-  }
-
-  let ai_response = resp.json::<AiResponse>().await?;
-  let generated_sql = ai_response.choices[0]
-    .message
-    .content
+  let answer = complete_text(&http_req, &raw_opts, &sql_prompt)
+    .await
+    .map_err(|err| format!("Failed to generate SQL: {err}"))?;
+  let generated_sql = answer
     .trim()
     .trim_start_matches("```sql")
     .trim_start_matches("```")
@@ -3677,6 +3867,49 @@ pub async fn list_models() -> Result<(), Box<dyn Error + Send + Sync>> {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  fn chain_for(entries: &[(&str, &str)]) -> Vec<String> {
+    let full_config = entries
+      .iter()
+      .map(|(key, value)| (key.to_string(), value.to_string()))
+      .collect();
+    default_model_chain(&full_config)
+      .iter()
+      .map(|model| model.to_string())
+      .collect()
+  }
+
+  #[test]
+  fn test_default_model_chain() {
+    assert_eq!(
+      chain_for(&[]),
+      [
+        "Cerebras gpt-oss-120b",
+        "OpenAI gpt-5-mini",
+        "Anthropic claude-sonnet-5-5",
+      ]
+    );
+    assert_eq!(
+      chain_for(&[("openai_via", "codex"), ("anthropic_via", "claude-code")]),
+      [
+        "Anthropic claude-sonnet-5-5",
+        "OpenAI gpt-5.6-luna",
+        "Cerebras gpt-oss-120b",
+      ]
+    );
+    assert_eq!(
+      chain_for(&[
+        ("openai_via", "codex"),
+        ("shortcut_models.fast", "groq llama-3.1-8b-instant"),
+      ]),
+      [
+        "Groq llama-3.1-8b-instant",
+        "OpenAI gpt-5.6-luna",
+        "Cerebras gpt-oss-120b",
+        "Anthropic claude-sonnet-5-5",
+      ]
+    );
+  }
 
   #[tokio::test]
   async fn test_submit_empty_prompt() {

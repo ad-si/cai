@@ -76,9 +76,12 @@ pub async fn run_agent(
   // Anthropic Sonnet for the main loop.
   let agent_model =
     Model::Model(Provider::Anthropic, DEFAULT_AGENT_MODEL.to_string());
-  let (used_model, mut anthropic_req) =
+  let (_used_model, anthropic_req) =
     crate::get_http_req(&Some(&agent_model), &secrets_path_str, &full_config)?;
+  // The agent loop needs the API's tool use
+  let mut anthropic_req = anthropic_req.require_api("The agent")?;
   anthropic_req.max_tokens = 8192;
+  let used_model = crate::model_label(&anthropic_req);
 
   // Cheap helper for WebFetch extraction. If the user has no Anthropic key
   // here, WebFetch will still work via fall-through error inside the tool.
@@ -87,7 +90,9 @@ pub async fn run_agent(
   let fetch_helper_req =
     crate::get_http_req(&Some(&helper_model), &secrets_path_str, &full_config)
       .ok()
+      .filter(|(_, r)| !r.api_key.is_empty())
       .map(|(_, mut r)| {
+        r.backend = crate::Backend::Api;
         r.max_tokens = 4096;
         r
       });

@@ -70,6 +70,31 @@ Cai supports the following APIs:
 - **Llamafile** - Local [Llamafile] server running at http://localhost:8080.
 - **Ollama** - Local [Ollama] server running at http://localhost:11434.
 
+If you have a ChatGPT or Claude subscription,
+Cai can send OpenAI and Anthropic prompts through the official
+[Codex](https://github.com/openai/codex) and
+[Claude Code](https://github.com/anthropics/claude-code) CLIs instead,
+so that they count against your subscription's usage limits
+and not against an API key.
+Install and log in to the CLI, then add this to `~/.config/cai/config.yaml`
+(or set `CAI_OPENAI_VIA` / `CAI_ANTHROPIC_VIA`):
+
+```yaml
+openai_via: codex
+anthropic_via: claude-code
+```
+
+Text prompts and OCR then go through the CLI.
+Media generation, transcription, the agent,
+and models your subscription doesn't offer
+(e.g. `gpt-5-mini` with Codex) still use the API,
+so they require an API key.
+Answers via a CLI aren't streamed.
+Prompts without a model also prefer the subscriptions
+(Claude Sonnet via Claude Code, then GPT-5.6 Luna via Codex)
+before falling back to the APIs,
+unless `shortcut_models.fast` sets another default model.
+
 Afterwards, you can use `cai` to run prompts directly from the terminal:
 
 ```sh
