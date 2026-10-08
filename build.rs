@@ -173,7 +173,7 @@ const OLLAMA_MODEL_MAPPING_SRC: [(&str, &str); 21] = [
   ("llama2", "llama2"),
 ];
 
-const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 46] = [
+const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 45] = [
   // Default models
   ("gpt", "gpt-5.6-sol"),
   ("mini", "gpt-5.6-terra"),
@@ -228,8 +228,6 @@ const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 46] = [
   ("gpt-4o-mini-transcribe", "gpt-4o-mini-transcribe"),
   ("whisper", "whisper-1"),
   ("whisper-1", "whisper-1"),
-  // o3
-  ("o3pro", "o3-pro"),
 ];
 
 const XAI_MODEL_MAPPING_SRC: [(&str, &str); 15] = [
