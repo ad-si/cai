@@ -1050,12 +1050,10 @@ fn get_req_body_obj(
   // For all other providers
   let mut map = Map::new();
   map.insert("model".to_string(), Value::String(http_req.model.clone()));
-  // OpenAI o1, o3, o4, gpt-5, and gpt-6 models
+  // OpenAI o3, gpt-5, and gpt-6 models
   // require max_completion_tokens instead of max_tokens
   if http_req.provider == Provider::OpenAI
-    && (http_req.model.starts_with("o1")
-      || http_req.model.starts_with("o3")
-      || http_req.model.starts_with("o4")
+    && (http_req.model.starts_with("o3")
       || http_req.model.starts_with("gpt-5")
       || http_req.model.starts_with("gpt-6"))
   {
@@ -4379,7 +4377,7 @@ mod tests {
   fn test_o_models_use_max_completion_tokens() {
     let test_cases = vec![
       ("o3", true),
-      ("o4-mini", true),
+      ("o3-pro", true),
       ("gpt-5.1", true),
       ("gpt-5.6-sol", true),
       ("gpt-5.6-luna", true),
