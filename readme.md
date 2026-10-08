@@ -88,8 +88,7 @@ anthropic_via: claude-code
 
 Text prompts and OCR then go through the CLI.
 Media generation, transcription, the agent,
-and models your subscription doesn't offer
-(e.g. `gpt-5-mini` with Codex) still use the API,
+and models your subscription doesn't offer still use the API,
 so they require an API key.
 Answers via a CLI aren't streamed.
 Prompts without a model also prefer the subscriptions
@@ -168,8 +167,8 @@ Commands:
   deepseek    DeepSeek [aliases: ds]
   openai      OpenAI [aliases: op]
   gpt5        - GPT-5.6 Sol shortcut [aliases: gpt, gp]
-  gpt5m       - GPT-5 mini shortcut [aliases: gm]
-  gpt5n       - GPT-5 nano shortcut [aliases: gn]
+  gpt5m       - GPT-5.6 Terra shortcut [aliases: gm]
+  gpt5n       - GPT-5.6 Luna shortcut [aliases: gn]
   gpt41       - gpt-4.1 shortcut
   gpt41m      - gpt-4.1-mini shortcut
   anthropic   Anthropic [aliases: an]

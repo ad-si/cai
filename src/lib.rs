@@ -842,9 +842,10 @@ fn default_model_chain(full_config: &HashMap<String, String>) -> Vec<Model> {
   }
 
   candidates.push(Model::Model(Provider::Cerebras, "gpt-oss-120b".to_owned()));
-  // Codex doesn't offer gpt-5-mini, so it would be billed to the API key
+  // Subscribers already got gpt-5.6-luna via Codex above
   if !is_subscription(Provider::OpenAI) {
-    candidates.push(Model::Model(Provider::OpenAI, "gpt-5-mini".to_string()));
+    candidates
+      .push(Model::Model(Provider::OpenAI, "gpt-5.6-terra".to_string()));
   }
   candidates.push(sonnet);
 
@@ -2227,7 +2228,7 @@ pub async fn generate_changelog(
     \n\n{changelog}"
   );
 
-  let model = Model::Model(Provider::OpenAI, "gpt-5".to_string());
+  let model = Model::Model(Provider::OpenAI, "gpt-5.6-sol".to_string());
 
   exec_tool(&Some(&model), opts, &prompt).await
 }
@@ -3301,7 +3302,7 @@ pub async fn run_shell_command(
     User request: {prompt_text}"
   );
 
-  let model = Model::Model(Provider::OpenAI, "gpt-5".to_string());
+  let model = Model::Model(Provider::OpenAI, "gpt-5.6-sol".to_string());
   let secrets_path_str = get_secrets_path_str();
   let full_config = get_full_config(&secrets_path_str)?;
   let (_used_model, http_req) =
@@ -3518,7 +3519,7 @@ pub async fn create_commits(
     Git diff:\n{diff}"
   );
 
-  let model = Model::Model(Provider::OpenAI, "gpt-5".to_string());
+  let model = Model::Model(Provider::OpenAI, "gpt-5.6-sol".to_string());
 
   // Get AI analysis of commit groupings
   let json_schema = json!({
@@ -3716,7 +3717,7 @@ pub async fn query_database(
   );
 
   // Use OpenAI to generate the SQL query
-  let model = Model::Model(Provider::OpenAI, "gpt-5".to_string());
+  let model = Model::Model(Provider::OpenAI, "gpt-5.6-sol".to_string());
   let secrets_path_str = get_secrets_path_str();
   let full_config = get_full_config(&secrets_path_str)?;
   let (_used_model, http_req) =
@@ -4091,7 +4092,7 @@ mod tests {
       chain_for(&[]),
       [
         "Cerebras gpt-oss-120b",
-        "OpenAI gpt-5-mini",
+        "OpenAI gpt-5.6-terra",
         "Anthropic claude-sonnet-5-5",
       ]
     );
@@ -4379,9 +4380,9 @@ mod tests {
     let test_cases = vec![
       ("o3", true),
       ("o4-mini", true),
-      ("gpt-5", true),
-      ("gpt-5-mini", true),
-      ("gpt-5-nano", true),
+      ("gpt-5.1", true),
+      ("gpt-5.6-sol", true),
+      ("gpt-5.6-luna", true),
       ("gpt-6-astra", true),
       ("gpt-4o", false),
       ("gpt-4.1", false),

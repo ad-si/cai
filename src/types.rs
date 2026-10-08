@@ -331,7 +331,7 @@ Unnamed questions are named q1, q2, … by their position.
 - Cerebras GPT OSS 120B
 - Anthropic Claude Sonnet 5.5
 - Google Gemini 3.8 Flash
-- OpenAI GPT-5 mini
+- OpenAI GPT-5.6 Terra
 - Ollama Llama 3
 - Llamafile
 "))]
@@ -414,13 +414,13 @@ Unnamed questions are named q1, q2, … by their position.
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
-  /// - GPT-5 mini shortcut
+  /// - GPT-5.6 Terra shortcut
   #[clap(name = "gpt5m", visible_alias = "gm")]
   Gpt5Mini {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
-  /// - GPT-5 nano shortcut
+  /// - GPT-5.6 Luna shortcut
   #[clap(name = "gpt5n", visible_alias = "gn")]
   Gpt5Nano {
     /// The prompt to send to the AI model

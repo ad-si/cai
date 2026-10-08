@@ -807,7 +807,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Gpt5Mini { prompt } => {
         let model = shortcut_model(
           &cmd,
-          Model::Model(Provider::OpenAI, "gpt-5-mini".to_string()),
+          Model::Model(Provider::OpenAI, "gpt-5.6-terra".to_string()),
         );
         submit_prompt(
           &Some(&model),
@@ -819,7 +819,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Gpt5Nano { prompt } => {
         let model = shortcut_model(
           &cmd,
-          Model::Model(Provider::OpenAI, "gpt-5-nano".to_string()),
+          Model::Model(Provider::OpenAI, "gpt-5.6-luna".to_string()),
         );
         submit_prompt(
           &Some(&model),
