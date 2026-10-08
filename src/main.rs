@@ -935,7 +935,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Grok { prompt } => {
         let model = shortcut_model(
           &cmd,
-          Model::Model(Provider::XAI, "grok-4-latest".to_string()),
+          Model::Model(Provider::XAI, "grok-4.7".to_string()),
         );
         submit_prompt(
           &Some(&model),
@@ -1034,7 +1034,10 @@ async fn exec_with_args(args: Args, stdin: &str) {
           Model::Model(Provider::Llamafile, "".to_string()),
           Model::Model(Provider::Ollama, "llama3".to_string()),
           Model::Model(Provider::OpenAI, "gpt-5.6-terra".to_string()),
-          Model::Model(Provider::XAI, "grok-4-fast".to_string()),
+          Model::Model(
+            Provider::XAI,
+            "grok-4.20-0309-non-reasoning".to_string(),
+          ),
           Model::Model(Provider::Perplexity, "sonar".to_string()),
           Model::Model(Provider::Mistral, "mistral-large-4".to_string()),
         ];

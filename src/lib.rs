@@ -4139,7 +4139,7 @@ mod tests {
     }
 
     assert!(is_xai_image_model("grok-imagine-image-2.0"));
-    assert!(!is_xai_image_model("grok-4"));
+    assert!(!is_xai_image_model("grok-4.7"));
     assert!(!is_xai_image_model("grok-imagine-video"));
   }
 
