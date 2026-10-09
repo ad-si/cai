@@ -1081,7 +1081,8 @@ fn get_req_body_obj(
     );
   }
 
-  if opts.is_json {
+  // A JSON schema already implies JSON output
+  if opts.is_json && opts.json_schema.is_none() {
     match http_req.provider {
       Provider::OpenAI
       | Provider::Groq
@@ -1116,6 +1117,16 @@ fn get_req_body_obj(
         );
 
         map.insert("response_format".to_string(), Value::Object(json_schema));
+      }
+      Provider::Anthropic => {
+        // Anthropic takes the bare schema instead of OpenAI's
+        // `{name, strict, schema}` wrapper
+        let wrapper = opts.json_schema.as_ref().unwrap();
+        let schema = wrapper.get("schema").unwrap_or(wrapper).clone();
+        map.insert(
+          "output_config".to_string(),
+          json!({ "format": { "type": "json_schema", "schema": schema } }),
+        );
       }
       provider => {
         eprintln!(
@@ -4129,6 +4140,36 @@ mod tests {
     );
   }
 
+  #[test]
+  fn test_anthropic_json_schema_req_body() {
+    let schema = json!({
+      "type": "object",
+      "properties": { "a": { "type": "string" } },
+      "required": ["a"],
+      "additionalProperties": false,
+    });
+    let opts = ExecOptions {
+      is_json: true,
+      json_schema: Some(json!({
+        "name": "test",
+        "strict": true,
+        "schema": schema,
+      })),
+      ..Default::default()
+    };
+    let http_req = AiRequest {
+      provider: Provider::Anthropic,
+      model: "claude-sonnet-5-5".to_string(),
+      max_tokens: 100,
+      ..Default::default()
+    };
+    let body = get_req_body_obj(&opts, &http_req, "test");
+    assert_eq!(
+      body["output_config"],
+      json!({ "format": { "type": "json_schema", "schema": schema } })
+    );
+    assert!(body.get("response_format").is_none());
+  }
 
   #[test]
   fn test_anthropic_response_text_skips_thinking() {
