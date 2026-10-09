@@ -362,12 +362,27 @@ struct AiResponse {
 /// (https://docs.anthropic.com/claude/reference/messages_post)
 #[derive(Deserialize, Debug)]
 struct AnthropicAiContent {
-  text: String,
+  #[serde(rename = "type")]
+  kind: String,
+  text: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
 struct AnthropicAiResponse {
   content: Vec<AnthropicAiContent>,
+}
+
+impl AnthropicAiResponse {
+  /// The answer text without thinking blocks,
+  /// which precede it on models with adaptive thinking
+  fn text(&self) -> String {
+    self
+      .content
+      .iter()
+      .filter(|block| block.kind == "text")
+      .filter_map(|block| block.text.as_deref())
+      .collect()
+  }
 }
 
 fn default_req_for_model(
@@ -1483,7 +1498,7 @@ async fn parse_text_response(
   Ok(match provider {
     Provider::Anthropic => {
       let anth_response = resp.json::<AnthropicAiResponse>().await?;
-      (anth_response.content[0].text.clone(), None)
+      (anth_response.text(), None)
     }
     Provider::Google => {
       // Handle Google's unique response format
@@ -4112,6 +4127,20 @@ mod tests {
         "Anthropic claude-haiku-5-5",
       ]
     );
+  }
+
+
+  #[test]
+  fn test_anthropic_response_text_skips_thinking() {
+    let response: AnthropicAiResponse = serde_json::from_value(json!({
+      "content": [
+        { "type": "thinking", "thinking": "", "signature": "x" },
+        { "type": "text", "text": "Hello" },
+        { "type": "text", "text": " world" },
+      ]
+    }))
+    .unwrap();
+    assert_eq!(response.text(), "Hello world");
   }
 
   #[tokio::test]
