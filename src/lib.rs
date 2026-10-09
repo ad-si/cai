@@ -827,15 +827,14 @@ fn default_model_chain(full_config: &HashMap<String, String>) -> Vec<Model> {
     cli_backend::configured_backend(full_config, provider)
       .is_ok_and(|backend| backend != Backend::Api)
   };
-  let sonnet =
-    Model::Model(Provider::Anthropic, "claude-sonnet-5-5".to_string());
+  let haiku = Model::Model(Provider::Anthropic, "claude-haiku-5-5".to_string());
   let mut candidates: Vec<Model> =
     configured_shortcut_model(full_config, &Commands::Fast { prompt: vec![] })
       .into_iter()
       .collect();
 
   if is_subscription(Provider::Anthropic) {
-    candidates.push(sonnet.clone());
+    candidates.push(haiku.clone());
   }
   if is_subscription(Provider::OpenAI) {
     candidates.push(Model::Model(Provider::OpenAI, "gpt-5.6-luna".to_string()));
@@ -847,7 +846,7 @@ fn default_model_chain(full_config: &HashMap<String, String>) -> Vec<Model> {
     candidates
       .push(Model::Model(Provider::OpenAI, "gpt-5.6-terra".to_string()));
   }
-  candidates.push(sonnet);
+  candidates.push(haiku);
 
   let mut chain = vec![];
   for model in candidates {
@@ -3028,7 +3027,7 @@ pub async fn prompt_with_lang_cntxt(
 
   let model = shortcut_model(
     cmd,
-    Model::Model(Provider::Anthropic, "claude-sonnet-5-5".to_string()),
+    Model::Model(Provider::Anthropic, "claude-haiku-5-5".to_string()),
   );
 
   if let Err(err) = exec_tool(
@@ -4090,13 +4089,13 @@ mod tests {
       [
         "Cerebras gpt-oss-120b",
         "OpenAI gpt-5.6-terra",
-        "Anthropic claude-sonnet-5-5",
+        "Anthropic claude-haiku-5-5",
       ]
     );
     assert_eq!(
       chain_for(&[("openai_via", "codex"), ("anthropic_via", "claude-code")]),
       [
-        "Anthropic claude-sonnet-5-5",
+        "Anthropic claude-haiku-5-5",
         "OpenAI gpt-5.6-luna",
         "Cerebras gpt-oss-120b",
       ]
@@ -4110,7 +4109,7 @@ mod tests {
         "Groq llama-3.1-8b-instant",
         "OpenAI gpt-5.6-luna",
         "Cerebras gpt-oss-120b",
-        "Anthropic claude-sonnet-5-5",
+        "Anthropic claude-haiku-5-5",
       ]
     );
   }
