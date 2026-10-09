@@ -1,8 +1,10 @@
 //! Route text prompts through the official Codex and Claude Code CLIs,
 //! so that they're covered by a ChatGPT or Claude subscription
 //! instead of being billed to an API key.
+//! Prompts for Apple's on-device model are routed through `apfel`
+//! (https://github.com/Arthur-Ficial/apfel).
 //!
-//! Both CLIs are coding agents. To make them behave like a plain model call,
+//! Codex and Claude Code are coding agents. To make them behave like a plain model call,
 //! their system prompts are replaced, all tools are disabled,
 //! and neither user configuration nor project instructions are loaded.
 
@@ -27,6 +29,8 @@ pub enum Backend {
   Codex,
   /// `claude -p`, billed to the Claude subscription
   ClaudeCode,
+  /// `apfel`, Apple's on-device model
+  Apfel,
 }
 
 impl std::fmt::Display for Backend {
@@ -35,6 +39,7 @@ impl std::fmt::Display for Backend {
       Backend::Api => write!(f, "API"),
       Backend::Codex => write!(f, "Codex"),
       Backend::ClaudeCode => write!(f, "Claude Code"),
+      Backend::Apfel => write!(f, "apfel"),
     }
   }
 }
@@ -50,6 +55,11 @@ impl Backend {
 
   /// Message for a request the CLI can't serve and no API key is set
   pub fn unsupported_msg(&self, provider: Provider, feature: &str) -> String {
+    if *self == Backend::Apfel {
+      return format!(
+        "{feature} isn't supported by {provider}'s on-device model."
+      );
+    }
     format!(
       "{feature} isn't supported via {self}. \
       Set `{}` to use the {provider} API for it.",
@@ -60,6 +70,7 @@ impl Backend {
 
 /// The backend configured for a provider via `<provider>_via`
 /// (e.g. `openai_via: codex` or `anthropic_via: claude-code`).
+/// Apple's on-device model is only available via `apfel`.
 pub fn configured_backend(
   full_config: &HashMap<String, String>,
   provider: Provider,
@@ -69,6 +80,7 @@ pub fn configured_backend(
     Provider::Anthropic => {
       ("anthropic_via", "claude-code", Backend::ClaudeCode) //
     }
+    Provider::Apple => return Ok(Backend::Apfel),
     _ => return Ok(Backend::Api),
   };
 
@@ -136,6 +148,7 @@ pub async fn complete(
     Backend::ClaudeCode => {
       complete_via_claude_code(model_id, prompt, images, json_schema).await
     }
+    Backend::Apfel => complete_via_apfel(prompt, images, json_schema).await,
     Backend::Api => Err(CliError::Failed(
       "The API backend has no CLI".to_string(), //
     )),
@@ -175,9 +188,10 @@ impl Drop for TempFile {
 
 /// Run `program` with `args` in the temp directory,
 /// pass `prompt` via stdin, and return its stdout, stderr, and success.
+/// `not_found_hint` explains what to do if `program` isn't installed.
 async fn run_cli(
   program: &str,
-  config_key: &str,
+  not_found_hint: &str,
   args: &[String],
   removed_env_vars: &[&str],
   prompt: &str,
@@ -198,10 +212,7 @@ async fn run_cli(
 
   let mut child = command.spawn().map_err(|err| {
     CliError::Failed(if err.kind() == std::io::ErrorKind::NotFound {
-      format!(
-        "`{program}` was not found. Install it, \
-        or remove `{config_key}` from the cai config to use the API instead."
-      )
+      format!("`{program}` was not found. {not_found_hint}")
     } else {
       format!("Failed to start `{program}`: {err}")
     })
@@ -348,7 +359,8 @@ async fn complete_via_codex(
 
   let (stdout, stderr, is_success) = run_cli(
     "codex",
-    "openai_via",
+    "Install it, or remove `openai_via` from the cai config \
+    to use the API instead.",
     &args,
     &["OPENAI_API_KEY", "CODEX_API_KEY"],
     prompt,
@@ -464,7 +476,8 @@ async fn complete_via_claude_code(
 
   let (stdout, stderr, _is_success) = run_cli(
     "claude",
-    "anthropic_via",
+    "Install it, or remove `anthropic_via` from the cai config \
+    to use the API instead.",
     &args,
     &["ANTHROPIC_API_KEY"],
     &claude_code_message(prompt, images)?,
@@ -472,6 +485,45 @@ async fn complete_via_claude_code(
   .await?;
 
   parse_claude_code_result(&stdout, &stderr, json_schema.is_some())
+}
+
+async fn complete_via_apfel(
+  prompt: &str,
+  images: &[Image<'_>],
+  json_schema: Option<&Value>,
+) -> Result<String, CliError> {
+  if !images.is_empty() {
+    return Err(CliError::Failed(
+      "Images aren't supported by Apple's on-device model".to_string(),
+    ));
+  }
+  let schema_file = json_schema
+    .map(|schema| TempFile::new("schema.json", &schema.to_string()))
+    .transpose()?;
+
+  let mut args: Vec<String> = vec!["--quiet".into(), "--no-color".into()];
+  if let Some(schema_file) = &schema_file {
+    args.push("--schema".to_string());
+    args.push(schema_file.0.to_string_lossy().into_owned());
+  }
+
+  // Without a prompt argument, apfel reads the prompt from stdin
+  let (stdout, stderr, is_success) = run_cli(
+    "apfel",
+    "Install it with `brew install apfel` (requires macOS 26+).",
+    &args,
+    &[],
+    prompt,
+  )
+  .await?;
+
+  match (is_success, stderr.is_empty()) {
+    (true, _) => Ok(stdout.trim_end().to_string()),
+    (false, false) => Err(CliError::Failed(stderr)),
+    (false, true) => {
+      Err(CliError::Failed(format!("apfel failed: {}", stdout.trim())))
+    }
+  }
 }
 
 #[cfg(test)]
@@ -498,6 +550,10 @@ mod tests {
       Ok(Backend::ClaudeCode)
     );
     assert_eq!(configured_backend(&cfg, Provider::Groq), Ok(Backend::Api));
+    assert_eq!(
+      configured_backend(&config(&[]), Provider::Apple),
+      Ok(Backend::Apfel)
+    );
     assert_eq!(
       configured_backend(&config(&[]), Provider::OpenAI),
       Ok(Backend::Api)

@@ -20,6 +20,7 @@ pub enum Commands {
   },
 
   /// Shortcut for `ollama llama3.2`
+  /// (or `apple` if Ollama isn't running on macOS)
   Local {
     /// The prompt to send to the AI model
     prompt: Vec<String>,
@@ -563,6 +564,11 @@ for all supported model ids):"
     /// The prompt to send to the AI model
     prompt: Vec<String>,
   },
+  /// Apple's on-device foundation model via apfel (macOS 26+)
+  Apple {
+    /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
 
   #[clap(
     about = color_print::cformat!(
@@ -834,6 +840,7 @@ impl Commands {
       Commands::Grok { .. } => None,
       Commands::Llamafile { .. } => None,
       Commands::Ollama { .. } => None,
+      Commands::Apple { .. } => None,
 
       // Coding
       Commands::SectionCoding { .. } => None,

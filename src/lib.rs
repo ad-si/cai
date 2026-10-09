@@ -10,7 +10,7 @@ use std::env;
 use std::error::Error;
 use std::io::Write;
 use std::str;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use chrono::Utc;
 use cli_backend::{Backend, CliError, Image};
@@ -234,6 +234,8 @@ pub enum Provider {
   XAI,
   Perplexity,
   Mistral,
+  /// Apple's on-device foundation model (via `apfel`)
+  Apple,
 }
 
 impl std::fmt::Display for Provider {
@@ -250,6 +252,7 @@ impl std::fmt::Display for Provider {
       Provider::XAI => write!(f, "xAI"),
       Provider::Perplexity => write!(f, "Perplexity"),
       Provider::Mistral => write!(f, "Mistral"),
+      Provider::Apple => write!(f, "Apple"),
     }
   }
 }
@@ -554,6 +557,12 @@ fn default_req_for_model(
         ..Default::default()
       }
     }
+    // Served by `apfel`, which has no HTTP endpoint
+    Provider::Apple => AiRequest {
+      provider: *provider,
+      model: model_id.to_string(),
+      ..Default::default()
+    },
   }
 }
 
@@ -593,6 +602,8 @@ fn get_api_request(
       Provider::XAI => full_config.get("xai_api_key"),
       Provider::Perplexity => full_config.get("perplexity_api_key"),
       Provider::Mistral => full_config.get("mistral_api_key"),
+      // Only available via `apfel`, which needs no key
+      Provider::Apple => None,
     }
   }
   .filter(|api_key| !api_key.is_empty())
@@ -641,6 +652,7 @@ fn get_used_model(model: &Model) -> String {
       Provider::XAI => types::get_xai_model(model_id),
       Provider::Perplexity => types::get_perplexity_model(model_id),
       Provider::Mistral => types::get_mistral_model(model_id),
+      Provider::Apple => model_id,
     };
     cformat!("<bold>🧠 {} {}</bold>", provider, full_model_id)
   }
@@ -660,6 +672,7 @@ fn provider_from_name(name: &str) -> Option<Provider> {
     "xai" => Some(Provider::XAI),
     "perplexity" => Some(Provider::Perplexity),
     "mistral" => Some(Provider::Mistral),
+    "apple" => Some(Provider::Apple),
     _ => None,
   }
 }
@@ -730,6 +743,46 @@ fn configured_shortcut_model(
 /// built-in `default`.
 pub fn shortcut_model(cmd: &Commands, default: Model) -> Model {
   shortcut_model_override(cmd).unwrap_or(default)
+}
+
+/// Resolve the model for the `local` shortcut.
+/// Uses Ollama's default model, unless no Ollama server is running on macOS,
+/// in which case Apple's on-device model is used via `apfel`.
+pub async fn local_model(cmd: &Commands) -> Model {
+  let ollama = Model::Model(Provider::Ollama, "llama3.2".to_string());
+  if let Some(model) = shortcut_model_override(cmd) {
+    return model;
+  }
+  if !cfg!(target_os = "macos") || is_ollama_running(cached_config()).await {
+    return ollama;
+  }
+  // To stderr, so that piping the answer stays unaffected.
+  eprintln!(
+    "{}",
+    cformat!(
+      "<dim>Ollama isn't running. Using Apple's on-device model …</dim>"
+    )
+  );
+  Model::Model(Provider::Apple, String::new())
+}
+
+/// Ollama's base URL without the OpenAI-compatible `/v1` suffix
+fn ollama_host(full_config: &HashMap<String, String>) -> String {
+  get_base_url(full_config, "ollama_base_url", "http://localhost:11434/v1")
+    .trim_end_matches("/v1")
+    .to_string()
+}
+
+/// Whether an Ollama server answers at the configured base URL.
+/// Queries Ollama's own `/api/tags` endpoint, because other servers
+/// (e.g. `apfel --serve`) listen on the same default port.
+async fn is_ollama_running(full_config: &HashMap<String, String>) -> bool {
+  reqwest::Client::new()
+    .get(format!("{}/api/tags", ollama_host(full_config)))
+    .timeout(Duration::from_secs(2))
+    .send()
+    .await
+    .is_ok_and(|resp| resp.status().is_success())
 }
 
 /// Capability tier of a task's default model.
@@ -4111,10 +4164,7 @@ pub async fn list_models() -> Result<(), Box<dyn Error + Send + Sync>> {
   let perplexity_url = "https://api.perplexity.ai/v1/models".to_string();
   // Ollama's models endpoint lives under `/api/tags`, not the
   // OpenAI-compatible `/v1` prefix used for chat completions.
-  let ollama_base =
-    get_base_url(&full_config, "ollama_base_url", "http://localhost:11434/v1");
-  let ollama_host = ollama_base.trim_end_matches("/v1").to_string();
-  let ollama_url = format!("{ollama_host}/api/tags");
+  let ollama_url = format!("{}/api/tags", ollama_host(&full_config));
 
   let providers: Vec<(&'static str, String, Option<String>, ModelsAuth)> = vec![
     (
@@ -4701,6 +4751,10 @@ mod tests {
     assert_eq!(
       parse_model_override("llamafile"),
       Some(Model::Model(Provider::Llamafile, String::new()))
+    );
+    assert_eq!(
+      parse_model_override("apple"),
+      Some(Model::Model(Provider::Apple, String::new()))
     );
     // Unknown provider is rejected
     assert_eq!(parse_model_override("acme some-model"), None);

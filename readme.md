@@ -27,10 +27,12 @@
   - [xAI]
   - [TypeSafe]
   - Local LLMs via [Ollama] and [Llamafile]
+  - Apple's on-device model via [apfel]
 - Prompt several models at once. 🤼
     ![Demo of cai's all command](screenshots/2024-04-13t1627_all.png)
 - Syntax highlighting for better readability of code snippets. 🌈
 
+[apfel]: https://github.com/Arthur-Ficial/apfel
 [Anthropic]: https://docs.anthropic.com/en/docs/about-claude/models/all-models
 [Cerebras]: https://inference-docs.cerebras.ai/introduction
 [Deepseek]: https://api-docs.deepseek.com/quick_start/pricing
@@ -71,6 +73,9 @@ Cai supports the following APIs:
 - **TypeSafe** - [Create new API key](https://console.typesafe.ai/keys).
 - **Llamafile** - Local [Llamafile] server running at http://localhost:8080.
 - **Ollama** - Local [Ollama] server running at http://localhost:11434.
+- **Apple** - Apple's on-device foundation model via the [apfel] CLI
+    (requires macOS 26+ with Apple Intelligence).
+    `cai local` falls back to it if no Ollama server is running.
 
 If you have a ChatGPT or Claude subscription,
 Cai can send OpenAI and Anthropic prompts through the official
@@ -140,7 +145,7 @@ Usage: cai [OPTIONS] [PROMPT]... [COMMAND]
 Commands:
   fast        Shortcut for `cerebras gpt-oss-120b`
   smart       Shortcut for `anthropic claude-fable-5`
-  local       Shortcut for `ollama llama3.2`
+  local       Shortcut for `ollama llama3.2` (or `apple` if Ollama isn't running on macOS)
   value       Return only the value/answer without explanations
   short       Answer the prompt in a short, compact, and focused manner
   rewrite     Fix spelling, grammar, and wording issues in text passed via standard input
@@ -206,6 +211,7 @@ Commands:
   mistral     Mistral [aliases: mi]
   llamafile   Llamafile server hosted at http://localhost:8080 [aliases: lf]
   ollama      Ollama server hosted at http://localhost:11434 [aliases: ol]
+  apple       Apple's on-device foundation model via apfel (macOS 26+)
               
               💻 CODING                                                    
   bash        Use Bash development as the prompt context
@@ -275,7 +281,11 @@ Examples:
   cai ol ll Which year did the Titanic sink
 
   # Use the `local` shortcut for using Ollama's default model
+  # (or Apple's on-device model if Ollama isn't running)
   cai local Which year did the Titanic sink
+
+  # Send a prompt to Apple's on-device model via apfel
+  cai apple Which year did the Titanic sink
 
   # Add data via stdin
   cat main.rs | cai Explain this code
@@ -290,7 +300,7 @@ Examples:
 
 The provider must be one of:
 `anthropic`, `cerebras`, `deepseek`, `google`, `groq`,
-`openai`, `llamafile`, `ollama`, `xai`, `perplexity`, `mistral`.
+`openai`, `llamafile`, `ollama`, `xai`, `perplexity`, `mistral`, `apple`.
 
 The key for a shortcut is its subcommand name
 (e.g. `gpt5m`, `sonpro`).

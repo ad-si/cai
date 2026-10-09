@@ -4,7 +4,7 @@ use std::io::{read_to_string, IsTerminal};
 use cai::{
   analyze_file_content, ask_jev, ask_jev_many, create_commits, edit_images,
   exec_tool, extract_text_from_file, generate_changelog, is_deepseek_model,
-  prompt_with_lang_cntxt, run_shell_command, shortcut_model,
+  local_model, prompt_with_lang_cntxt, run_shell_command, shortcut_model,
   shortcut_model_override, shortcut_tiered_model, submit_prompt, task_model,
   transcribe_audio_file, Commands, ExecOptions, JevQuestion, Model, Provider,
   Tier, EMBEDDING_MODELS, IMAGE_MODELS, MUSIC_MODELS, OCR_MODELS,
@@ -151,7 +151,11 @@ const CRATE_VERSION: &str = crate_version!();
   <b>cai ol ll</b> Which year did the Titanic sink
 
   <dim># Use the `local` shortcut for using Ollama's default model</dim>
+  <dim># (or Apple's on-device model if Ollama isn't running)</dim>
   <b>cai local</b> Which year did the Titanic sink
+
+  <dim># Send a prompt to Apple's on-device model via apfel</dim>
+  <b>cai apple</b> Which year did the Titanic sink
 
   <dim># Add data via stdin</dim>
   cat main.rs | <b>cai</b> Explain this code
@@ -293,10 +297,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
         .await
       }
       Commands::Local { prompt } => {
-        let model = shortcut_model(
-          &cmd,
-          Model::Model(Provider::Ollama, "llama3.2".to_string()),
-        );
+        let model = local_model(&cmd).await;
         submit_prompt(
           &Some(&model),
           &opts,
@@ -925,6 +926,14 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::Ollama { model, prompt } => {
         submit_prompt(
           &Some(&Model::Model(Provider::Ollama, model.to_string())),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await //
+      }
+      Commands::Apple { prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(Provider::Apple, "".to_string())),
           &opts,
           &format!("{stdin}{}", prompt.join(" ")),
         )
