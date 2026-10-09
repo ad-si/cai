@@ -43,7 +43,7 @@ pub(crate) struct ReadState {
 }
 
 const DEFAULT_AGENT_MODEL: &str = "claude-sonnet-5-5";
-const FETCH_HELPER_MODEL: &str = "claude-haiku-4-5";
+const FETCH_HELPER_MODEL: &str = "claude-haiku-5-5";
 
 pub async fn run_agent(
   opts: &crate::ExecOptions,

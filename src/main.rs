@@ -899,7 +899,7 @@ async fn exec_with_args(args: Args, stdin: &str) {
       Commands::ClaudeHaiku { prompt } => {
         let model = shortcut_model(
           &cmd,
-          Model::Model(Provider::Anthropic, "claude-haiku-4-5".to_string()),
+          Model::Model(Provider::Anthropic, "claude-haiku-5-5".to_string()),
         );
         submit_prompt(
           &Some(&model),
