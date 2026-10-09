@@ -92,7 +92,7 @@ and models your subscription doesn't offer still use the API,
 so they require an API key.
 Answers via a CLI aren't streamed.
 Prompts without a model also prefer the subscriptions
-(Claude Sonnet via Claude Code, then GPT-5.6 Luna via Codex)
+(Claude Haiku via Claude Code, then GPT-5.6 Luna via Codex)
 before falling back to the APIs,
 unless `shortcut_models.fast` sets another default model.
 
