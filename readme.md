@@ -96,6 +96,25 @@ Prompts without a model also prefer the subscriptions
 before falling back to the APIs,
 unless `shortcut_models.fast` sets another default model.
 
+To use one provider's models wherever possible,
+e.g. to spend the monthly
+[API credits of Claude Max and Team plans](https://platform.claude.com/docs/en/about-claude/api-credits-for-subscribers),
+set a preferred provider (`anthropic`, `openai`, or `google`):
+
+```yaml
+preferred_provider: anthropic
+```
+
+Prompts without a model and the generic commands
+(`fast`, `smart`, `value`, `reply`, `rewrite`, `svg`,
+`run`, `commit`, `changelog`, `rename`, `query`,
+and the programming language shortcuts)
+then use the provider's equivalent model
+(e.g. Claude Haiku, Sonnet, Opus, or Fable).
+Explicitly selected models, overrides in `shortcut_models`,
+and commands the provider has no model for (e.g. `image` or `transcribe`)
+are not affected.
+
 Afterwards, you can use `cai` to run prompts directly from the terminal:
 
 ```sh

@@ -700,16 +700,15 @@ fn cached_config() -> &'static HashMap<String, String> {
 /// Returns `None` when the shortcut isn't overridable, no override is set, or
 /// the override value is malformed (a warning is printed in the latter case).
 pub fn shortcut_model_override(cmd: &Commands) -> Option<Model> {
-  configured_shortcut_model(cached_config(), cmd)
+  configured_shortcut_model(cached_config(), cmd.config_key()?)
 }
 
-/// Look up a per-shortcut model override in `full_config`
+/// Look up the model override for the shortcut `key` in `full_config`
 /// (see [`shortcut_model_override`]).
 fn configured_shortcut_model(
   full_config: &HashMap<String, String>,
-  cmd: &Commands,
+  key: &str,
 ) -> Option<Model> {
-  let key = cmd.config_key()?;
   let raw = full_config.get(&format!("shortcut_models.{key}"))?;
   if raw.trim().is_empty() {
     return None;
@@ -731,6 +730,97 @@ fn configured_shortcut_model(
 /// built-in `default`.
 pub fn shortcut_model(cmd: &Commands, default: Model) -> Model {
   shortcut_model_override(cmd).unwrap_or(default)
+}
+
+/// Capability tier of a task's default model.
+/// Used to pick an equivalent model at the `preferred_provider`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Tier {
+  Fast,
+  Balanced,
+  Strong,
+  Smart,
+}
+
+/// The model of the given tier at `provider`,
+/// or `None` if the provider can't be preferred.
+fn tier_model(provider: Provider, tier: Tier) -> Option<Model> {
+  let model_id = match (provider, tier) {
+    (Provider::Anthropic, Tier::Fast) => "claude-haiku-5-5",
+    (Provider::Anthropic, Tier::Balanced) => "claude-sonnet-5-5",
+    (Provider::Anthropic, Tier::Strong) => "claude-opus-5-5",
+    (Provider::Anthropic, Tier::Smart) => "claude-fable-5",
+    (Provider::OpenAI, Tier::Fast) => "gpt-5.6-luna",
+    (Provider::OpenAI, Tier::Balanced) => "gpt-5.6-terra",
+    (Provider::OpenAI, Tier::Strong) => "gpt-5.6-sol",
+    (Provider::OpenAI, Tier::Smart) => "gpt-6-astra",
+    (Provider::Google, Tier::Fast) => "gemini-3.5-flash-lite",
+    (Provider::Google, Tier::Balanced) => "gemini-3.8-flash",
+    (Provider::Google, Tier::Strong | Tier::Smart) => "gemini-3.1-pro-preview",
+    _ => return None,
+  };
+  Some(Model::Model(provider, model_id.to_string()))
+}
+
+/// The provider set via `preferred_provider`, whose models replace
+/// the built-in defaults of the generic tasks.
+/// Warns and returns `None` if the value is invalid.
+fn preferred_provider(
+  full_config: &HashMap<String, String>,
+) -> Option<Provider> {
+  let raw = full_config.get("preferred_provider")?.trim();
+  if raw.is_empty() {
+    return None;
+  }
+  match provider_from_name(raw) {
+    Some(provider) if tier_model(provider, Tier::Fast).is_some() => {
+      Some(provider)
+    }
+    _ => {
+      eprintln!(
+        "⚠️  Unsupported `preferred_provider`: '{raw}'. \
+        Expected one of 'anthropic', 'openai', or 'google'. Using defaults."
+      );
+      None
+    }
+  }
+}
+
+/// Resolve the default model of a task in `full_config`
+/// (see [`tiered_model`]).
+fn configured_tiered_model(
+  full_config: &HashMap<String, String>,
+  key: &str,
+  tier: Tier,
+  default: Model,
+) -> Model {
+  if let Some(model) = configured_shortcut_model(full_config, key) {
+    return model;
+  }
+  let Model::Model(default_provider, _) = &default;
+  match preferred_provider(full_config) {
+    Some(provider) if provider != *default_provider => {
+      tier_model(provider, tier).unwrap_or(default)
+    }
+    _ => default,
+  }
+}
+
+/// Resolve the model of a task with the shortcut config key `key`.
+/// Prefers `shortcut_models.<key>`, then the `tier` model of the
+/// `preferred_provider` (unless `default` is already from that provider),
+/// and finally the built-in `default`.
+pub fn tiered_model(key: &str, tier: Tier, default: Model) -> Model {
+  configured_tiered_model(cached_config(), key, tier, default)
+}
+
+/// [`tiered_model`] for the shortcut `cmd`
+pub fn shortcut_tiered_model(
+  cmd: &Commands,
+  tier: Tier,
+  default: Model,
+) -> Model {
+  tiered_model(cmd.config_key().unwrap_or_default(), tier, default)
 }
 
 fn get_secrets_path_str() -> String {
@@ -834,9 +924,9 @@ fn flatten_config_value(
 
 /// Models tried, in order, when the user didn't specify one.
 /// Starts with the `fast` shortcut's model if it's overridden via
-/// `shortcut_models.fast`, then the configured subscriptions
-/// (see `<provider>_via`), which come at no extra cost,
-/// and finally the built-in API defaults.
+/// `shortcut_models.fast`, then the fast model of the `preferred_provider`,
+/// then the configured subscriptions (see `<provider>_via`),
+/// which come at no extra cost, and finally the built-in API defaults.
 fn default_model_chain(full_config: &HashMap<String, String>) -> Vec<Model> {
   let is_subscription = |provider| {
     cli_backend::configured_backend(full_config, provider)
@@ -844,8 +934,12 @@ fn default_model_chain(full_config: &HashMap<String, String>) -> Vec<Model> {
   };
   let haiku = Model::Model(Provider::Anthropic, "claude-haiku-5-5".to_string());
   let mut candidates: Vec<Model> =
-    configured_shortcut_model(full_config, &Commands::Fast { prompt: vec![] })
+    configured_shortcut_model(full_config, "fast")
       .into_iter()
+      .chain(
+        preferred_provider(full_config)
+          .and_then(|provider| tier_model(provider, Tier::Fast)),
+      )
       .collect();
 
   if is_subscription(Provider::Anthropic) {
@@ -2250,7 +2344,11 @@ pub async fn generate_changelog(
     \n\n{changelog}"
   );
 
-  let model = Model::Model(Provider::OpenAI, "gpt-5.6-sol".to_string());
+  let model = tiered_model(
+    "changelog",
+    Tier::Strong,
+    Model::Model(Provider::OpenAI, "gpt-5.6-sol".to_string()),
+  );
 
   exec_tool(&Some(&model), opts, &prompt).await
 }
@@ -2435,7 +2533,11 @@ pub async fn analyze_file_content(
   let secrets_path_str = get_secrets_path_str();
   let full_config = get_full_config(&secrets_path_str)?;
   let (_used_model, http_req) = get_http_req(
-    &Some(&Model::Model(Provider::OpenAI, "gpt-5.6-terra".to_string())),
+    &Some(&tiered_model(
+      "rename",
+      Tier::Balanced,
+      Model::Model(Provider::OpenAI, "gpt-5.6-terra".to_string()),
+    )),
     &secrets_path_str,
     &full_config,
   )?;
@@ -3051,8 +3153,9 @@ pub async fn prompt_with_lang_cntxt(
     Keep your answer concise and to the point.\n"
   );
 
-  let model = shortcut_model(
+  let model = shortcut_tiered_model(
     cmd,
+    Tier::Fast,
     Model::Model(Provider::Anthropic, "claude-haiku-5-5".to_string()),
   );
 
@@ -3324,7 +3427,11 @@ pub async fn run_shell_command(
     User request: {prompt_text}"
   );
 
-  let model = Model::Model(Provider::OpenAI, "gpt-5.6-sol".to_string());
+  let model = tiered_model(
+    "run",
+    Tier::Strong,
+    Model::Model(Provider::OpenAI, "gpt-5.6-sol".to_string()),
+  );
   let secrets_path_str = get_secrets_path_str();
   let full_config = get_full_config(&secrets_path_str)?;
   let (_used_model, http_req) =
@@ -3541,7 +3648,11 @@ pub async fn create_commits(
     Git diff:\n{diff}"
   );
 
-  let model = Model::Model(Provider::OpenAI, "gpt-5.6-sol".to_string());
+  let model = tiered_model(
+    "commit",
+    Tier::Strong,
+    Model::Model(Provider::OpenAI, "gpt-5.6-sol".to_string()),
+  );
 
   // Get AI analysis of commit groupings
   let json_schema = json!({
@@ -3738,8 +3849,12 @@ pub async fn query_database(
     Question: {prompt_text}"
   );
 
-  // Use OpenAI to generate the SQL query
-  let model = Model::Model(Provider::OpenAI, "gpt-5.6-sol".to_string());
+  // Generate the SQL query
+  let model = tiered_model(
+    "query",
+    Tier::Strong,
+    Model::Model(Provider::OpenAI, "gpt-5.6-sol".to_string()),
+  );
   let secrets_path_str = get_secrets_path_str();
   let full_config = get_full_config(&secrets_path_str)?;
   let (_used_model, http_req) =
@@ -4137,6 +4252,86 @@ mod tests {
         "Cerebras gpt-oss-120b",
         "Anthropic claude-haiku-5-5",
       ]
+    );
+  }
+
+  #[test]
+  fn test_default_model_chain_with_preferred_provider() {
+    assert_eq!(
+      chain_for(&[("preferred_provider", "anthropic")]),
+      [
+        "Anthropic claude-haiku-5-5",
+        "Cerebras gpt-oss-120b",
+        "OpenAI gpt-5.6-terra",
+      ]
+    );
+    // Unsupported providers are ignored
+    assert_eq!(
+      chain_for(&[("preferred_provider", "cerebras")]),
+      chain_for(&[])
+    );
+  }
+
+  #[test]
+  fn test_configured_tiered_model() {
+    let resolve =
+      |entries: &[(&str, &str)], tier, default: (Provider, &str)| {
+        let full_config = entries
+          .iter()
+          .map(|(key, value)| (key.to_string(), value.to_string()))
+          .collect();
+        configured_tiered_model(
+          &full_config,
+          "value",
+          tier,
+          Model::Model(default.0, default.1.to_string()),
+        )
+        .to_string()
+      };
+    let sol = (Provider::OpenAI, "gpt-5.6-sol");
+    let anthropic = [("preferred_provider", "anthropic")];
+
+    assert_eq!(resolve(&[], Tier::Balanced, sol), "OpenAI gpt-5.6-sol");
+    assert_eq!(
+      resolve(&anthropic, Tier::Balanced, sol),
+      "Anthropic claude-sonnet-5-5"
+    );
+    assert_eq!(
+      resolve(&anthropic, Tier::Fast, sol),
+      "Anthropic claude-haiku-5-5"
+    );
+    // Defaults already from the preferred provider are kept
+    assert_eq!(
+      resolve(
+        &anthropic,
+        Tier::Fast,
+        (Provider::Anthropic, "claude-opus-5-5")
+      ),
+      "Anthropic claude-opus-5-5"
+    );
+    assert_eq!(
+      resolve(
+        &[("preferred_provider", "openai")],
+        Tier::Smart,
+        (Provider::Anthropic, "claude-fable-5")
+      ),
+      "OpenAI gpt-6-astra"
+    );
+    assert_eq!(
+      resolve(&anthropic, Tier::Strong, sol),
+      "Anthropic claude-opus-5-5"
+    );
+    // Shortcut overrides take precedence
+    assert_eq!(
+      resolve(
+        &[
+          ("preferred_provider", "anthropic"),
+          ("shortcut_models.value", "groq llama-3.1-8b-instant"),
+        ],
+        Tier::Balanced,
+        sol
+      ),
+      "Groq llama-3.1-8b-instant"
     );
   }
 

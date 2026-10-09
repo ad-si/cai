@@ -5,10 +5,10 @@ use cai::{
   analyze_file_content, ask_jev, ask_jev_many, create_commits, edit_images,
   exec_tool, extract_text_from_file, generate_changelog, is_deepseek_model,
   prompt_with_lang_cntxt, run_shell_command, shortcut_model,
-  shortcut_model_override, submit_prompt, task_model, transcribe_audio_file,
-  Commands, ExecOptions, JevQuestion, Model, Provider, EMBEDDING_MODELS,
-  IMAGE_MODELS, MUSIC_MODELS, OCR_MODELS, SPEECH_MODELS, TRANSCRIPTION_MODELS,
-  VIDEO_MODELS,
+  shortcut_model_override, shortcut_tiered_model, submit_prompt, task_model,
+  transcribe_audio_file, Commands, ExecOptions, JevQuestion, Model, Provider,
+  Tier, EMBEDDING_MODELS, IMAGE_MODELS, MUSIC_MODELS, OCR_MODELS,
+  SPEECH_MODELS, TRANSCRIPTION_MODELS, VIDEO_MODELS,
 };
 use chrono::NaiveDateTime;
 use clap::crate_description;
@@ -267,8 +267,9 @@ async fn exec_with_args(args: Args, stdin: &str) {
     }
     Some(cmd) => match &cmd {
       Commands::Fast { prompt } => {
-        let model = shortcut_model(
+        let model = shortcut_tiered_model(
           &cmd,
+          Tier::Fast,
           Model::Model(Provider::Cerebras, "gpt-oss-120b".to_string()),
         );
         submit_prompt(
@@ -279,8 +280,9 @@ async fn exec_with_args(args: Args, stdin: &str) {
         .await
       }
       Commands::Smart { prompt } => {
-        let model = shortcut_model(
+        let model = shortcut_tiered_model(
           &cmd,
+          Tier::Smart,
           Model::Model(Provider::Anthropic, "claude-fable-5".to_string()),
         );
         submit_prompt(
@@ -309,8 +311,9 @@ async fn exec_with_args(args: Args, stdin: &str) {
           reasoning, or additional information. Just give me the answer value.\n\n{}",
           prompt.join(" ")
         );
-        let model = shortcut_model(
+        let model = shortcut_tiered_model(
           &cmd,
+          Tier::Balanced,
           Model::Model(Provider::OpenAI, "gpt-5.6-sol".to_string()),
         );
         submit_prompt(&Some(&model), &opts, &format!("{stdin}{value_prompt}"))
@@ -338,8 +341,9 @@ async fn exec_with_args(args: Args, stdin: &str) {
           prompt.join(" ")
         );
 
-        let model = shortcut_model(
+        let model = shortcut_tiered_model(
           &cmd,
+          Tier::Balanced,
           Model::Model(Provider::OpenAI, "gpt-5.6-terra".to_string()),
         );
         submit_prompt(&Some(&model), &opts_svg, &format!("{stdin}{svg_prompt}"))
@@ -525,8 +529,9 @@ async fn exec_with_args(args: Args, stdin: &str) {
           prompt.join(" ")
         );
 
-        let model = shortcut_model(
+        let model = shortcut_tiered_model(
           &cmd,
+          Tier::Balanced,
           Model::Model(Provider::OpenAI, "gpt-5.6-sol".to_string()),
         );
         submit_prompt(&Some(&model), &opts, &reply_prompt).await
@@ -591,8 +596,9 @@ async fn exec_with_args(args: Args, stdin: &str) {
           eprintln!("Please pipe the text to be rewritten into cai via stdin.");
           std::process::exit(1);
         }
-        let model = shortcut_model(
+        let model = shortcut_tiered_model(
           &cmd,
+          Tier::Balanced,
           Model::Model(Provider::OpenAI, "gpt-5.6-sol".to_string()),
         );
         if let Err(err) =

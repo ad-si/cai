@@ -898,6 +898,13 @@ impl Commands {
       Commands::Rewrite { .. } => Some("rewrite"),
       Commands::Transcribe { .. } => Some("transcribe"),
 
+      // Tasks
+      Commands::Changelog { .. } => Some("changelog"),
+      Commands::Commit { .. } => Some("commit"),
+      Commands::Query { .. } => Some("query"),
+      Commands::Rename { .. } => Some("rename"),
+      Commands::Run { .. } => Some("run"),
+
       // Provider default-model shortcuts
       Commands::Gemini { .. } => Some("gemini"),
       Commands::GeminiFlash { .. } => Some("flash"),
