@@ -2,8 +2,13 @@ use std::env;
 use std::fs;
 use std::path::Path;
 
-const GOOGLE_MODEL_MAPPING_SRC: [(&str, &str); 35] = [
+const GOOGLE_MODEL_MAPPING_SRC: [(&str, &str); 39] = [
   // Default models
+  // Gemini 4 (Argon = flagship reasoning model)
+  ("gemini-4", "gemini-4-argon"),
+  ("gemini-argon", "gemini-4-argon"),
+  ("argon", "gemini-4-argon"),
+  ("ar", "gemini-4-argon"),
   ("gemini-flash", "gemini-3.8-flash"),
   ("gemini", "gemini-3.8-flash"),
   ("g", "gemini-3.8-flash"),

@@ -809,7 +809,8 @@ fn tier_model(provider: Provider, tier: Tier) -> Option<Model> {
     (Provider::OpenAI, Tier::Smart) => "gpt-6-astra",
     (Provider::Google, Tier::Fast) => "gemini-3.5-flash-lite",
     (Provider::Google, Tier::Balanced) => "gemini-3.8-flash",
-    (Provider::Google, Tier::Strong | Tier::Smart) => "gemini-3.1-pro-preview",
+    (Provider::Google, Tier::Strong) => "gemini-3.1-pro-preview",
+    (Provider::Google, Tier::Smart) => "gemini-4-argon",
     _ => return None,
   };
   Some(Model::Model(provider, model_id.to_string()))
@@ -4366,6 +4367,14 @@ mod tests {
         (Provider::Anthropic, "claude-fable-5")
       ),
       "OpenAI gpt-6-astra"
+    );
+    assert_eq!(
+      resolve(
+        &[("preferred_provider", "google")],
+        Tier::Smart,
+        (Provider::Anthropic, "claude-fable-5")
+      ),
+      "Google gemini-4-argon"
     );
     assert_eq!(
       resolve(&anthropic, Tier::Strong, sol),
