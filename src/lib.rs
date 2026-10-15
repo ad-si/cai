@@ -1254,14 +1254,14 @@ fn get_req_body_obj(
     }
   }
 
-  if opts.json_schema.is_some() {
+  if let Some(output_schema) = &opts.json_schema {
     match http_req.provider {
       Provider::OpenAI | Provider::Ollama | Provider::Mistral => {
         let mut json_schema = Map::new();
         json_schema.insert("type".to_string(), "json_schema".into());
         json_schema.insert(
           "json_schema".to_string(),
-          opts.json_schema.clone().unwrap(), //
+          output_schema.clone(), //
         );
 
         map.insert("response_format".to_string(), Value::Object(json_schema));
@@ -1269,8 +1269,8 @@ fn get_req_body_obj(
       Provider::Anthropic => {
         // Anthropic takes the bare schema instead of OpenAI's
         // `{name, strict, schema}` wrapper
-        let wrapper = opts.json_schema.as_ref().unwrap();
-        let schema = wrapper.get("schema").unwrap_or(wrapper).clone();
+        let schema =
+          output_schema.get("schema").unwrap_or(output_schema).clone();
         map.insert(
           "output_config".to_string(),
           json!({ "format": { "type": "json_schema", "schema": schema } }),
