@@ -2,13 +2,14 @@ use std::io::stdin;
 use std::io::{read_to_string, IsTerminal};
 
 use cai::{
-  analyze_file_content, ask_jev, ask_jev_many, create_commits, edit_images,
-  exec_tool, extract_text_from_file, generate_changelog, is_deepseek_model,
-  local_model, prompt_with_lang_cntxt, run_shell_command, shortcut_model,
-  shortcut_model_override, shortcut_tiered_model, submit_prompt, task_model,
-  transcribe_audio_file, Commands, ExecOptions, JevQuestion, Model, Provider,
-  Tier, EMBEDDING_MODELS, IMAGE_MODELS, MUSIC_MODELS, OCR_MODELS,
-  SPEECH_MODELS, TRANSCRIPTION_MODELS, VIDEO_MODELS,
+  analyze_file_content, ask_jev, ask_jev_box, ask_jev_many, create_commits,
+  default_jev_model, edit_images, exec_tool, extract_text_from_file,
+  generate_changelog, is_deepseek_model, local_model, prompt_with_lang_cntxt,
+  run_shell_command, shortcut_model, shortcut_model_override,
+  shortcut_tiered_model, submit_prompt, task_model, transcribe_audio_file,
+  Commands, ExecOptions, JevQuestion, Model, Provider, Tier, EMBEDDING_MODELS,
+  IMAGE_MODELS, MUSIC_MODELS, OCR_MODELS, SPEECH_MODELS, TRANSCRIPTION_MODELS,
+  VIDEO_MODELS,
 };
 use chrono::NaiveDateTime;
 use clap::crate_description;
@@ -537,9 +538,23 @@ async fn exec_with_args(args: Args, stdin: &str) {
         );
         submit_prompt(&Some(&model), &opts, &reply_prompt).await
       }
-      Commands::Noul { model, prompt }
-      | Commands::Choice { model, prompt, .. }
-      | Commands::Score { model, prompt, .. } => {
+      Commands::Noul {
+        model,
+        images,
+        prompt,
+      }
+      | Commands::Choice {
+        model,
+        images,
+        prompt,
+        ..
+      }
+      | Commands::Score {
+        model,
+        images,
+        prompt,
+        ..
+      } => {
         let question = match &cmd {
           Commands::Choice { options, .. } => {
             JevQuestion::Choice(options.clone())
@@ -547,17 +562,51 @@ async fn exec_with_args(args: Args, stdin: &str) {
           Commands::Score { levels, .. } => JevQuestion::Score(levels.clone()),
           _ => JevQuestion::Noul,
         };
-        if let Err(err) =
-          ask_jev(&opts, model, stdin.trim(), &prompt.join(" "), &question)
-            .await
+        if let Err(err) = ask_jev(
+          &opts,
+          model,
+          stdin.trim(),
+          &images.paths,
+          &prompt.join(" "),
+          &question,
+        )
+        .await
         {
           eprintln!("Error asking TypeSafe: {err}");
           std::process::exit(1);
         }
       }
-      Commands::Jev { model, questions } => {
+      Commands::Box {
+        model,
+        image,
+        images,
+        prompt,
+      } => {
+        if let Err(err) = ask_jev_box(
+          &opts,
+          model,
+          stdin.trim(),
+          image,
+          &images.paths,
+          &prompt.join(" "),
+        )
+        .await
+        {
+          eprintln!("Error asking TypeSafe: {err}");
+          std::process::exit(1);
+        }
+      }
+      Commands::Jev {
+        model,
+        images,
+        questions,
+      } => {
+        let model = model
+          .as_deref()
+          .unwrap_or_else(|| default_jev_model(&questions.0));
         if let Err(err) =
-          ask_jev_many(&opts, model, stdin.trim(), &questions.0).await
+          ask_jev_many(&opts, model, stdin.trim(), &images.paths, &questions.0)
+            .await
         {
           eprintln!("Error asking TypeSafe: {err}");
           std::process::exit(1);

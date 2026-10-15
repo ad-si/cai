@@ -15,6 +15,7 @@
   - `cai ocr -m mistral scan.pdf` (Mistral OCR)
   - `pbpaste | cai rewrite 'more professional'`
   - `pbpaste | cai noul is this urgent` (TypeSafe Jev yes/no probability)
+  - `cai box kitchen.jpg the coffee mug` (TypeSafe Jev object location)
   - Check [usage section](./#usage) for all commands
 - Build with Rust 🦀 for supreme performance and speed! 🏎️
 - Support for models by
@@ -151,11 +152,16 @@ Commands:
   rewrite     Fix spelling, grammar, and wording issues in text passed via standard input
   reply       Reply to a conversation passed via standard input. Add additional reply instructions
               as the prompt
-  noul        Ask TypeSafe's Jev a yes/no question about text passed via standard input and get the
-              probability that the answer is yes
+  noul        Ask TypeSafe's Jev a yes/no question about text passed via standard input and/or
+              images and get the probability that the answer is yes
   choice      Let TypeSafe's Jev pick one of several options for text passed via standard input
-  score       Let TypeSafe's Jev rate text passed via standard input along ordered levels
+              and/or images
+  score       Let TypeSafe's Jev rate text passed via standard input and/or images along ordered
+              levels
+  box         Let TypeSafe's Jev locate something in an image and get the edges of a box around it
+              and an image with the box
   jev         Ask TypeSafe's Jev several questions at once about text passed via standard input
+              and/or images
   run         Generate a shell command from a prompt and confirm before executing it
   agent       Run an agentic loop with tool use to fulfill a request
   image       Generate an image (default: OpenAI GPT-Image-2.5 Flare) [aliases: img]

@@ -24,7 +24,8 @@ use serde_json::{json, Map, Value};
 pub use types::is_deepseek_model;
 pub use types::Commands;
 pub use typesafe::{
-  ask_jev, ask_jev_many, JevQuestion, JevQuestions, DEFAULT_JEV_MODEL,
+  ask_jev, ask_jev_box, ask_jev_many, default_jev_model, JevQuestion,
+  JevQuestions, DEFAULT_JEV_BOX_MODEL, DEFAULT_JEV_MODEL,
 };
 use xdg::BaseDirectories;
 

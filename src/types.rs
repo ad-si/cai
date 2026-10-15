@@ -4,6 +4,18 @@ include!(concat!(env!("OUT_DIR"), "/models.rs"));
 use clap::Subcommand;
 use serde_derive::Serialize;
 
+/// Images for TypeSafe's Jev, added to the state under their names
+#[derive(clap::Args, Debug, PartialEq, Clone, Default, Serialize)]
+pub struct JevImages {
+  /// An image added to the state.
+  /// Refer to it in questions by its name in backticks, e.g. `door`.
+  /// The name defaults to the file name without extension.
+  /// Images are rotated upright and scaled to 256 to 1568 px per side.
+  /// (can be passed multiple times)
+  #[clap(long = "image", short = 'i', value_name = "[NAME=]PATH")]
+  pub paths: Vec<String>,
+}
+
 #[derive(Subcommand, Debug, PartialEq, Clone, Serialize)]
 #[clap(args_conflicts_with_subcommands = false, arg_required_else_help(true))]
 pub enum Commands {
@@ -53,23 +65,27 @@ pub enum Commands {
   },
 
   /// Ask TypeSafe's Jev a yes/no question about text passed via standard input
-  /// and get the probability that the answer is yes
+  /// and/or images and get the probability that the answer is yes
   #[clap(after_help = color_print::cformat!(
-"<bold,underline>Example:</bold,underline>
+"<bold,underline>Examples:</bold,underline>
   echo 'My payouts have been failing for 3 days!' \\
     | <b>cai noul</b> Does this message express urgency
+
+  <b>cai noul</b> -i door=doorbell.jpg Is there a person in `door`
 "))]
   Noul {
     /// The TypeSafe model to use
     #[clap(long, short = 'm', default_value = crate::DEFAULT_JEV_MODEL)]
     model: String,
+    #[clap(flatten)]
+    images: JevImages,
     /// The yes/no question to evaluate
     #[clap(required = true)]
     prompt: Vec<String>,
   },
 
   /// Let TypeSafe's Jev pick one of several options
-  /// for text passed via standard input
+  /// for text passed via standard input and/or images
   #[clap(after_help = color_print::cformat!(
 "<bold,underline>Example:</bold,underline>
   echo 'My payouts have been failing for 3 days!' \\
@@ -83,6 +99,8 @@ pub enum Commands {
     /// The TypeSafe model to use
     #[clap(long, short = 'm', default_value = crate::DEFAULT_JEV_MODEL)]
     model: String,
+    #[clap(flatten)]
+    images: JevImages,
     /// An option to choose from, optionally with a description
     /// (can be passed multiple times)
     #[clap(
@@ -97,7 +115,7 @@ pub enum Commands {
     prompt: Vec<String>,
   },
 
-  /// Let TypeSafe's Jev rate text passed via standard input
+  /// Let TypeSafe's Jev rate text passed via standard input and/or images
   /// along ordered levels
   #[clap(after_help = color_print::cformat!(
 "<bold,underline>Example:</bold,underline>
@@ -109,6 +127,8 @@ pub enum Commands {
     /// The TypeSafe model to use
     #[clap(long, short = 'm', default_value = crate::DEFAULT_JEV_MODEL)]
     model: String,
+    #[clap(flatten)]
+    images: JevImages,
     /// A level description, from lowest to highest
     /// (pass at least 2 and at most 10)
     #[clap(long = "level", short = 'l', required = true)]
@@ -118,19 +138,55 @@ pub enum Commands {
     prompt: Vec<String>,
   },
 
+  /// Let TypeSafe's Jev locate something in an image
+  /// and get the edges of a box around it and an image with the box
+  #[clap(
+    name = "box",
+    after_help = color_print::cformat!(
+"The edges are fractions of the image's width (left, right)
+and height (top, bottom), measured from the top-left corner.
+A copy of the image with the box drawn onto it
+is written to a temporary file.
+`--raw` only prints the edges as `left top right bottom`.
+There is no \"not found\" answer, so also ask a `noul`
+whether the target is in the image at all.
+
+<bold,underline>Examples:</bold,underline>
+  <b>cai box</b> kitchen.jpg the coffee mug
+
+  <b>cai box</b> photo=door.jpg -i badge=badge.jpg \\
+    the person in `photo` who matches `badge`
+"))]
+  Box {
+    /// The TypeSafe model to use (Box questions need Jev 1.14+)
+    #[clap(long, short = 'm', default_value = crate::DEFAULT_JEV_BOX_MODEL)]
+    model: String,
+    /// The image to search in.
+    /// The name defaults to the file name without extension.
+    /// It's rotated upright and scaled to 256 to 1568 px per side.
+    #[clap(value_name = "[NAME=]IMAGE")]
+    image: String,
+    #[clap(flatten)]
+    images: JevImages,
+    /// What to locate
+    #[clap(required = true)]
+    prompt: Vec<String>,
+  },
+
   /// Ask TypeSafe's Jev several questions at once
-  /// about text passed via standard input
+  /// about text passed via standard input and/or images
   #[clap(
     override_usage = "cai jev [OPTIONS] \
       [--noul <[NAME=]QUESTION>] \
       [--choice <[NAME=]QUESTION> -o <OPTION>...] \
-      [--score <[NAME=]QUESTION> -l <LEVEL>...] ...",
+      [--score <[NAME=]QUESTION> -l <LEVEL>...] \
+      [--box <[NAME=]TARGET>] ...",
     after_help = color_print::cformat!(
 "Each `-o/--option` and `-l/--level` belongs to the preceding \
 `--choice` or `--score` question.
 Unnamed questions are named q1, q2, … by their position.
 
-<bold,underline>Example:</bold,underline>
+<bold,underline>Examples:</bold,underline>
   pbpaste | <b>cai jev</b> \\
     --noul is_human_escalation='Does the customer ask to talk to a human?' \\
     --noul is_repeat_contact='Has the customer contacted support about this before?' \\
@@ -140,11 +196,18 @@ Unnamed questions are named q1, q2, … by their position.
       -o sales \\
     --score frustration='How frustrated is the customer?' \\
       -l Calm -l Frustrated -l 'Very angry'
+
+  <b>cai jev</b> -i photo=kitchen.jpg \\
+    --noul has_mug='Is there a coffee mug in `photo`?' \\
+    --box mug='the coffee mug in `photo`'
 "))]
   Jev {
     /// The TypeSafe model to use
-    #[clap(long, short = 'm', default_value = crate::DEFAULT_JEV_MODEL)]
-    model: String,
+    /// [default: jev-latest, or jev-preview with `--box` questions]
+    #[clap(long, short = 'm')]
+    model: Option<String>,
+    #[clap(flatten)]
+    images: JevImages,
     #[clap(flatten)]
     questions: crate::JevQuestions,
   },
@@ -792,6 +855,7 @@ impl Commands {
       Commands::Noul { .. } => Some("Noul"),
       Commands::Choice { .. } => Some("Choice"),
       Commands::Score { .. } => Some("Score"),
+      Commands::Box { .. } => Some("Box"),
       Commands::Jev { .. } => Some("Jev"),
       Commands::Run { .. } => Some("Run"),
       Commands::Agent { .. } => Some("Agent"),
