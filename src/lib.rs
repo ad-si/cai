@@ -235,6 +235,8 @@ pub enum Provider {
   XAI,
   Perplexity,
   Mistral,
+  /// Black Forest Labs (FLUX image and video models)
+  Bfl,
   /// Apple's on-device foundation model (via `apfel`)
   Apple,
 }
@@ -253,6 +255,7 @@ impl std::fmt::Display for Provider {
       Provider::XAI => write!(f, "xAI"),
       Provider::Perplexity => write!(f, "Perplexity"),
       Provider::Mistral => write!(f, "Mistral"),
+      Provider::Bfl => write!(f, "Black Forest Labs"),
       Provider::Apple => write!(f, "Apple"),
     }
   }
@@ -560,6 +563,18 @@ fn default_req_for_model(
         ..Default::default()
       }
     }
+    // Every model has its own endpoint, named like the model
+    Provider::Bfl => {
+      let base_url =
+        get_base_url(full_config, "bfl_base_url", "https://api.bfl.ai/v1");
+      let resolved_model = types::get_bfl_model(model_id);
+      AiRequest {
+        provider: *provider,
+        url: format!("{base_url}/{resolved_model}"),
+        model: resolved_model.to_string(),
+        ..Default::default()
+      }
+    }
     // Served by `apfel`, which has no HTTP endpoint
     Provider::Apple => AiRequest {
       provider: *provider,
@@ -605,6 +620,7 @@ fn get_api_request(
       Provider::XAI => full_config.get("xai_api_key"),
       Provider::Perplexity => full_config.get("perplexity_api_key"),
       Provider::Mistral => full_config.get("mistral_api_key"),
+      Provider::Bfl => full_config.get("bfl_api_key"),
       // Only available via `apfel`, which needs no key
       Provider::Apple => None,
     }
@@ -655,6 +671,7 @@ fn get_used_model(model: &Model) -> String {
       Provider::XAI => types::get_xai_model(model_id),
       Provider::Perplexity => types::get_perplexity_model(model_id),
       Provider::Mistral => types::get_mistral_model(model_id),
+      Provider::Bfl => types::get_bfl_model(model_id),
       Provider::Apple => model_id,
     };
     cformat!("<bold>🧠 {} {}</bold>", provider, full_model_id)
@@ -675,6 +692,7 @@ fn provider_from_name(name: &str) -> Option<Provider> {
     "xai" => Some(Provider::XAI),
     "perplexity" => Some(Provider::Perplexity),
     "mistral" => Some(Provider::Mistral),
+    "bfl" => Some(Provider::Bfl),
     "apple" => Some(Provider::Apple),
     _ => None,
   }
@@ -929,6 +947,10 @@ pub fn get_full_config(
     .set_default(
       "mistral_api_key", //
       env::var("MISTRAL_API_KEY").unwrap_or_default(),
+    )?
+    .set_default(
+      "bfl_api_key", //
+      env::var("BFL_API_KEY").unwrap_or_default(),
     )?
     .set_default(
       "typesafe_api_key", //
@@ -1218,6 +1240,16 @@ fn get_req_body_obj(
     return json!({ "model": http_req.model, "prompt": user_input });
   }
 
+  // Black Forest Labs names the model in the URL,
+  // FLUX 3 Video additionally needs its generation mode
+  if http_req.provider == Provider::Bfl {
+    return if is_bfl_video_model(&http_req.model) {
+      json!({ "prompt": user_input, "mode": "t2v" })
+    } else {
+      json!({ "prompt": user_input })
+    };
+  }
+
   // For all other providers
   let mut map = Map::new();
   map.insert("model".to_string(), Value::String(http_req.model.clone()));
@@ -1349,6 +1381,7 @@ async fn exec_request(
       );
       client.post(url).json(&req_body_obj)
     }
+    Provider::Bfl => req_base.header("x-key", &http_req.api_key),
     _ => req_base.bearer_auth(&http_req.api_key),
   };
   req.send().await
@@ -1431,6 +1464,68 @@ async fn fetch_xai_video(
   }
 }
 
+/// Black Forest Labs' FLUX 3 Video, all other FLUX models generate images
+fn is_bfl_video_model(model: &str) -> bool {
+  model.starts_with("flux-3-video")
+}
+
+/// How often to poll Black Forest Labs for the status of a generation
+const BFL_POLL_INTERVAL: Duration = Duration::from_secs(1);
+
+/// How long to wait for Black Forest Labs to finish a generation
+const BFL_TIMEOUT: Duration = Duration::from_secs(15 * 60);
+
+/// Poll the `polling_url` of a Black Forest Labs generation until it's
+/// ready, then download the generated image or video and return its bytes.
+/// The download URL expires after 10 minutes, so it's fetched right away.
+async fn fetch_bfl_result(
+  http_req: &AiRequest,
+  polling_url: &str,
+) -> Result<Vec<u8>, Box<dyn Error + Send + Sync>> {
+  let client = reqwest::Client::new();
+  let start = Instant::now();
+
+  loop {
+    let resp = client
+      .get(polling_url)
+      .header("x-key", &http_req.api_key)
+      .send()
+      .await?;
+    let is_success = resp.status().is_success();
+    let status_json = resp.json::<Value>().await?;
+    let pretty_json =
+      || serde_json::to_string_pretty(&status_json).unwrap_or_default();
+
+    if !is_success {
+      Err(pretty_json())?;
+    }
+
+    match status_json["status"].as_str() {
+      Some("Ready") => {
+        let sample_url = status_json["result"]["sample"]
+          .as_str()
+          .ok_or_else(pretty_json)?;
+        let sample = client.get(sample_url).send().await?.error_for_status()?;
+        return Ok(sample.bytes().await?.to_vec());
+      }
+      // Still in progress
+      Some("Pending" | "Reasoning" | "Generating") => {}
+      // Failed, moderated, or unknown task
+      _ => Err(pretty_json())?,
+    }
+
+    if start.elapsed() > BFL_TIMEOUT {
+      Err(format!(
+        "The generation didn't finish within {} minutes \
+        (polling URL: {polling_url})",
+        BFL_TIMEOUT.as_secs() / 60,
+      ))?;
+    }
+
+    tokio::time::sleep(BFL_POLL_INTERVAL).await;
+  }
+}
+
 /// Gemini models that return images (`gemini-*-image`, Nano Banana)
 fn is_google_image_model(model: &str) -> bool {
   model.contains("-image") || model.starts_with("nano-banana")
@@ -1497,6 +1592,11 @@ fn is_text_response(http_req: &AiRequest, opts: &ExecOptions) -> bool {
     && (is_xai_image_model(&http_req.model)
       || is_xai_video_model(&http_req.model))
   {
+    return false;
+  }
+
+  // Black Forest Labs only generates images and videos (FLUX)
+  if http_req.provider == Provider::Bfl {
     return false;
   }
 
@@ -2168,6 +2268,48 @@ pub async fn exec_tool(
       return Ok(());
     }
 
+    // Black Forest Labs generates asynchronously and has to be polled
+    if http_req.provider == Provider::Bfl {
+      let response_json = resp.json::<Value>().await?;
+      let pretty_json =
+        || serde_json::to_string_pretty(&response_json).unwrap_or_default();
+      let polling_url = response_json["polling_url"]
+        .as_str()
+        .ok_or_else(pretty_json)?;
+      let is_video = is_bfl_video_model(&http_req.model);
+      let media_kind = if is_video { "video" } else { "image" };
+
+      if !opts.is_raw {
+        cprintln!("<bold>{subcommand}{used_model}</bold>\n");
+        println!(
+          "Generating {media_kind} (id: {}) …",
+          response_json["id"].as_str().unwrap_or_default()
+        );
+      }
+
+      let media = fetch_bfl_result(&http_req, polling_url).await?;
+      let media_prompt = match &opts.subcommand {
+        Some(
+          Commands::Image { prompt, .. }
+          | Commands::Video { prompt, .. }
+          | Commands::Bfl { prompt, .. },
+        ) => prompt.join(" "),
+        _ => user_input.to_string(),
+      };
+      let extension = if is_video {
+        "mp4"
+      } else {
+        image_extension(&media)
+      };
+      let filename = save_media_bytes(&media, &media_prompt, extension)?;
+
+      let (elapsed_time, time_unit) =
+        format_elapsed_time(start.elapsed().as_millis());
+      println!("Generated {media_kind} saved to: {filename}");
+      cprintln!("\n<bold>⏱️ {} {}</bold>", elapsed_time, time_unit);
+      return Ok(());
+    }
+
     // Mistral's speech API returns the audio base64 encoded in a JSON object
     if http_req.provider == Provider::Mistral
       && is_mistral_tts_model(&http_req.model)
@@ -2828,10 +2970,12 @@ pub const IMAGE_MODELS: &[(Provider, &str)] = &[
   (Provider::OpenAI, "gpt-image-2.5-flare"),
   (Provider::Google, "gemini-3.1-flash-image"),
   (Provider::XAI, "grok-imagine-image-2.0"),
+  (Provider::Bfl, "flux-3-image"),
 ];
 pub const VIDEO_MODELS: &[(Provider, &str)] = &[
   (Provider::Google, "gemini-omni-1.1-flash"),
   (Provider::XAI, "grok-imagine-video-1.5"),
+  (Provider::Bfl, "flux-3-video"),
 ];
 pub const MUSIC_MODELS: &[(Provider, &str)] =
   &[(Provider::Google, "lyria-3.5")];
@@ -2849,6 +2993,8 @@ fn provider_of_model_id(model_id: &str) -> Option<Provider> {
     Some(Provider::Mistral)
   } else if has_prefix(&["grok"]) {
     Some(Provider::XAI)
+  } else if has_prefix(&["flux"]) {
+    Some(Provider::Bfl)
   } else if has_prefix(&["claude"]) {
     Some(Provider::Anthropic)
   } else if has_prefix(&["gpt", "dall-e", "whisper", "tts-"]) {
@@ -4599,6 +4745,54 @@ mod tests {
         Provider::XAI,
         "grok-imagine-video-1.5".to_string()
       )),
+    );
+  }
+
+  #[test]
+  fn test_bfl_models_use_their_own_endpoints() {
+    let config = HashMap::new();
+    let opts = ExecOptions::default();
+
+    let image_req = default_req_for_model(
+      &Model::Model(Provider::Bfl, "flux".into()),
+      &config,
+    );
+    assert_eq!(image_req.url, "https://api.bfl.ai/v1/flux-3-image");
+    assert!(!is_text_response(&image_req, &opts));
+    assert_eq!(
+      get_req_body_obj(&opts, &image_req, "a banana"),
+      json!({ "prompt": "a banana" }),
+    );
+
+    let video_req = default_req_for_model(
+      &Model::Model(Provider::Bfl, "video".into()),
+      &config,
+    );
+    assert_eq!(video_req.url, "https://api.bfl.ai/v1/flux-3-video");
+    assert!(is_bfl_video_model(&video_req.model));
+    assert_eq!(
+      get_req_body_obj(&opts, &video_req, "a paper plane"),
+      json!({ "prompt": "a paper plane", "mode": "t2v" }),
+    );
+
+    for model_id in ["klein", "max", "flex", "kontext", "ultra", "flux-pro"] {
+      assert!(
+        !is_bfl_video_model(types::get_bfl_model(model_id)),
+        "Alias `{model_id}` must resolve to a FLUX image model"
+      );
+    }
+
+    assert_eq!(
+      task_model(Some("bfl"), IMAGE_MODELS),
+      Ok(Model::Model(Provider::Bfl, "flux-3-image".to_string())),
+    );
+    assert_eq!(
+      task_model(Some("bfl"), VIDEO_MODELS),
+      Ok(Model::Model(Provider::Bfl, "flux-3-video".to_string())),
+    );
+    assert_eq!(
+      task_model(Some("flux-2-max"), IMAGE_MODELS),
+      Ok(Model::Model(Provider::Bfl, "flux-2-max".to_string())),
     );
   }
 

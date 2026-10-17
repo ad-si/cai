@@ -687,6 +687,14 @@ async fn exec_with_args(args: Args, stdin: &str) {
         )
         .await
       }
+      Commands::Bfl { model, prompt } => {
+        submit_prompt(
+          &Some(&Model::Model(Provider::Bfl, model.to_string())),
+          &opts,
+          &format!("{stdin}{}", prompt.join(" ")),
+        )
+        .await
+      }
       Commands::Music { model, prompt } => {
         submit_prompt(
           &Some(&resolve_task_model(model, MUSIC_MODELS)),

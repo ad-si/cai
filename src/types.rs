@@ -231,7 +231,7 @@ Unnamed questions are named q1, q2, … by their position.
   #[clap(visible_alias = "img")]
   Image {
     /// Image model: a provider for its default model
-    /// (`openai`, `google`, `xai`), a model id, or `<provider>/<model>`
+    /// (`openai`, `google`, `xai`, `bfl`), a model id, or `<provider>/<model>`
     #[clap(long, short = 'm')]
     model: Option<String>,
     /// Background behavior for the generated image
@@ -287,7 +287,7 @@ Unnamed questions are named q1, q2, … by their position.
   /// Generate a video (default: Google Gemini Omni 1.1 Flash)
   Video {
     /// Video model: a provider for its default model
-    /// (`google`, `xai`), a model id, or `<provider>/<model>`
+    /// (`google`, `xai`, `bfl`), a model id, or `<provider>/<model>`
     #[clap(long, short = 'm')]
     model: Option<String>,
     /// The prompt describing the video to generate
@@ -555,6 +555,17 @@ for all supported model ids):"
   #[clap(name = "grok")]
   Grok {
     /// The prompt to send to the AI model
+    prompt: Vec<String>,
+  },
+  /// Black Forest Labs (FLUX image and video generation)
+  Bfl {
+    #[clap(help = bfl_models_pretty!(
+      "Following aliases are available
+(Check out https://docs.bfl.ai for all supported model ids):"
+    ))]
+    model: String,
+    /// The prompt describing the image or video to generate
+    #[clap(required(true))]
     prompt: Vec<String>,
   },
   /// Perplexity
@@ -902,6 +913,7 @@ impl Commands {
       Commands::ClaudeHaiku { .. } => None,
       Commands::Xai { .. } => None,
       Commands::Grok { .. } => None,
+      Commands::Bfl { .. } => None,
       Commands::Llamafile { .. } => None,
       Commands::Ollama { .. } => None,
       Commands::Apple { .. } => None,

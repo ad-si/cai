@@ -195,6 +195,29 @@ macro_rules! xai_models_pretty {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+///////////////////////////// Black Forest Labs ////////////////////////////////
+
+// Pretty-printed string representation of the hashmap
+pub const BFL_MODEL_MAPPING: &[(&str, &str)] = &[
+  // This will be replaced by build.rs:
+  // {bfl_model_hashmap}
+];
+
+pub fn get_bfl_model(model_id: &str) -> &str {
+  BFL_MODEL_MAPPING
+    .iter()
+    .find(|(key, _)| key == &model_id)
+    .map_or(model_id, |(_, value)| *value)
+}
+
+macro_rules! bfl_models_pretty {
+  ($prefix: expr) => {
+    // This will be replaced by build.rs
+    concat!($prefix, "\n", "{bfl_models_pretty}")
+  };
+}
+
+////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////// Perplexity /////////////////////////////////////
 
 // Pretty-printed string representation of the hashmap

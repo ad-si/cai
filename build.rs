@@ -285,6 +285,28 @@ const MISTRAL_MODEL_MAPPING_SRC: [(&str, &str); 17] = [
   ("glm", "zai-glm-latest"),
 ];
 
+const BFL_MODEL_MAPPING_SRC: [(&str, &str); 15] = [
+  // FLUX 3
+  ("flux", "flux-3-image"),
+  ("image", "flux-3-image"),
+  ("flux-3", "flux-3-image"),
+  ("klein", "flux-3-image-klein"),
+  ("flux-3-klein", "flux-3-image-klein"),
+  ("video", "flux-3-video"),
+  ("flux-video", "flux-3-video"),
+  // FLUX.2
+  ("flux-2", "flux-2-pro"),
+  ("max", "flux-2-max"),
+  ("flex", "flux-2-flex"),
+  ("flux-2-klein", "flux-2-klein-9b"),
+  // FLUX.1 Kontext
+  ("kontext", "flux-kontext-pro"),
+  ("kontext-max", "flux-kontext-max"),
+  // FLUX 1.1
+  ("flux-pro", "flux-pro-1.1"),
+  ("ultra", "flux-pro-1.1-ultra"),
+];
+
 const PERPLEXITY_MODEL_MAPPING_SRC: [(&str, &str); 8] = [
   // Supported models
   ("sonar", "sonar"),
@@ -399,6 +421,17 @@ fn main() {
     .replace(
       "{xai_models_pretty}",
       &pretty_print_mapping(&XAI_MODEL_MAPPING_SRC),
+    )
+    .replace(
+      "// {bfl_model_hashmap}",
+      &BFL_MODEL_MAPPING_SRC
+        .iter()
+        .map(|(model, constant)| format!("(\"{model}\", \"{constant}\"),\n"))
+        .collect::<String>(),
+    )
+    .replace(
+      "{bfl_models_pretty}",
+      &pretty_print_mapping(&BFL_MODEL_MAPPING_SRC),
     )
     .replace(
       "// {perplexity_model_hashmap}",

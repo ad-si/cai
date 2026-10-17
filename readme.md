@@ -11,6 +11,8 @@
   - `cai image -m google sunset over mountains` (Google Gemini image generation)
   - `cai video a paper plane gliding over a desk` (Google Gemini Omni video)
   - `cai video -m xai a paper plane gliding over a desk` (xAI Grok Imagine video)
+  - `cai image -m bfl a fox in a snowy forest` (Black Forest Labs FLUX 3 image)
+  - `cai video -m bfl a paper plane gliding over a desk` (Black Forest Labs FLUX 3 video)
   - `cai music a calm piano loop` (Google Lyria music generation)
   - `cai ocr page.png`
   - `cai ocr -m mistral scan.pdf` (Mistral OCR)
@@ -27,6 +29,7 @@
   - [Cerebras]
   - [Deepseek]
   - [xAI]
+  - [Black Forest Labs]
   - [TypeSafe]
   - Local LLMs via [Ollama] and [Llamafile]
   - Apple's on-device model via [apfel]
@@ -35,6 +38,7 @@
 - Syntax highlighting for better readability of code snippets. 🌈
 
 [apfel]: https://github.com/Arthur-Ficial/apfel
+[Black Forest Labs]: https://bfl.ai/models
 [Anthropic]: https://docs.anthropic.com/en/docs/about-claude/models/all-models
 [Cerebras]: https://inference-docs.cerebras.ai/introduction
 [Deepseek]: https://api-docs.deepseek.com/quick_start/pricing
@@ -209,6 +213,7 @@ Commands:
   haiku       - Claude Haiku [aliases: ha]
   xai         xAI
   grok        - Grok
+  bfl         Black Forest Labs (FLUX image and video generation)
   perplexity  Perplexity [aliases: pe]
   son         - Sonar
   sonpro      - Sonar Pro [aliases: sp]
