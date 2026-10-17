@@ -236,7 +236,7 @@ const OPENAI_MODEL_MAPPING_SRC: [(&str, &str); 45] = [
   ("whisper-1", "whisper-1"),
 ];
 
-const XAI_MODEL_MAPPING_SRC: [(&str, &str); 15] = [
+const XAI_MODEL_MAPPING_SRC: [(&str, &str); 18] = [
   // Default models
   ("grok", "grok-4.7"),
   ("grok-fast", "grok-4.20-0309-non-reasoning"),
@@ -255,6 +255,9 @@ const XAI_MODEL_MAPPING_SRC: [(&str, &str); 15] = [
   ("image2", "grok-imagine-image-2.0"),
   ("image1", "grok-imagine-image"),
   ("quality", "grok-imagine-image-quality"),
+  ("video", "grok-imagine-video-1.5"),
+  ("grok-video", "grok-imagine-video-1.5"),
+  ("video-lite", "grok-imagine-video-1.5-lite"),
 ];
 
 const MISTRAL_MODEL_MAPPING_SRC: [(&str, &str); 17] = [

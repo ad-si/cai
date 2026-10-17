@@ -287,7 +287,7 @@ Unnamed questions are named q1, q2, … by their position.
   /// Generate a video (default: Google Gemini Omni 1.1 Flash)
   Video {
     /// Video model: a provider for its default model
-    /// (`google`), a model id, or `<provider>/<model>`
+    /// (`google`, `xai`), a model id, or `<provider>/<model>`
     #[clap(long, short = 'm')]
     model: Option<String>,
     /// The prompt describing the video to generate

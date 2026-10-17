@@ -10,6 +10,7 @@
   - `cai image photo of a banana` (OpenAI image generation)
   - `cai image -m google sunset over mountains` (Google Gemini image generation)
   - `cai video a paper plane gliding over a desk` (Google Gemini Omni video)
+  - `cai video -m xai a paper plane gliding over a desk` (xAI Grok Imagine video)
   - `cai music a calm piano loop` (Google Lyria music generation)
   - `cai ocr page.png`
   - `cai ocr -m mistral scan.pdf` (Mistral OCR)

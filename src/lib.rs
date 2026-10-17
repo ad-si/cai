@@ -516,6 +516,8 @@ fn default_req_for_model(
         get_base_url(full_config, "xai_base_url", "https://api.x.ai/v1");
       let url = if is_xai_image_model(resolved_model) {
         format!("{base_url}/images/generations")
+      } else if is_xai_video_model(resolved_model) {
+        format!("{base_url}/videos/generations")
       } else {
         format!("{base_url}/chat/completions")
       };
@@ -1210,6 +1212,12 @@ fn get_req_body_obj(
     return Value::Object(map);
   }
 
+  // xAI video models (Grok Imagine) only need the prompt,
+  // duration, aspect ratio, and resolution have server-side defaults
+  if http_req.provider == Provider::XAI && is_xai_video_model(&http_req.model) {
+    return json!({ "model": http_req.model, "prompt": user_input });
+  }
+
   // For all other providers
   let mut map = Map::new();
   map.insert("model".to_string(), Value::String(http_req.model.clone()));
@@ -1357,6 +1365,72 @@ fn is_xai_image_model(model: &str) -> bool {
   model.starts_with("grok-imagine-image") || model == "grok-2-image"
 }
 
+/// xAI video models (Grok Imagine Video) are served by the asynchronous
+/// videos API, which returns a request id to poll for the finished video
+fn is_xai_video_model(model: &str) -> bool {
+  model.starts_with("grok-imagine-video")
+}
+
+/// How often to poll xAI for the status of a video generation
+const XAI_VIDEO_POLL_INTERVAL: Duration = Duration::from_secs(5);
+
+/// How long to wait for xAI to finish generating a video
+const XAI_VIDEO_TIMEOUT: Duration = Duration::from_secs(15 * 60);
+
+/// Poll xAI's videos API until the video of `request_id` is generated,
+/// then download it and return its bytes
+async fn fetch_xai_video(
+  http_req: &AiRequest,
+  request_id: &str,
+) -> Result<Vec<u8>, Box<dyn Error + Send + Sync>> {
+  let client = reqwest::Client::new();
+  // `http_req.url` is `<base>/videos/generations`
+  let status_url = format!(
+    "{}/{request_id}",
+    http_req.url.trim_end_matches("/generations")
+  );
+  let start = Instant::now();
+
+  loop {
+    let resp = client
+      .get(&status_url)
+      .bearer_auth(&http_req.api_key)
+      .send()
+      .await?;
+    let is_success = resp.status().is_success();
+    let status_json = resp.json::<Value>().await?;
+    let pretty_json =
+      || serde_json::to_string_pretty(&status_json).unwrap_or_default();
+
+    if !is_success {
+      Err(pretty_json())?;
+    }
+
+    match status_json["status"].as_str() {
+      Some("done") => {
+        let video_url = status_json["video"]["url"]
+          .as_str()
+          .ok_or_else(pretty_json)?;
+        let video = client.get(video_url).send().await?.error_for_status()?;
+        return Ok(video.bytes().await?.to_vec());
+      }
+      Some("failed" | "expired" | "cancelled") => Err(pretty_json())?,
+      // Still in progress
+      _ => {}
+    }
+
+    if start.elapsed() > XAI_VIDEO_TIMEOUT {
+      Err(format!(
+        "The video wasn't generated within {} minutes \
+        (request id: {request_id})",
+        XAI_VIDEO_TIMEOUT.as_secs() / 60,
+      ))?;
+    }
+
+    tokio::time::sleep(XAI_VIDEO_POLL_INTERVAL).await;
+  }
+}
+
 /// Gemini models that return images (`gemini-*-image`, Nano Banana)
 fn is_google_image_model(model: &str) -> bool {
   model.contains("-image") || model.starts_with("nano-banana")
@@ -1418,8 +1492,11 @@ fn is_text_response(http_req: &AiRequest, opts: &ExecOptions) -> bool {
     return false;
   }
 
-  // xAI image generation (Grok Imagine)
-  if http_req.provider == Provider::XAI && is_xai_image_model(&http_req.model) {
+  // xAI image and video generation (Grok Imagine)
+  if http_req.provider == Provider::XAI
+    && (is_xai_image_model(&http_req.model)
+      || is_xai_video_model(&http_req.model))
+  {
     return false;
   }
 
@@ -2060,6 +2137,34 @@ pub async fn exec_tool(
         }
       }
 
+      return Ok(());
+    }
+
+    // xAI generates videos asynchronously and has to be polled
+    if http_req.provider == Provider::XAI && is_xai_video_model(&http_req.model)
+    {
+      let response_json = resp.json::<Value>().await?;
+      let request_id =
+        response_json["request_id"].as_str().ok_or_else(|| {
+          serde_json::to_string_pretty(&response_json).unwrap_or_default()
+        })?;
+
+      if !opts.is_raw {
+        cprintln!("<bold>{subcommand}{used_model}</bold>\n");
+        println!("Generating video (request id: {request_id}) …");
+      }
+
+      let video = fetch_xai_video(&http_req, request_id).await?;
+      let video_prompt = match &opts.subcommand {
+        Some(Commands::Video { prompt, .. }) => prompt.join(" "),
+        _ => user_input.to_string(),
+      };
+      let filename = save_media_bytes(&video, &video_prompt, "mp4")?;
+
+      let (elapsed_time, time_unit) =
+        format_elapsed_time(start.elapsed().as_millis());
+      println!("Generated video saved to: {filename}");
+      cprintln!("\n<bold>⏱️ {} {}</bold>", elapsed_time, time_unit);
       return Ok(());
     }
 
@@ -2724,8 +2829,10 @@ pub const IMAGE_MODELS: &[(Provider, &str)] = &[
   (Provider::Google, "gemini-3.1-flash-image"),
   (Provider::XAI, "grok-imagine-image-2.0"),
 ];
-pub const VIDEO_MODELS: &[(Provider, &str)] =
-  &[(Provider::Google, "gemini-omni-1.1-flash")];
+pub const VIDEO_MODELS: &[(Provider, &str)] = &[
+  (Provider::Google, "gemini-omni-1.1-flash"),
+  (Provider::XAI, "grok-imagine-video-1.5"),
+];
 pub const MUSIC_MODELS: &[(Provider, &str)] =
   &[(Provider::Google, "lyria-3.5")];
 pub const EMBEDDING_MODELS: &[(Provider, &str)] =
@@ -4463,6 +4570,36 @@ mod tests {
     assert!(is_xai_image_model("grok-imagine-image-2.0"));
     assert!(!is_xai_image_model("grok-4.7"));
     assert!(!is_xai_image_model("grok-imagine-video"));
+  }
+
+  #[test]
+  fn test_xai_video_models_use_the_videos_api() {
+    for model_id in ["video", "grok-video", "video-lite"] {
+      assert!(
+        is_xai_video_model(types::get_xai_model(model_id)),
+        "Alias `{model_id}` must resolve to an xAI video model"
+      );
+    }
+    assert!(is_xai_video_model("grok-imagine-video"));
+    assert!(!is_xai_video_model("grok-imagine-image-2.0"));
+
+    let config = HashMap::new();
+    let model = Model::Model(Provider::XAI, "video".to_string());
+    let http_req = default_req_for_model(&model, &config);
+    assert_eq!(http_req.url, "https://api.x.ai/v1/videos/generations");
+    assert!(!is_text_response(&http_req, &ExecOptions::default()));
+    assert_eq!(
+      get_req_body_obj(&ExecOptions::default(), &http_req, "a paper plane"),
+      json!({ "model": "grok-imagine-video-1.5", "prompt": "a paper plane" }),
+    );
+
+    assert_eq!(
+      task_model(Some("xai"), VIDEO_MODELS),
+      Ok(Model::Model(
+        Provider::XAI,
+        "grok-imagine-video-1.5".to_string()
+      )),
+    );
   }
 
   #[test]
